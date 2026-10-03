@@ -1,7 +1,7 @@
 export const SAMPLE_RATE = 16_000;
 
-/** @typedef {{ prompt: string, keywords: string[], languages: string[] }} Hints */
-/** @typedef {{ text: string, model: string, elapsed_ms: number, request_id: string | null }} Transcript */
+/** @typedef {{ prompt: string, keywords: string[], languages: string[], provider?: string, boost?: number }} Hints */
+/** @typedef {{ text: string, model: string, elapsed_ms: number, request_id: string | null, provider?: string, results?: unknown[] }} Transcript */
 /** @typedef {import('../../web/src/lib/speech/recognizer.ts').SpeechRecognizer} SpeechRecognizer */
 
 /** Encodes worklet PCM as 16-bit mono WAV without rewriting the recognized text. */
@@ -39,9 +39,17 @@ export function encodeWav(/** @type {Float32Array[]} */ chunks) {
 /** @returns {Promise<Transcript>} */
 export async function transcribeFile(/** @type {File} */ file, /** @type {Hints} */ hints) {
 	if (!file.size) throw new Error('The audio file is empty.');
-	if (file.size > 25_000_000) throw new Error('Choose an audio file smaller than 25 MB.');
+	const limit = hints.provider === 'google' ? 10_000_000 : 25_000_000;
+	if (file.size > limit) throw new Error(`Choose an audio file up to ${limit / 1_000_000} MB.`);
+	if (
+		hints.boost !== undefined &&
+		(!Number.isFinite(hints.boost) || hints.boost < 0 || hints.boost > 20)
+	)
+		throw new Error('Phrase boost must be a number from 0 to 20.');
 	const form = new FormData();
 	form.append('file', file);
+	if (hints.provider) form.append('provider', hints.provider);
+	if (hints.boost !== undefined) form.append('boost', String(hints.boost));
 	if (hints.prompt.trim()) form.append('prompt', hints.prompt.trim());
 	for (const keyword of hints.keywords) form.append('keywords[]', keyword);
 	for (const language of hints.languages) form.append('languages[]', language);
@@ -63,6 +71,7 @@ export async function transcribeFile(/** @type {File} */ file, /** @type {Hints}
 		if (!response.ok) {
 			const details = [
 				result.upstream_status && `upstream HTTP ${result.upstream_status}`,
+				result.upstream_code,
 				result.request_id
 			]
 				.filter(Boolean)

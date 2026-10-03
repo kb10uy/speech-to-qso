@@ -1,7 +1,8 @@
 # Transcription experiment
 
-A standalone axum crate for trying `gpt-transcribe` with short QSO recordings. It sends completed audio files to
-OpenAI and returns the raw transcript and API round-trip time. It does not interpret commands or log QSOs.
+A standalone axum crate for comparing OpenAI `gpt-transcribe` and Google Cloud Speech-to-Text V2 with short QSO
+recordings. It sends completed audio files and returns the raw transcript and API round-trip time.
+It does not interpret commands or log QSOs.
 
 ## Run
 
@@ -9,7 +10,7 @@ PowerShell, from this directory:
 
 ```powershell
 Copy-Item config.example.toml config.toml
-# Edit config.toml and set openai_api_key.
+# Edit config.toml: set openai_api_key, google.project_id, or both.
 cargo run
 ```
 
@@ -21,24 +22,70 @@ Open `http://127.0.0.1:8081` for the experiment UI. No frontend build or separat
 listen = "127.0.0.1:8081"
 model = "gpt-transcribe"
 openai_api_key = "your-api-key"
+
+[google]
+project_id = "your-google-cloud-project-id"
+location = "global"
+model = "short"
 ```
 
 Select another file with `cargo run -- --config path/to/experiment.toml`. An explicitly selected file must exist;
 the default file can be omitted when using environment variables.
 Nonempty `LISTEN`, `OPENAI_TRANSCRIBE_MODEL` and `OPENAI_API_KEY` environment variables override the corresponding
-TOML fields. `.env` is not loaded automatically. The API key stays in the server process and is never returned to the UI.
+TOML fields. Google overrides are `GOOGLE_CLOUD_PROJECT`, `GOOGLE_SPEECH_LOCATION` and `GOOGLE_SPEECH_MODEL`.
+An empty Google project ID disables Google; an empty OpenAI key disables OpenAI. At least one must be configured.
+`.env` is not loaded automatically. Credentials stay in the server process and are never returned to the UI.
 
 This is a local experiment with no client authentication or CORS support. Keep it on loopback.
+
+## Google V2 / ADC setup
+
+Install the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install), select a project with billing enabled,
+and enable the Speech API. In PowerShell, replace `YOUR_PROJECT_ID`:
+
+```powershell
+gcloud services enable speech.googleapis.com --project YOUR_PROJECT_ID
+gcloud auth application-default login
+gcloud auth application-default set-quota-project YOUR_PROJECT_ID
+```
+
+Add the `[google]` table shown above to your existing `config.toml`, then restart `cargo run`. Google-only use
+does not need `openai_api_key`. The server uses the official `google-cloud-speech-v2` Rust SDK with default ADC
+discovery and token refresh. It loads the client on the first Google request; startup and OpenAI use do not
+require Google credentials. `gcloud auth login` alone does not configure local ADC.
+`GOOGLE_APPLICATION_CREDENTIALS` is also supported through the SDK's ADC discovery, and points to a credential
+configuration file; credentials are not copied into TOML or the browser.
+
+The caller needs `roles/speech.client` (or equivalent recognition permissions) on the recognition project and
+`roles/serviceusage.serviceUsageConsumer` on the ADC quota project. API enablement requires additional permissions.
+See [ADC setup](https://docs.cloud.google.com/docs/authentication/set-up-adc-local-dev-environment) and
+[Speech roles](https://docs.cloud.google.com/iam/docs/roles-permissions/speech).
+
+Requests use the implicit recognizer `projects/PROJECT_ID/locations/LOCATION/recognizers/_`; no Recognizer or
+PhraseSet resource is created. Audio is sent inline to synchronous `Recognize`, using automatic container decoding.
+The default `global / short / en-US` supports phrase adaptation. For other models, change TOML and use a supported
+location/language combination from the [supported language/model table](https://docs.cloud.google.com/speech-to-text/docs/speech-to-text-supported-languages).
+Regional locations automatically use `https://LOCATION-speech.googleapis.com` instead of the global endpoint.
+
+Google accepts up to 10 MB and 60 seconds per synchronous clip. The server enforces the byte limit; Google validates
+the duration and codec. PTT clips stop at 30 seconds. Use WAV, FLAC, MP3, OGG or WebM with a supported codec; an
+OpenAI-compatible M4A file is not necessarily Google-compatible. Browser PTT WAV works with both providers.
+
+Google keywords become an inline `SpeechAdaptation` PhraseSet. Boost can be set from 0 to 20; 0 leaves boost unset
+for Google's default weighting. These are soft hints, not vocabulary constraints. An empty keyword list sends no
+adaptation. Google accepts full BCP-47 language codes (default `en-US`), up to three; model/location support varies.
+Google does not accept the OpenAI prompt field: the UI disables it and the server rejects a nonempty Google prompt.
 
 ## Browser experiment
 
 - Enable the microphone, then hold the PTT button (or hold Space/Enter while it has focus). Release to transcribe.
 - Only audio while held is collected; recordings stop after 30 seconds. Leaving the page cancels an active recording
   and closes the microphone. Enable it again when returning.
-- Replay or download the captured WAV. Change the prompt, keywords or language hints and use **Transcribe audio**
-  to send the same recording again.
+- Replay or download the captured WAV. Select a configured provider, change keywords, boost, prompt or language hints
+  and use **Transcribe audio** to send the same recording again. Prompt is OpenAI-only; boost is Google-only.
 - Alternatively select an audio file and click **Transcribe audio**. Microphone permission is not needed for uploads.
-- The last 20 results show exact transcripts, upstream response times and the hints used. History is kept only in
+- The last 20 results show provider/model, exact transcripts, response times and the hints used. Google result details
+  also include alternatives and confidence when returned by the API. History is kept only in
   page memory and is cleared on reload.
 
 The microphone requires localhost or HTTPS, and a browser supporting AudioWorklet and a 16 kHz AudioContext.
@@ -59,10 +106,23 @@ Compare the same recording with context and literal keyword hints:
 ```powershell
 curl.exe http://127.0.0.1:8081/api/transcribe `
   -F 'file=@utterance.wav' `
+  -F 'provider=openai' `
   -F 'prompt=An English amateur radio logging command with phonetic letters and spoken digits.' `
   -F 'keywords[]=JCX' `
   -F 'keywords[]=QSL' `
   -F 'languages[]=en'
+```
+
+Compare Google V2 with the same WAV:
+
+```powershell
+curl.exe http://127.0.0.1:8081/api/transcribe `
+  -F 'file=@utterance.wav' `
+  -F 'provider=google' `
+  -F 'keywords[]=tango' `
+  -F 'keywords[]=JCX' `
+  -F 'boost=10' `
+  -F 'languages[]=en-US'
 ```
 
 These are experimental hints, not a second DSL vocabulary or a constrained grammar. The canonical vocabulary stays
@@ -73,10 +133,12 @@ especially callsigns, leading zeros and partial frequencies. No prompt or keywor
 
 | Field | Meaning |
 | --- | --- |
-| `file` | Exactly one nonempty audio file, at most 25 MB, with a filename and appropriate content type |
-| `prompt` | Optional recording context |
-| `keywords[]` | Repeat for each literal recognition hint |
-| `languages[]` | Repeat for each expected input language; defaults to `en` if omitted |
+| `file` | Exactly one nonempty file with a filename/content type; OpenAI: 25 MB, Google: 10 MB / 60 seconds |
+| `provider` | `openai` or `google`; defaults to OpenAI if configured, otherwise Google |
+| `prompt` | Optional recording context, OpenAI only |
+| `keywords[]` | Repeat for each literal hint; Google sends inline PhraseSet phrases |
+| `boost` | Optional Google PhraseSet boost, 0–20; default 0 |
+| `languages[]` | Repeat for each expected language; defaults to OpenAI `en` / Google `en-US` |
 
 Use a supported audio format such as WAV, WebM, MP3 or M4A. Raw PCM needs a WAV container before uploading.
 The HTTP request has an additional 64 KiB allowance for multipart metadata and hints. The upstream timeout is 60 seconds.
@@ -86,20 +148,27 @@ Example response:
 ```json
 {
   "text": "received five seven",
+  "provider": "openai",
   "model": "gpt-transcribe",
   "elapsed_ms": 850,
   "request_id": "req_example"
 }
 ```
 
-`elapsed_ms` measures the upstream request and response decoding, excluding the incoming upload. Transcripts are
-returned as received: punctuation and number formatting are not rewritten. OpenAI failures return 502 with
-`upstream_status` and `request_id`; timeouts return 504. No recordings or transcripts are persisted by this crate.
+`elapsed_ms` measures the upstream request and response decoding, excluding the incoming upload. The first Google
+request also includes client initialization/ADC discovery. Transcripts are returned as received: punctuation and
+number formatting are not rewritten. Google segments' top alternatives are joined with a newline, and full `results`
+are included. Google `request_id` is null because the SDK response does not expose a request ID.
+Provider failures return 502 with safe diagnostics (`upstream_status`, Google `upstream_code`, OpenAI `request_id`);
+timeouts return 504. Upstream error bodies are not exposed. Both providers have a 60-second total timeout, and Google
+automatic retries are disabled so a comparison makes one recognition attempt. No recordings or transcripts are persisted.
 
 The experiment UI is separate from the production QSO app. It does not apply recognized commands; command
 interpretation stays in the existing parser.
 
-API details: [official OpenAI file transcription guide](https://developers.openai.com/api/docs/guides/speech-to-text).
+API details: [OpenAI file transcription](https://developers.openai.com/api/docs/guides/speech-to-text),
+[Google V2 Recognize](https://docs.cloud.google.com/speech-to-text/docs/reference/rest/v2/projects.locations.recognizers/recognize),
+[Google model adaptation](https://docs.cloud.google.com/speech-to-text/docs/adaptation-model).
 
 ## Checks
 
@@ -109,7 +178,8 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Tests use a local mock OpenAI endpoint and do not require an API key or make paid requests.
+Tests use local mock OpenAI and Google endpoints. Google SDK tests explicitly use anonymous mock credentials;
+they do not load local ADC or make paid requests.
 
 For WAV encoding tests and browser tests (including a fake microphone), run from `web/`:
 
@@ -119,5 +189,5 @@ npx playwright install chromium
 npm run test:transcribe
 ```
 
-The browser tests start this crate on port 8082 and intercept transcription requests without contacting OpenAI.
+The browser tests start this crate on port 8082 and intercept transcription requests without contacting providers.
 To use an installed browser instead, set `PLAYWRIGHT_CHANNEL` (for example, `msedge`) before running the tests.

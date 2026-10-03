@@ -103,6 +103,7 @@ h2 {
 }
 button,
 input,
+select,
 textarea {
 	font: inherit;
 }
@@ -123,6 +124,7 @@ button:disabled {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
+select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible {
 	outline: 2px solid var(--accent);
@@ -290,6 +292,7 @@ label span {
 	font-size: 11px;
 }
 textarea,
+select,
 input:not([type='file']) {
 	display: block;
 	width: 100%;

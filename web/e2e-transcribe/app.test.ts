@@ -128,3 +128,87 @@ test('mobile page fits the viewport and starts with safe defaults', async ({ pag
 	);
 	await page.screenshot({ path: testInfo.outputPath('mobile.png'), fullPage: true });
 });
+
+test('compares providers with the same recording and Google phrase hints', async ({
+	page
+}, testInfo) => {
+	await page.route('**/api/health', (route) =>
+		route.fulfill({
+			json: {
+				status: 'ok',
+				providers: [
+					{ id: 'openai', model: 'gpt-transcribe' },
+					{ id: 'google', model: 'short' }
+				]
+			}
+		})
+	);
+	const uploads: Buffer[] = [];
+	await page.route('**/api/transcribe', (route) => {
+		const body = route.request().postDataBuffer()!;
+		uploads.push(body);
+		const google = body.toString().includes('\r\ngoogle\r\n');
+		return route.fulfill({
+			json: {
+				text: google ? 'tango JCX 01008.' : 'タンゴ JCX 01008.',
+				provider: google ? 'google' : 'openai',
+				model: google ? 'short' : 'gpt-transcribe',
+				elapsed_ms: 500,
+				request_id: null,
+				...(google
+					? { results: [{ alternatives: [{ transcript: 'tango JCX 01008.', confidence: 0.9 }] }] }
+					: {})
+			}
+		});
+	});
+	await page.goto('/');
+	await expect(page.getByText('Server connected')).toBeVisible();
+	await page.getByLabel('Prompt').fill('English radio command');
+	await page.getByLabel('Keywords').fill('tango\nJCX');
+	await page.locator('#audio-file').setInputFiles(file);
+	await page.getByRole('button', { name: 'Transcribe audio' }).click();
+	await expect(page.locator('.result')).toHaveCount(1);
+	await page.getByLabel('Provider', { exact: true }).selectOption('google');
+	await expect(page.getByLabel('Prompt')).toBeDisabled();
+	await expect(page.getByLabel('Languages')).toHaveValue('en-US');
+	await expect(page.locator('#model')).toHaveText('short');
+	await page.getByLabel('Phrase boost').fill('12');
+	await page.getByRole('button', { name: 'Transcribe audio' }).click();
+	await expect(page.locator('.result')).toHaveCount(2);
+	await expect(page.locator('.transcript').first()).toHaveText('tango JCX 01008.');
+	await expect(page.locator('.result-context').first()).toContainText('Boost 12');
+	expect(uploads[0].includes(audio)).toBe(true);
+	expect(uploads[1].includes(audio)).toBe(true);
+	expect(uploads[1].toString()).not.toContain('name="prompt"');
+	expect(uploads[1].toString()).toContain('en-US');
+	expect(uploads[1].toString()).toContain('tango');
+	expect(uploads[1].toString()).toContain('name="boost"\r\n\r\n12');
+	await page.locator('.result-context').first().click();
+	await expect(page.locator('.result-details').first()).toContainText('confidence');
+	await page.screenshot({ path: testInfo.outputPath('providers.png'), fullPage: true });
+	await page.getByLabel('Provider', { exact: true }).selectOption('openai');
+	await expect(page.getByLabel('Prompt')).toBeEnabled();
+	await expect(page.getByLabel('Prompt')).toHaveValue('English radio command');
+	await expect(page.getByLabel('Languages')).toHaveValue('en');
+});
+
+test('Google-only configuration selects Google and validates audio size before sending', async ({
+	page
+}) => {
+	await page.route('**/api/health', (route) =>
+		route.fulfill({
+			json: {
+				status: 'ok',
+				providers: [{ id: 'google', model: 'short' }]
+			}
+		})
+	);
+	const uploads = await mockTranscription(page);
+	await page.goto('/');
+	await expect(page.getByLabel('Provider', { exact: true })).toHaveValue('google');
+	await expect(page.getByLabel('Languages')).toHaveValue('en-US');
+	await page.locator('#audio-file').setInputFiles({ ...file, buffer: Buffer.alloc(10_000_001) });
+	await page.getByRole('button', { name: 'Transcribe audio' }).click();
+	await expect(page.getByRole('alert')).toContainText('10 MB');
+	expect(uploads).toHaveLength(0);
+});

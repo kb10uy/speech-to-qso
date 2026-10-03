@@ -1,4 +1,13 @@
-# Copy to config.toml and set your API key. config.toml is ignored by Git.
+# Copy to config.toml. Configure OpenAI, Google, or both. config.toml is ignored by Git.
 listen = "127.0.0.1:8081"
 model = "gpt-transcribe"
 openai_api_key = ""
+
+# Google uses Application Default Credentials (ADC), not an API key.
+# Run: gcloud auth application-default login
+# Run: gcloud auth application-default set-quota-project YOUR_PROJECT_ID
+# Set project_id to enable Google. No pre-created Recognizer is needed.
+[google]
+project_id = ""
+location = "global"
+model = "short"

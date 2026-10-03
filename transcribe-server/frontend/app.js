@@ -12,6 +12,15 @@ const send = /** @type {HTMLButtonElement} */ ($('send'));
 const prompt = /** @type {HTMLTextAreaElement} */ ($('prompt'));
 const keywords = /** @type {HTMLTextAreaElement} */ ($('keywords'));
 const languages = /** @type {HTMLInputElement} */ ($('languages'));
+const provider = /** @type {HTMLSelectElement} */ ($('provider'));
+const boost = /** @type {HTMLInputElement} */ ($('boost'));
+const models = new Map();
+let connected = false;
+let currentProvider = 'openai';
+const languageSettings = new Map([
+	['openai', 'en'],
+	['google', 'en-US']
+]);
 const playback = /** @type {HTMLAudioElement} */ ($('playback'));
 const download = /** @type {HTMLAnchorElement} */ ($('download'));
 const status = $('status');
@@ -40,7 +49,9 @@ let keyboard = false;
 
 function hints() {
 	return {
-		prompt: prompt.value,
+		provider: provider.value,
+		prompt: provider.value === 'google' ? '' : prompt.value,
+		...(provider.value === 'google' ? { boost: Number(boost.value) } : {}),
 		keywords: keywords.value
 			.split(/\r?\n/)
 			.map((value) => value.trim())
@@ -54,13 +65,25 @@ function hints() {
 const recognizer = new TranscribeRecognizer(hints);
 
 function update() {
-	ptt.disabled = !node || busy || opening;
+	ptt.disabled = !connected || !node || busy || opening;
 	enableMic.disabled = busy || recording || opening;
 	fileInput.disabled = busy || recording || opening;
-	send.disabled = !audioFile || busy || recording || opening;
+	send.disabled = !connected || !audioFile || busy || recording || opening;
+	provider.disabled = !connected;
+	prompt.disabled = provider.value === 'google';
 	/** @type {HTMLFieldSetElement} */ ($('hint-fields')).disabled = busy || recording;
 	/** @type {HTMLButtonElement} */ ($('reset-hints')).disabled = busy || recording;
 	ptt.setAttribute('aria-pressed', String(recording));
+}
+function updateProvider() {
+	const google = provider.value === 'google';
+	$('google-boost').hidden = !google;
+	languages.placeholder = google ? 'en-US, ja-JP' : 'en, ja';
+	$('model').textContent = models.get(provider.value) ?? '—';
+	$('provider-note').textContent = google
+		? 'ADC on the server · Keywords use PhraseSet · Up to 10 MB / 60 s · WAV, FLAC, MP3, OGG or WebM'
+		: 'API key on the server · Up to 25 MB';
+	update();
 }
 function showError(/** @type {unknown} */ reason) {
 	error.textContent = reason instanceof Error ? reason.message : String(reason);
@@ -202,7 +225,7 @@ async function closeMicrophone() {
 	await previous?.close().catch(() => {});
 }
 function beginRecording() {
-	if (!node || busy || recording || opening) return;
+	if (!connected || !node || busy || recording || opening) return;
 	if (!context || context.state !== 'running') {
 		showError(new Error('Audio is suspended. Disable and enable the microphone, then try again.'));
 		return;
@@ -306,16 +329,23 @@ function addResult(
 		const element = row.querySelector(selector);
 		if (element) element.textContent = value;
 	};
-	text('.result-source', `${filename} · ${result.model}`);
+	text(
+		'.result-source',
+		`${filename} · ${result.provider ?? options.provider ?? 'openai'} / ${result.model}`
+	);
 	text('.result-timing', `${(result.elapsed_ms / 1000).toFixed(2)} s`);
 	text('.transcript', result.text || '(Empty transcript)');
 	text(
 		'.result-context',
-		`${options.prompt.trim() ? 'With prompt' : 'No prompt'} · ${options.keywords.length} keywords · ${options.languages.join(', ') || 'en'}`
+		`${options.boost !== undefined ? `Boost ${options.boost}` : options.prompt.trim() ? 'With prompt' : 'No prompt'} · ${options.keywords.length} keywords · ${options.languages.join(', ')}`
 	);
 	text(
 		'.result-details',
-		JSON.stringify({ hints: options, request_id: result.request_id }, null, 2)
+		JSON.stringify(
+			{ hints: options, request_id: result.request_id, results: result.results },
+			null,
+			2
+		)
 	);
 	history.prepend(fragment);
 	while (history.children.length > 20) history.lastElementChild?.remove();
@@ -378,7 +408,15 @@ send.addEventListener('click', () => {
 $('reset-hints').addEventListener('click', () => {
 	prompt.value = '';
 	keywords.value = '';
-	languages.value = 'en';
+	languages.value = provider.value === 'google' ? 'en-US' : 'en';
+	boost.value = '0';
+});
+provider.addEventListener('change', () => {
+	languageSettings.set(currentProvider, languages.value);
+	currentProvider = provider.value;
+	languages.value = languageSettings.get(currentProvider) ?? '';
+	clearError();
+	updateProvider();
 });
 $('clear-results').addEventListener('click', () => {
 	history.replaceChildren();
@@ -395,7 +433,18 @@ fetch('/api/health')
 	.then(async (response) => {
 		if (!response.ok) throw new Error('Server unavailable');
 		const result = await response.json();
-		$('model').textContent = result.model;
+		for (const option of provider.options) {
+			const setting = result.providers.find(
+				(/** @type {{ id: string }} */ item) => item.id === option.value
+			);
+			option.disabled = !setting;
+			if (setting) models.set(setting.id, setting.model);
+		}
+		provider.value = result.providers[0].id;
+		currentProvider = provider.value;
+		languages.value = languageSettings.get(currentProvider) ?? '';
+		connected = true;
+		updateProvider();
 		$('connection').textContent = 'Server connected';
 		$('connection').dataset.connected = 'true';
 	})

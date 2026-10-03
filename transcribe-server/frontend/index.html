@@ -79,7 +79,13 @@
 					</div>
 					<p class="muted">Start without context. Add hints and send the same audio again.</p>
 					<fieldset id="hint-fields">
-						<label for="prompt">Prompt <span>optional</span></label>
+						<label for="provider">Provider</label>
+						<select id="provider" disabled>
+							<option value="openai">OpenAI</option>
+							<option value="google">Google Cloud STT V2</option>
+						</select>
+						<p id="provider-note" class="footnote">Loading provider settings…</p>
+						<label for="prompt">Prompt <span>OpenAI only</span></label>
 						<textarea
 							id="prompt"
 							rows="4"
@@ -91,6 +97,10 @@
 							rows="3"
 							placeholder="Add literal terms you expect to hear…"
 						></textarea>
+						<div id="google-boost" hidden>
+							<label for="boost">Phrase boost <span>Google only · 0–20</span></label>
+							<input id="boost" type="number" min="0" max="20" step="1" value="0" />
+						</div>
 						<label for="languages">Languages <span>comma separated</span></label>
 						<input id="languages" value="en" placeholder="en, ja" spellcheck="false" />
 					</fieldset>

@@ -20,7 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => return Err("Usage: speech-to-qso-transcribe-server [--config PATH]".into()),
     };
     let config = Config::load(&path, required)?;
-    let state = Arc::new(AppState::new(config.api_key, config.model)?);
+    let state = Arc::new(AppState::new(config.api_key, config.model)?.with_google(config.google));
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
     tracing::info!(
         "transcription experiment listening on http://{}",

@@ -5,6 +5,8 @@ edition = "2024"
 
 [dependencies]
 axum = { version = "0.8", features = ["multipart"] }
+google-cloud-gax = "1.15.0"
+google-cloud-speech-v2 = "1.15.0"
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "multipart", "rustls"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
@@ -14,6 +16,7 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
 [dev-dependencies]
+google-cloud-auth = "1.17.0"
 http-body-util = "0.1.5"
 tempfile = "3.27.0"
 tower = { version = "0.5", features = ["util"] }

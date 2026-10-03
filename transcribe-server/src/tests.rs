@@ -188,3 +188,169 @@ async fn malformed_upstream_response_is_a_gateway_error() {
     assert_eq!(status, StatusCode::BAD_GATEWAY);
     assert_eq!(result["error"], "invalid OpenAI transcription response");
 }
+
+struct GoogleMock {
+    task: tokio::task::JoinHandle<()>,
+    requests: Arc<Mutex<Vec<serde_json::Value>>>,
+    app: Router,
+}
+
+impl Drop for GoogleMock {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+async fn google_mock(status: StatusCode, body: serde_json::Value) -> GoogleMock {
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let captured = requests.clone();
+    let upstream = Router::new().route(
+        "/v2/projects/radio-lab/locations/global/recognizers/_:recognize",
+        post(
+            move |headers: axum::http::HeaderMap, Json(request): Json<serde_json::Value>| {
+                let captured = captured.clone();
+                let body = body.clone();
+                async move {
+                    // Never use developer ADC credentials for mock requests.
+                    assert!(!headers.contains_key("authorization"));
+                    captured.lock().unwrap().push(request);
+                    (status, Json(body))
+                }
+            },
+        ),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    let task = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+    let client = google_cloud_speech_v2::client::Speech::builder()
+        .with_endpoint(endpoint)
+        .with_credentials(google_cloud_auth::credentials::anonymous::Builder::new().build())
+        .build()
+        .await
+        .unwrap();
+    let state = AppState::new(String::new(), "gpt-transcribe".into())
+        .unwrap()
+        .with_google(Some(config::GoogleConfig {
+            project_id: "radio-lab".into(),
+            ..Default::default()
+        }));
+    state.google.as_ref().unwrap().client.set(client).unwrap();
+    GoogleMock {
+        task,
+        requests,
+        app: router(Arc::new(state)),
+    }
+}
+
+#[tokio::test]
+async fn google_sdk_forwards_audio_phrase_boost_and_bcp47_languages() {
+    let mock = google_mock(
+        StatusCode::OK,
+        json!({ "results": [
+        { "alternatives": [{ "transcript": "tango JCX 01008.", "confidence": 0.9 }] },
+        { "alternatives": [{ "transcript": "received five seven" }] }
+    ] }),
+    )
+    .await;
+    let (status, result) = response(
+        mock.app.clone(),
+        upload(
+            &[
+                ("provider", "google"),
+                ("keywords[]", "tango"),
+                ("keywords[]", "JCX"),
+                ("boost", "12"),
+                ("languages[]", "en-US"),
+                ("languages[]", "ja-JP"),
+            ],
+            Some(AUDIO),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{result}");
+    assert_eq!(result["provider"], "google");
+    assert_eq!(result["model"], "short");
+    assert_eq!(result["text"], "tango JCX 01008.\nreceived five seven");
+    assert_eq!(result["results"].as_array().unwrap().len(), 2);
+    assert!(result["elapsed_ms"].is_u64());
+    let requests = mock.requests.lock().unwrap();
+    assert_eq!(requests.len(), 1);
+    let request = &requests[0];
+    let parsed: google_cloud_speech_v2::model::RecognizeRequest = serde_json::from_value(request.clone()).unwrap();
+    assert_eq!(parsed.content().unwrap().as_ref(), AUDIO);
+    assert_eq!(request["config"]["model"], "short");
+    assert_eq!(request["config"]["languageCodes"], json!(["en-US", "ja-JP"]));
+    assert_eq!(request["config"]["autoDecodingConfig"], json!({}));
+    let phrase_set = &request["config"]["adaptation"]["phraseSets"][0]["inlinePhraseSet"];
+    assert_eq!(phrase_set["boost"].as_f64(), Some(12.0));
+    assert_eq!(phrase_set["phrases"], json!([{ "value": "tango" }, { "value": "JCX" }]));
+}
+
+#[tokio::test]
+async fn google_only_defaults_to_english_without_adaptation_and_accepts_empty_results() {
+    let mock = google_mock(StatusCode::OK, json!({})).await;
+    let (status, result) = response(mock.app.clone(), upload(&[], Some(AUDIO))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(result["text"], "");
+    let requests = mock.requests.lock().unwrap();
+    assert_eq!(requests[0]["config"]["languageCodes"], json!(["en-US"]));
+    assert!(requests[0]["config"].get("adaptation").is_none());
+}
+
+#[tokio::test]
+async fn google_validates_unsupported_hints_size_and_provider_selection() {
+    let mock = google_mock(StatusCode::OK, json!({})).await;
+    for fields in [
+        vec![("provider", "openai")],
+        vec![("provider", "unknown")],
+        vec![("provider", "google"), ("provider", "google")],
+        vec![("prompt", "unsupported")],
+        vec![("boost", "NaN")],
+        vec![("boost", "21")],
+        vec![("boost", "1"), ("boost", "2")],
+        vec![
+            ("languages[]", "en-US"),
+            ("languages[]", "ja-JP"),
+            ("languages[]", "en-GB"),
+            ("languages[]", "fr-FR"),
+        ],
+    ] {
+        let (status, result) = response(mock.app.clone(), upload(&fields, Some(AUDIO))).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{result}");
+    }
+    let (status, _) = response(mock.app.clone(), upload(&[], Some(&vec![0; 10_000_001]))).await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert!(mock.requests.lock().unwrap().is_empty());
+    let openai = self::mock(StatusCode::OK, json!({ "text": "unused" })).await;
+    let (status, _) = response(openai.app.clone(), upload(&[("provider", "google")], Some(AUDIO))).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn google_errors_are_redacted_and_are_not_retried() {
+    let mock = google_mock(StatusCode::FORBIDDEN,
+        json!({ "error": { "code": 403, "status": "PERMISSION_DENIED", "message": "secret-token uploaded transcript" } })).await;
+    let (status, result) = response(mock.app.clone(), upload(&[], Some(AUDIO))).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(result["upstream_status"], 403);
+    assert_eq!(result["upstream_code"], "PermissionDenied");
+    assert!(!result.to_string().contains("secret-token"));
+    assert!(!result.to_string().contains("uploaded transcript"));
+    assert_eq!(mock.requests.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn health_lists_providers_without_credentials() {
+    let mock = google_mock(StatusCode::OK, json!({})).await;
+    let (status, body) = response(
+        mock.app.clone(),
+        Request::get("/api/health").body(Body::empty()).unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["providers"],
+        json!([{ "id": "google", "label": "Google Cloud STT V2", "model": "short" }])
+    );
+    assert!(!body.to_string().contains("radio-lab"));
+}
