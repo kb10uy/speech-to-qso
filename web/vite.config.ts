@@ -3,7 +3,7 @@ import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 // GitHub Pages serves project sites from `/<repo>`; the deploy workflow sets BASE_PATH.
-const base = process.env.BASE_PATH ?? '';
+const base = (process.env.BASE_PATH ?? '') as '' | `/${string}`;
 
 export default defineConfig({
 	plugins: [
