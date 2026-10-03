@@ -96,8 +96,10 @@
 		<dd>*2.740 MHz; “four thirty two point nine four” is fully specified</dd>
 		<dt>jcx one zero zero one zero one</dt>
 		<dd>JCC/JCG 100101 (also “jcc”, “jcg”)</dd>
-		<dt>card requested · no card</dt>
+		<dt>card requested · card negative</dt>
 		<dd>QSL requested on/off</dd>
+		<dt>card one way</dt>
+		<dd>QSL one way: they send a card and expect none back</dd>
 		<dt>mode foxtrot mike</dt>
 		<dd>Mode FM (also SSB, CW, FT8, …)</dd>
 	</dl>
