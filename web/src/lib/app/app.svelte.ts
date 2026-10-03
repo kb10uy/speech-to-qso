@@ -396,7 +396,8 @@ export class QsoApp {
 	#onVisibilityChange() {
 		if (document.visibilityState === 'hidden') {
 			// Release the microphone in the background; it is reopened on the next PTT press.
-			if (this.ptt === 'listening') void this.pttCancel();
+			// pttCancel also abandons a press that is still waiting for the permission prompt.
+			void this.pttCancel();
 			void this.#capture.close();
 		} else {
 			void this.sync();

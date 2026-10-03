@@ -16,9 +16,7 @@ declare function registerProcessor(name: string, ctor: new () => AudioWorkletPro
 
 export type WorkletCommand = { type: 'start' } | { type: 'stop' };
 export type WorkletEvent =
-	| { type: 'audio'; samples: Float32Array; level: number }
-	| { type: 'level'; level: number }
-	| { type: 'stopped' };
+	{ type: 'audio'; samples: Float32Array; level: number } | { type: 'stopped' };
 
 /** About 100 ms per message. */
 const CHUNK_SAMPLES = ASR_SAMPLE_RATE / 10;
