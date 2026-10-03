@@ -38,7 +38,7 @@
 		<input type="text" bind:value={form.operatorCall} autocapitalize="characters" required />
 	</label>
 	<label class="field">
-		<span>Location (移動地)</span>
+		<span>Operating location</span>
 		<input type="text" bind:value={form.location} />
 	</label>
 	<label class="field">

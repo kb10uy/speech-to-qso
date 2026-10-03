@@ -1,138 +1,141 @@
 # speech-to-qso
 
-移動運用向けの **PTT 式 QSO 音声入力** Web アプリです。スマホで PTT ボタンを押しながら
-「juliett lima one hotel india sierra」「received five seven」のように話すと、Draft QSO の該当フィールドが埋まり、
-**LOG QSO** でローカル (IndexedDB) に保存 → バックエンド経由で Wavelog に同期します。
+A **push-to-talk voice input** web app for logging QSOs during portable operation. Hold the PTT button on your phone
+and say things like "juliett lima one hotel india sierra" or "received five seven"; the matching fields of the draft
+QSO are filled in. **LOG QSO** saves it locally (IndexedDB) and then syncs it to Wavelog through a small backend.
 
-自然言語理解はしません。既存 ASR を **lexer** として使い、語彙と構文を絞った **QSO 専用 DSL** を自前の parser で解釈します。
+There is no natural language understanding. An off-the-shelf ASR is used as a **lexer**, and a hand-written parser
+interprets a **QSO-specific DSL** with a deliberately small vocabulary and grammar.
 
-- Web クライアント: SvelteKit + TypeScript の PWA (GitHub Pages で配信、オフライン動作)
-- 音声認識: [Vosk](https://alphacephei.com/vosk/) WASM ([vosk-browser](https://github.com/ccoreilly/vosk-browser)) をブラウザ内で実行。Web Speech API も選択可
-- バックエンド: Rust + axum の薄い API。QSO をローカルログに追記し Wavelog に転送
+- Web client: a SvelteKit + TypeScript PWA, served from GitHub Pages and usable offline
+- Speech recognition: [Vosk](https://alphacephei.com/vosk/) WASM ([vosk-browser](https://github.com/ccoreilly/vosk-browser))
+  running in the browser; the Web Speech API is available as an alternative
+- Backend: a thin Rust + axum API that appends QSOs to local logs and forwards them to Wavelog
 
 ```
-PTT 長押し → getUserMedia → AudioWorklet (16 kHz mono) → Vosk WASM (Worker)
-  → テキスト → DSL parser → Draft QSO 更新 → 画面で確認 → LOG QSO
-  → IndexedDB に保存 → (オンラインなら) POST /api/qso → Wavelog
+Hold PTT → getUserMedia → AudioWorklet (16 kHz mono) → Vosk WASM (Worker)
+  → text → DSL parser → update draft QSO → check on screen → LOG QSO
+  → save to IndexedDB → (when online) POST /api/qso → Wavelog
 ```
 
-## 使い方
+## Usage
 
-1. https://kb10uy.github.io/speech-to-qso/ を開く (ホーム画面に追加すると PWA としてインストールできます)
-2. **Session** タブで OP コール、移動地、周波数 anchor などを保存
-3. **QSO** タブで「Load speech engine」を押して音声モデル (約 40 MB、初回のみ) を読み込む
-4. **HOLD TO TALK** を押している間だけ話す。離すと認識 → parse → Draft に反映
-5. 内容を確認して **LOG QSO**
+1. Open https://kb10uy.github.io/speech-to-qso/ (add it to your home screen to install it as a PWA)
+2. In the **Session** tab, save your operator callsign, operating location, frequency anchor and so on
+3. In the **QSO** tab, press "Load speech engine" to load the speech model (about 40 MB, first time only)
+4. Speak only while holding **HOLD TO TALK**; releasing it runs recognition → parsing → draft update
+5. Check the result and press **LOG QSO**
 
-認識結果と反映内容はボタン上のフィードバック欄に出ます (`“received five seven” → RST received → 57`)。
-ASR が失敗するときは「Type a command」から同じ DSL をキーボード入力できます (`jl1his`, `received 57`, `freq .94` のような短縮形も可)。
-PC では Space キーが PTT になります。
+What was heard and what changed are shown in the feedback line above the button
+(`“received five seven” → RST received → 57`). If the ASR struggles, the same DSL can be typed under
+"Type a command" (shorthands such as `jl1his`, `received 57` and `freq .94` also work).
+On a desktop, the Space key works as PTT.
 
-### 音声コマンド (DSL)
+### Voice commands (DSL)
 
-| 発話例                                              | 結果                                    |
-| --------------------------------------------------- | --------------------------------------- |
-| `juliett lima one hotel india sierra`               | Callsign = `JL1HIS`                     |
-| `... stroke one` / `... portable`                   | `JL1HIS/1` / `JL1HIS/P`                 |
-| `sent five nine` (`send` も可)                      | RST sent = `59`                         |
-| `received five seven` (`receive` も可)              | RST received = `57`                     |
-| `frequency point nine four`                         | 周波数 `*.940` MHz → anchor 最寄り      |
-| `frequency two point seven four`                    | `*2.740` MHz                            |
-| `frequency four thirty two point nine four`         | `432.940` MHz                           |
-| `jcx one zero zero one zero one` (`jcc`/`jcg` も可) | JCX = `"100101"` (文字列。先頭ゼロ保持) |
-| `card requested` / `no card`                        | QSL requested on / off                  |
-| `mode foxtrot mike` / `mode fm`                     | Mode = `FM`                             |
+| Utterance                                             | Result                                              |
+| ----------------------------------------------------- | --------------------------------------------------- |
+| `juliett lima one hotel india sierra`                 | Callsign = `JL1HIS`                                 |
+| `... stroke one` / `... portable`                     | `JL1HIS/1` / `JL1HIS/P`                             |
+| `sent five nine` (also `send`)                        | RST sent = `59`                                     |
+| `received five seven` (also `receive`)                | RST received = `57`                                 |
+| `frequency point nine four`                           | Frequency `*.940` MHz → nearest to the anchor       |
+| `frequency two point seven four`                      | `*2.740` MHz                                        |
+| `frequency four thirty two point nine four`           | `432.940` MHz                                       |
+| `jcx one zero zero one zero one` (also `jcc` / `jcg`) | JCX = `"100101"` (a string; leading zeros are kept) |
+| `card requested` / `no card`                          | QSL requested on / off                              |
+| `mode foxtrot mike` / `mode fm`                       | Mode = `FM`                                         |
 
-- **修正コマンドはありません。** 同じフィールドをもう一度話すと、そのフィールド全体を上書きします。
-- 1 回の PTT で複数コマンドを続けて言えます (`juliett lima one hotel india sierra received five seven`)。
-  一部でも parse に失敗した発話は **丸ごと破棄** します (中途半端な反映はしません)。
-- 先頭がキーワードでない発話はコールサインとして扱います (`call` / `callsign` を前置しても可)。
-- 数字は `four thirty two` → `432`, `one forty five` → `145`, `double five` → `55` のように無線式の読み方を解釈します。
-- RST のデフォルトは `59 / 59`。周波数とモードは次の QSO に引き継ぎます。
+- **There are no correction commands.** Speaking a field again overwrites that whole field.
+- Several commands can be chained in one PTT press (`juliett lima one hotel india sierra received five seven`).
+  If any part fails to parse, the **whole utterance is discarded** (nothing is applied halfway).
+- An utterance that does not start with a keyword is treated as a callsign (`call` / `callsign` may be prefixed).
+- Numbers are read the way radio operators say them: `four thirty two` → `432`, `one forty five` → `145`,
+  `double five` → `55`.
+- RST defaults to `59 / 59`. Frequency and mode carry over to the next QSO.
 
-### 周波数 resolver
+### Frequency resolver
 
-**発話された桁だけを制約とし、省略された上位桁を wildcard として、frequency anchor に最も近い候補を採用**します。
+**Only the spoken digits are constraints; omitted higher-order digits are wildcards, and the candidate nearest to the
+frequency anchor wins.**
 
 ```
 anchor = 433.000 MHz
-"frequency point nine four"      → *.940  → 432.940 (433.940 より近い)
+"frequency point nine four"      → *.940  → 432.940 (nearer than 433.940)
 "frequency two point seven four" → *2.740 → 432.740
 ```
 
-anchor (Session で設定) と現在周波数は別物です。リグが 430.200 MHz にいても anchor が 433.000 なら
-`point nine four` は 432.940 になります。実装は `web/src/lib/dsl/frequency.ts` の純粋関数です。
+The anchor (set in the Session tab) is not the current frequency. Even if the rig is on 430.200 MHz, with an anchor of
+433.000 `point nine four` resolves to 432.940. The implementation is a pure function in `web/src/lib/dsl/frequency.ts`.
 
-## 同期とバックエンド
+## Sync and backend
 
-LOG QSO は **必ず先に IndexedDB に保存** し、同期は別ステップです。ネットワーク失敗が QSO 記録失敗になることはありません。
-Log タブで各 QSO の状態 (`local` / `waiting` / `synced` / `failed`) を確認でき、オンライン復帰時・起動時に自動で再送します。
-バックエンドなしでも、Log タブの **Export ADIF** で `.adi` を書き出せます。
+LOG QSO **always saves to IndexedDB first**; syncing is a separate step, so a network failure never means a lost QSO.
+The Log tab shows the state of each QSO (`local` / `waiting` / `synced` / `failed`), and unsynced QSOs are retried
+automatically on startup and when the device comes back online. Without a backend you can still write an `.adi` file
+with **Export ADIF** in the Log tab.
 
-バックエンド (`server/`) は Wavelog の API キーをブラウザに置かないための薄い API です。
+The backend (`server/`) is a thin API whose main job is keeping the Wavelog API key out of the browser.
 
 ```sh
 cd server
-cp .env.example .env   # 編集して環境変数に設定
+cp .env.example .env   # edit, then export the variables
 cargo run --release
 ```
 
-| 環境変数             | 説明                                                                         |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `LISTEN`             | listen アドレス (既定 `127.0.0.1:8080`)                                      |
-| `API_TOKEN`          | クライアントが送る Bearer token (Settings → API token)。未設定だと認証なし   |
-| `ALLOWED_ORIGINS`    | CORS 許可 origin (カンマ区切り)。例 `https://kb10uy.github.io`。空なら全許可 |
-| `DATA_DIR`           | `qsos.jsonl` (イベントログ) と `log.adi` (ADIF) の保存先 (既定 `data`)       |
-| `WAVELOG_URL`        | Wavelog のベース URL (例 `https://log.example.com`)                          |
-| `WAVELOG_API_KEY`    | Wavelog の API キー (read/write)                                             |
-| `WAVELOG_STATION_ID` | 既定の station location id (Session で QSO ごとに上書き可)                   |
+| Environment variable | Description                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------- |
+| `LISTEN`             | Listen address (default `127.0.0.1:8080`)                                              |
+| `API_TOKEN`          | Bearer token sent by the client (Settings → API token). Unset disables authentication  |
+| `ALLOWED_ORIGINS`    | Comma-separated CORS origins, e.g. `https://kb10uy.github.io`. Empty allows any origin |
+| `DATA_DIR`           | Where `qsos.jsonl` (event log) and `log.adi` (ADIF) are written (default `data`)       |
+| `WAVELOG_URL`        | Base URL of your Wavelog, e.g. `https://log.example.com`                               |
+| `WAVELOG_API_KEY`    | Wavelog API key (read/write)                                                           |
+| `WAVELOG_STATION_ID` | Default station location id (can be overridden per session in the Session tab)         |
 
-- GitHub Pages は HTTPS なので、**バックエンドも HTTPS で公開** してください (Caddy / nginx などのリバースプロキシ推奨)。
-- `POST /api/qso` はクライアント生成の UUID で重複排除するので、再送しても二重登録されません。
-  Wavelog への転送に失敗した場合は 502 を返し、クライアントの再送時に転送だけ再試行します。
-- `GET /api/health` で疎通確認できます。
+- GitHub Pages is served over HTTPS, so **the backend must be reachable over HTTPS too** (a reverse proxy such as
+  Caddy or nginx is recommended).
+- `POST /api/qso` de-duplicates by the client-generated UUID, so retries never create duplicates.
+  If forwarding to Wavelog fails it returns 502, and only the forwarding is retried when the client resends.
+- `GET /api/health` can be used to check connectivity.
 
-### ADIF へのマッピング
+### ADIF mapping
 
-| QSO フィールド  | ADIF                                            |
-| --------------- | ----------------------------------------------- |
-| callsign        | `CALL`                                          |
-| 周波数          | `FREQ` (MHz), `BAND`                            |
-| RST sent / rcvd | `RST_SENT` / `RST_RCVD`                         |
-| QSL requested   | `QSL_SENT:R` (相手局からカード請求あり)         |
-| JCX             | `COMMENT` (`JCX 100101`), `APP_SPEECHTOQSO_JCX` |
-| OP コール       | `OPERATOR`, `STATION_CALLSIGN`                  |
-| 移動地          | `MY_CITY`                                       |
-| 自局 JCC/JCG    | `APP_SPEECHTOQSO_MY_JCX`                        |
-| POTA reference  | `MY_SIG=POTA`, `MY_SIG_INFO`, `MY_POTA_REF`     |
+| QSO field          | ADIF                                              |
+| ------------------ | ------------------------------------------------- |
+| Callsign           | `CALL`                                            |
+| Frequency          | `FREQ` (MHz), `BAND`                              |
+| RST sent / rcvd    | `RST_SENT` / `RST_RCVD`                           |
+| QSL requested      | `QSL_SENT:R` (the other station requested a card) |
+| JCX                | `COMMENT` (`JCX 100101`), `APP_SPEECHTOQSO_JCX`   |
+| Operator callsign  | `OPERATOR`, `STATION_CALLSIGN`                    |
+| Operating location | `MY_CITY`                                         |
+| Own JCC/JCG        | `APP_SPEECHTOQSO_MY_JCX`                          |
+| POTA reference     | `MY_SIG=POTA`, `MY_SIG_INFO`, `MY_POTA_REF`       |
 
-## デプロイ (GitHub Pages)
+## Deployment (GitHub Pages)
 
-`main` に push すると `.github/workflows/pages.yml` がビルドしてデプロイします (手動実行も可)。
-初回のみリポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** にしてください。
+Pushing to `main` builds and deploys the site with `.github/workflows/pages.yml` (it can also be run manually).
 
-> [!NOTE]
-> ワークフローは現在 `ci/github-workflows/` に置いてあります (作成時の push 権限に `workflow` scope がなかったため)。
-> 有効化するには一度だけ次を実行して push してください。
->
-> ```sh
-> git mv ci/github-workflows .github/workflows
-> ```
+One-time repository setup:
 
-ビルド時に Vosk の小型英語モデル (`vosk-model-small-en-us-0.15`) を取得し、vosk-browser 用に
-`.tar.gz` (トップレベルにディレクトリ 1 つ) へ詰め替えて `models/` に同梱します。
-モデルは初回読み込み時に vosk-browser が IndexedDB に保存するので、以降はオフラインでも使えます。
-別のモデルを使う場合は Settings の「Vosk model URL」に `.tar.gz` の URL を指定します (CORS 許可が必要)。
+- **Settings → Pages → Build and deployment → Source**: **GitHub Actions**
+- **Settings → Environments → `github-pages` → Deployment branches and tags**: allow `main`
 
-## 開発
+The build downloads the small English Vosk model (`vosk-model-small-en-us-0.15`), repacks it as a `.tar.gz` with a
+single top-level directory (the layout vosk-browser expects) and ships it under `models/`. vosk-browser stores the
+model in IndexedDB on first load, so it keeps working offline afterwards. To use a different model, set its `.tar.gz`
+URL under "Vosk model URL" in Settings (the host must allow CORS).
+
+## Development
 
 ```sh
 cd web
 npm install
-npm run dev          # 開発サーバ (マイクは localhost なら HTTP でも可)
+npm run dev          # dev server (the microphone works over plain HTTP on localhost)
 npm test             # unit tests (vitest)
-npm run test:e2e     # e2e tests (Playwright / Chromium、偽マイク入力)
-npm run check        # svelte-check (型検査)
+npm run test:e2e     # e2e tests (Playwright / Chromium with a fake microphone)
+npm run check        # svelte-check (type checking)
 npm run lint         # prettier
 
 cd ../server
@@ -140,38 +143,42 @@ cargo test
 cargo clippy --all-targets -- -D warnings
 ```
 
-ローカルで Vosk を試すには、モデルを `web/static/models/vosk-model-small-en-us-0.15.tar.gz` に置いてください
-(`pages.yml` の「Fetch Vosk model」と同じ手順)。
+To try Vosk locally, put the model at `web/static/models/vosk-model-small-en-us-0.15.tar.gz`
+(same steps as "Fetch Vosk model" in `pages.yml`).
 
-### ディレクトリ構成
+### Layout
 
 ```
 web/                      SvelteKit PWA
-  src/lib/dsl/            音声 DSL: tokenizer, 数字読み, parser, 周波数 resolver (純粋ロジック)
-  src/lib/qso/            Draft QSO, OperatingSession, QsoRecord, ADIF, バンド表
-  src/lib/speech/         AudioWorklet, マイク入力, SpeechRecognizer (Vosk / Web Speech API)
-  src/lib/storage/        IndexedDB (QSO ログ, KV)
-  src/lib/sync/           バックエンド同期クライアント
-  src/lib/app/            アプリ状態と PTT → ASR → parser → draft のパイプライン
-  src/lib/components/     画面 (QSO / Session / Log / Settings)
-  src/service-worker/     オフライン用 Service Worker
-  e2e/                    Playwright テスト
-server/                   Rust + axum バックエンド
+  src/lib/dsl/            Voice DSL: tokenizer, number words, parser, frequency resolver (pure logic)
+  src/lib/qso/            Draft QSO, OperatingSession, QsoRecord, ADIF, band table
+  src/lib/speech/         AudioWorklet, microphone capture, SpeechRecognizer (Vosk / Web Speech API)
+  src/lib/storage/        IndexedDB (QSO log, key-value store)
+  src/lib/sync/           Backend sync client
+  src/lib/app/            App state and the PTT → ASR → parser → draft pipeline
+  src/lib/components/     Screens (QSO / Session / Log / Settings)
+  src/service-worker/     Service worker for offline use
+  e2e/                    Playwright tests
+server/                   Rust + axum backend
 ```
 
-## ASR について
+## About the ASR
 
-ASR ライブラリは `SpeechRecognizer` interface (`web/src/lib/speech/recognizer.ts`) の裏に隠してあるので、
-Vosk → sherpa-onnx / Whisper / サーバーサイド ASR などへの差し替えはこの interface を実装するだけです。
+The ASR library sits behind the `SpeechRecognizer` interface (`web/src/lib/speech/recognizer.ts`), so switching from
+Vosk to sherpa-onnx, Whisper or a server-side ASR only means implementing that interface.
 
-- **Vosk grammar**: vosk-browser 0.0.8 は recognizer 生成時の grammar 指定を受け付けるので、
-  DSL の語彙 (`grammarVocabulary()` in `web/src/lib/dsl/lexicon.ts`) で認識を制約しています (Settings で無効化可)。
-  モデル語彙にない綴り (例: `juliett`) は Vosk 側で無視され、同じ文字の別綴り (`juliet`) が使われます。
-- Vosk は発話中のポーズで区切りを確定することがあるので、PTT 1 回分の途中結果はすべて連結して 1 発話として扱います。
-- PTT を離した後も `Release tail` (既定 300 ms) だけ録音を続け、語尾の欠けを防ぎます。
+- **Vosk grammar**: vosk-browser 0.0.8 accepts a grammar when creating a recognizer, so recognition is restricted to
+  the DSL vocabulary (`grammarVocabulary()` in `web/src/lib/dsl/lexicon.ts`; can be disabled in Settings).
+  Spellings missing from the model's vocabulary (e.g. `juliett`) are ignored by Vosk, and an alternative spelling of
+  the same letter (`juliet`) is used instead.
+- Vosk may finalize a segment at a pause in the middle of an utterance, so all results of one PTT press are joined
+  into a single utterance.
+- Recording continues for the `Release tail` (300 ms by default) after PTT is released, so the last word is not
+  clipped.
 
-## 今後の候補
+## Possible next steps
 
-- 実環境 (無線機の音が鳴っている状況) での ASR 精度評価。QSO 画面の「Recent utterances」に認識結果の履歴が残ります
-- 語彙制約の強化 (vosk-browser fork / sherpa-onnx の hotword biasing)
-- JCC/JCG 一覧をローカルに持ち、`JCX 100101 東京都 ○○区` のような確認表示
+- Evaluate ASR accuracy in real conditions (with rig audio playing). The QSO screen keeps a history of recognition
+  results under "Recent utterances".
+- Stronger vocabulary constraints (a vosk-browser fork, or hotword biasing with sherpa-onnx)
+- Ship a local JCC/JCG list to show confirmations such as `JCX 100101 Minato, Tokyo`
