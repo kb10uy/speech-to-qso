@@ -2,6 +2,12 @@ import { expect, test, type Page } from '@playwright/test';
 
 const audio = Buffer.from('RIFF0000WAVEtest');
 const file = { name: 'sample.wav', mimeType: 'audio/wav', buffer: audio };
+const defaultPrompt =
+	'English amateur radio QSO logging command. Callsigns and codes are spoken as letters, NATO phonetic words and digits.';
+const defaultKeywords =
+	'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey x-ray yankee zulu zero one two three four five six seven eight nine'
+		.split(' ')
+		.join('\n');
 
 async function mockTranscription(page: Page, text = 'received five seven') {
 	const uploads: Buffer[] = [];
@@ -31,7 +37,9 @@ test('uploads the same audio with different hints and keeps raw transcripts for 
 	await expect(page.locator('.result')).toHaveCount(2);
 	expect(uploads[0].includes(audio)).toBe(true);
 	expect(uploads[1].includes(audio)).toBe(true);
-	expect(uploads[0].toString()).not.toContain('name="prompt"');
+	expect(uploads[0].toString()).toContain(defaultPrompt);
+	expect(uploads[0].toString().match(/name="keywords\[\]"/g)).toHaveLength(36);
+	expect(uploads[1].toString()).not.toContain(defaultPrompt);
 	expect(uploads[1].toString()).toContain('Radio command');
 	expect(uploads[1].toString().match(/name="keywords\[\]"/g)).toHaveLength(2);
 	expect(uploads[1].toString().match(/name="languages\[\]"/g)).toHaveLength(2);
@@ -39,7 +47,8 @@ test('uploads the same audio with different hints and keeps raw transcripts for 
 	await page.getByRole('button', { name: 'Clear history' }).click();
 	await expect(page.locator('.result')).toHaveCount(0);
 	await page.getByRole('button', { name: 'Reset', exact: true }).click();
-	await expect(page.getByLabel('Prompt')).toHaveValue('');
+	await expect(page.getByLabel('Prompt')).toHaveValue(defaultPrompt);
+	await expect(page.getByLabel('Keywords')).toHaveValue(defaultKeywords);
 	await expect(page.getByLabel('Languages')).toHaveValue('en');
 });
 
@@ -121,8 +130,8 @@ test('mobile page fits the viewport and starts with safe defaults', async ({ pag
 	await page.goto('/');
 	await expect(page.getByRole('heading', { name: 'Transcription lab.' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Hold to talk', exact: true })).toBeDisabled();
-	await expect(page.getByLabel('Prompt')).toHaveValue('');
-	await expect(page.getByLabel('Keywords')).toHaveValue('');
+	await expect(page.getByLabel('Prompt')).toHaveValue(defaultPrompt);
+	await expect(page.getByLabel('Keywords')).toHaveValue(defaultKeywords);
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
 		true
 	);
