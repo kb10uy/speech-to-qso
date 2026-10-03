@@ -19,7 +19,10 @@ const models = new Map();
 let connected = false;
 const DEFAULT_PROMPT =
 	'English amateur radio QSO logging command. Callsigns and codes are spoken as letters, NATO phonetic words and digits.';
-const DEFAULT_KEYWORDS = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'].join('\n');
+const DEFAULT_KEYWORDS =
+	'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey x-ray yankee zulu zero one two three four five six seven eight nine'
+		.split(' ')
+		.join('\n');
 let currentProvider = 'openai';
 const languageSettings = new Map([
 	['openai', 'en'],

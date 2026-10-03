@@ -4,7 +4,10 @@ const audio = Buffer.from('RIFF0000WAVEtest');
 const file = { name: 'sample.wav', mimeType: 'audio/wav', buffer: audio };
 const defaultPrompt =
 	'English amateur radio QSO logging command. Callsigns and codes are spoken as letters, NATO phonetic words and digits.';
-const defaultKeywords = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'].join('\n');
+const defaultKeywords =
+	'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey x-ray yankee zulu zero one two three four five six seven eight nine'
+		.split(' ')
+		.join('\n');
 
 async function mockTranscription(page: Page, text = 'received five seven') {
 	const uploads: Buffer[] = [];

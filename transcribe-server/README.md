@@ -177,7 +177,8 @@ curl.exe http://127.0.0.1:8081/api/transcribe `
 These are experimental hints, not a second DSL vocabulary or a constrained grammar. The canonical vocabulary stays
 in `web/src/lib/dsl/lexicon.ts`. Leave the prompt and keywords out for a baseline, then compare exact transcripts,
 especially callsigns, leading zeros and partial frequencies. The server injects no prompt or keywords; the UI starts
-with a short radio prompt and the keywords A–Z and 0–9 (Reset restores them), so clear both fields for a baseline.
+with a short radio prompt and the phonetic alphabet and digit words as keywords (Reset restores them), so clear
+both fields for a baseline.
 
 `POST /api/transcribe` accepts multipart fields:
 
