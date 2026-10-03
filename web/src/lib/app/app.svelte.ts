@@ -19,6 +19,7 @@ import {
 } from '../speech';
 import { KeyValueStore, QsoStore, openDatabase } from '../storage/db';
 import { isSyncConfigured, syncAll, type SyncReport } from '../sync/client';
+import { sleep, withTimeout } from '../util/timeout';
 import { DEFAULT_MODEL_PATH, mergeSettings, type AppSettings } from './settings';
 
 export type PttState = 'idle' | 'opening' | 'listening' | 'finishing';
@@ -41,18 +42,6 @@ export interface Utterance {
 
 const FINAL_RESULT_TIMEOUT_MS = 10_000;
 const MAX_UTTERANCES = 30;
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => reject(new Error(message)), ms);
-		promise.then(
-			(v) => (clearTimeout(timer), resolve(v)),
-			(e) => (clearTimeout(timer), reject(e))
-		);
-	});
-}
 
 function vibrate(pattern: number | number[]) {
 	try {
@@ -91,6 +80,8 @@ export class QsoApp {
 	#capture = new AudioCapture();
 	#recognizer: SpeechRecognizer | null = null;
 	#releaseRequested = false;
+	/** Whether the microphone has been opened by a press (so reopening it will not surprise). */
+	#microphoneUsed = false;
 	#syncRequested = false;
 	#wakeLock: WakeLockSentinel | null = null;
 
@@ -194,8 +185,11 @@ export class QsoApp {
 		} catch (e) {
 			this.ptt = 'idle';
 			this.feedback = { kind: 'error', message: `Microphone: ${errorMessage(e)}` };
+			// A half-open or stuck context would fail the same way on every press; start over.
+			void this.#capture.close();
 			return;
 		}
+		this.#microphoneUsed = true;
 		if (this.#releaseRequested) {
 			// Typically the first press, interrupted by the permission prompt.
 			this.ptt = 'idle';
@@ -401,6 +395,27 @@ export class QsoApp {
 			void this.#capture.close();
 		} else {
 			void this.sync();
+			void this.#reopenMicrophone();
+		}
+	}
+
+	/**
+	 * Reopens the microphone when the app comes back to the foreground, so the next press does
+	 * not spend a second or more in "opening" on a phone. Only when the browser will not prompt:
+	 * without a Permissions API answer (Safari has none for the microphone) the press opens it.
+	 */
+	async #reopenMicrophone() {
+		if (!this.#microphoneUsed || this.asr !== 'ready' || this.#recognizer?.needsAudio !== true)
+			return;
+		try {
+			const status = await navigator.permissions.query({
+				name: 'microphone' as PermissionName
+			});
+			if (status.state !== 'granted') return;
+			await this.#capture.open();
+		} catch {
+			// Not supported, or the microphone is not available right now; the next press
+			// tries again and reports the error.
 		}
 	}
 }

@@ -1,5 +1,22 @@
 import workletUrl from './pcm-worklet.ts?worker&url';
 import type { WorkletCommand, WorkletEvent } from './pcm-worklet';
+import { withTimeout } from '../util/timeout';
+
+// Every step of opening the microphone can hang on a phone (a context that never leaves
+// `suspended`, a permission prompt that is never answered, a worklet module on a dead
+// network). A press that waits forever can only be fixed by reloading the app, so each step
+// has a deadline and fails with a message instead.
+const RESUME_TIMEOUT_MS = 5_000;
+/** The user may be reading a permission prompt. */
+const MICROPHONE_TIMEOUT_MS = 30_000;
+const WORKLET_TIMEOUT_MS = 10_000;
+/** The worklet confirms `stop`, but not while its context is suspended or interrupted. */
+const STOP_TIMEOUT_MS = 500;
+
+/** Read through a call, because TypeScript does not know that resume() changes the state. */
+function stateOf(context: AudioContext): AudioContextState {
+	return context.state;
+}
 
 /**
  * Microphone → MediaStream → AudioWorklet → 16 kHz mono PCM.
@@ -26,28 +43,35 @@ export class AudioCapture {
 
 	/** Opens the microphone. Must be called from a user gesture the first time. */
 	open(): Promise<void> {
-		if (this.#node !== null) {
-			// Resume in case the browser suspended the context in the background.
-			return this.#context!.state === 'suspended' ? this.#context!.resume() : Promise.resolve();
-		}
+		// The browser may have suspended the context in the background, and iOS leaves it
+		// `interrupted` after a call or another app's audio; both need a resume.
+		if (this.#node !== null) return this.#resume(this.#context!);
 		this.#starting ??= this.#open().finally(() => (this.#starting = null));
 		return this.#starting;
 	}
 
+	async #resume(context: AudioContext): Promise<void> {
+		if (context.state === 'running') return;
+		await withTimeout(context.resume(), RESUME_TIMEOUT_MS, 'audio did not start');
+		const state = stateOf(context);
+		if (state !== 'running') throw new Error(`audio is ${state}`);
+	}
+
 	async #open(): Promise<void> {
 		const context = new AudioContext({ latencyHint: 'interactive' });
+		// Started inside the user gesture (iOS insists); awaited once the microphone is granted.
+		const resumed = context.resume();
+		let stream: MediaStream | null = null;
 		try {
-			const resumed = context.resume();
-			const stream = await navigator.mediaDevices.getUserMedia({
-				audio: {
-					channelCount: 1,
-					echoCancellation: true,
-					noiseSuppression: true,
-					autoGainControl: true
-				}
-			});
-			await resumed;
-			await context.audioWorklet.addModule(workletUrl);
+			stream = await this.#requestMicrophone();
+			await withTimeout(resumed, RESUME_TIMEOUT_MS, 'audio did not start');
+			// Opening the microphone can switch the audio route and suspend the context again.
+			await this.#resume(context);
+			await withTimeout(
+				context.audioWorklet.addModule(workletUrl),
+				WORKLET_TIMEOUT_MS,
+				'the audio processor did not load'
+			);
 			const source = context.createMediaStreamSource(stream);
 			const node = new AudioWorkletNode(context, 'pcm-processor', {
 				numberOfInputs: 1,
@@ -61,7 +85,29 @@ export class AudioCapture {
 			this.#source = source;
 			this.#node = node;
 		} catch (e) {
+			stream?.getTracks().forEach((t) => t.stop());
 			await context.close().catch(() => {});
+			throw e;
+		}
+	}
+
+	async #requestMicrophone(): Promise<MediaStream> {
+		const request = navigator.mediaDevices.getUserMedia({
+			audio: {
+				channelCount: 1,
+				echoCancellation: true,
+				noiseSuppression: true,
+				autoGainControl: true
+			}
+		});
+		try {
+			return await withTimeout(request, MICROPHONE_TIMEOUT_MS, 'the microphone did not respond');
+		} catch (e) {
+			// A stream granted after the deadline would otherwise keep the microphone on.
+			request.then(
+				(stream) => stream.getTracks().forEach((t) => t.stop()),
+				() => {}
+			);
 			throw e;
 		}
 	}
@@ -74,7 +120,6 @@ export class AudioCapture {
 				break;
 			case 'stopped':
 				this.#stopped?.();
-				this.#stopped = null;
 				break;
 		}
 	}
@@ -89,15 +134,23 @@ export class AudioCapture {
 		this.#send({ type: 'start' });
 	}
 
-	/** Stops forwarding audio; resolves once every buffered sample has been delivered. */
+	/**
+	 * Stops forwarding audio; resolves once every buffered sample has been delivered, or after
+	 * a short wait when the worklet does not answer (its context is not running, so there are
+	 * no samples to wait for).
+	 */
 	end(): Promise<void> {
 		if (this.#node === null) return Promise.resolve();
 		return new Promise((resolve) => {
 			const previous = this.#stopped;
-			this.#stopped = () => {
+			const stopped = () => {
+				if (this.#stopped === stopped) this.#stopped = null;
+				clearTimeout(timer);
 				previous?.();
 				resolve();
 			};
+			const timer = setTimeout(stopped, STOP_TIMEOUT_MS);
+			this.#stopped = stopped;
 			this.#send({ type: 'stop' });
 		});
 	}
@@ -105,16 +158,24 @@ export class AudioCapture {
 	/** Releases the microphone (e.g. when the app goes to the background). */
 	async close() {
 		// An open that is still in progress (permission prompt) would otherwise leak its stream.
-		await this.#starting?.catch(() => {});
-		this.#stopped?.();
-		this.#stopped = null;
-		this.#source?.disconnect();
-		this.#node?.disconnect();
-		this.#stream?.getTracks().forEach((t) => t.stop());
-		await this.#context?.close().catch(() => {});
+		// (Awaited only when there is one: the fields below must be cleared synchronously.)
+		if (this.#starting !== null) await this.#starting.catch(() => {});
+		const { context, stream, source, node } = {
+			context: this.#context,
+			stream: this.#stream,
+			source: this.#source,
+			node: this.#node
+		};
+		// Cleared first, so that an open() racing with this close starts a fresh context
+		// instead of resuming the one being closed.
 		this.#context = null;
 		this.#stream = null;
 		this.#source = null;
 		this.#node = null;
+		this.#stopped?.();
+		source?.disconnect();
+		node?.disconnect();
+		stream?.getTracks().forEach((t) => t.stop());
+		await context?.close().catch(() => {});
 	}
 }
