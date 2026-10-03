@@ -109,7 +109,7 @@ pub(crate) mod tests {
             "time_on": "2026-10-03T04:05:06.789Z",
             "operator": "JJ1ABC",
             "location": "Minato",
-            "pota_ref": "JA-0001"
+            "pota_ref": "JP-0001"
         }))
         .unwrap()
     }
