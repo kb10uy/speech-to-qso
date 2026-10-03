@@ -19,6 +19,7 @@ import {
 } from '../speech';
 import { KeyValueStore, QsoStore, openDatabase } from '../storage/db';
 import { isSyncConfigured, syncAll, type SyncReport } from '../sync/client';
+import { sleep, withTimeout } from '../util/timeout';
 import { DEFAULT_MODEL_PATH, mergeSettings, type AppSettings } from './settings';
 
 export type PttState = 'idle' | 'opening' | 'listening' | 'finishing';
@@ -41,18 +42,6 @@ export interface Utterance {
 
 const FINAL_RESULT_TIMEOUT_MS = 10_000;
 const MAX_UTTERANCES = 30;
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => reject(new Error(message)), ms);
-		promise.then(
-			(v) => (clearTimeout(timer), resolve(v)),
-			(e) => (clearTimeout(timer), reject(e))
-		);
-	});
-}
 
 function vibrate(pattern: number | number[]) {
 	try {
@@ -194,6 +183,8 @@ export class QsoApp {
 		} catch (e) {
 			this.ptt = 'idle';
 			this.feedback = { kind: 'error', message: `Microphone: ${errorMessage(e)}` };
+			// A half-open or stuck context would fail the same way on every press; start over.
+			void this.#capture.close();
 			return;
 		}
 		if (this.#releaseRequested) {
