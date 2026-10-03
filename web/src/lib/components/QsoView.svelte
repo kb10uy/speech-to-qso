@@ -70,8 +70,8 @@
 		<button class="cell" class:empty={!draft.jcx} onclick={() => edit('jcx')}>
 			<span class="key">JCX</span><span class="mono">{draft.jcx ?? '—'}</span>
 		</button>
-		<button class="cell" class:qsl={draft.qslRequested} onclick={() => edit('card')}>
-			{draft.qslRequested ? 'QSL Requested' : 'No QSL'}
+		<button class="cell" class:qsl={draft.qsl !== 'none'} onclick={() => edit('card')}>
+			{{ none: 'No QSL', requested: 'QSL Requested', oneWay: 'QSL One Way' }[draft.qsl]}
 		</button>
 	</div>
 

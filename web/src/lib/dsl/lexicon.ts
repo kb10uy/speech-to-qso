@@ -150,15 +150,21 @@ export const COMMAND_KEYWORDS = {
 	frequency: [['frequency'], ['frequencies'], ['freq']],
 	jcx: [['jcx'], ['j', 'c', 'x'], ['jay', 'see', 'ex'], ['jcc'], ['jcg']],
 	qsl: [['card'], ['qsl'], ['q', 's', 'l']],
+	// The other station sends a card and expects none back.
+	qslOneWay: [
+		['one', 'way'],
+		['card', 'one', 'way'],
+		['qsl', 'one', 'way']
+	],
 	mode: [['mode']]
 } as const satisfies Record<string, readonly (readonly string[])[]>;
 
 export type CommandKind = keyof typeof COMMAND_KEYWORDS;
 
-/** Words following a QSL keyword that mean "requested". */
-export const QSL_YES_WORDS = ['requested', 'request', 'please', 'yes', 'wanted'] as const;
-/** Words around a QSL keyword that mean "not requested". */
-export const QSL_NO_WORDS = ['no', 'none', 'not', 'cancel', 'cancelled', 'canceled'] as const;
+/** Words following a QSL keyword that mean "requested" (`card` alone means the same). */
+export const QSL_YES_WORDS = ['requested'] as const;
+/** Words before (`no card`) or after a QSL keyword that mean "not requested". */
+export const QSL_NO_WORDS = ['no'] as const;
 
 /** Mode names that the ASR may emit as a single word. */
 export const MODE_WORDS: Readonly<Record<string, string>> = {

@@ -11,6 +11,7 @@ export {
 	isCallsign,
 	parseSpeech,
 	type ParseResult,
+	type QslStatus,
 	type SpokenUpdate
 } from './parser';
 export { tokenize } from './tokenize';

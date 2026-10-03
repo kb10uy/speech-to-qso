@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { openDB } from 'idb';
 import { describe, expect, it } from 'vitest';
 import type { QsoRecord } from '../qso';
 import { KeyValueStore, QsoStore, openDatabase } from './db';
@@ -17,7 +18,7 @@ function record(id: string, createdAt: string, syncState: QsoRecord['syncState']
 		mode: 'FM',
 		rstSent: '59',
 		rstReceived: '59',
-		qslRequested: false,
+		qsl: 'none',
 		timeOn: createdAt,
 		operatorCall: 'JJ1ABC',
 		location: '',
@@ -51,6 +52,39 @@ describe('QsoStore', () => {
 		expect((await qsos.get('a'))?.syncState).toBe('synced');
 		await qsos.delete('a');
 		expect(await qsos.list()).toEqual([]);
+	});
+});
+
+describe('openDatabase', () => {
+	it('upgrades the boolean QSL flag of version 1 to a status', async () => {
+		const name = `test-${++counter}`;
+		const legacy = (id: string, qslRequested: boolean) => {
+			const { qsl: _qsl, ...rest } = record(id, '2026-10-03T01:00:00Z', 'synced');
+			return { ...rest, qslRequested };
+		};
+		const v1 = await openDB(name, 1, {
+			upgrade(db) {
+				const qsos = db.createObjectStore('qsos', { keyPath: 'id' });
+				qsos.createIndex('createdAt', 'createdAt');
+				qsos.createIndex('syncState', 'syncState');
+				db.createObjectStore('kv');
+			}
+		});
+		await v1.put('qsos', legacy('a', true));
+		await v1.put('qsos', legacy('b', false));
+		await v1.put('kv', { rstSent: '59', rstReceived: '59', qslRequested: true }, 'draft');
+		v1.close();
+
+		const db = await openDatabase(name);
+		const qsos = new QsoStore(db);
+		expect((await qsos.get('a'))?.qsl).toBe('requested');
+		expect((await qsos.get('b'))?.qsl).toBe('none');
+		expect(await qsos.get('a')).not.toHaveProperty('qslRequested');
+		expect(await new KeyValueStore(db).get('draft')).toEqual({
+			rstSent: '59',
+			rstReceived: '59',
+			qsl: 'requested'
+		});
 	});
 });
 

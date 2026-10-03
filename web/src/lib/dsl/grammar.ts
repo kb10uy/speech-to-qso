@@ -46,6 +46,7 @@ type Slot =
 	| 'frequencyKeyword'
 	| 'jcxKeyword'
 	| 'qslKeyword'
+	| 'oneWayKeyword'
 	| 'modeKeyword'
 	| 'qslYes'
 	| 'qslNo'
@@ -82,6 +83,7 @@ const WORDS: Readonly<Record<Slot, readonly Sequence[]>> = {
 	frequencyKeyword: keyword('frequency'),
 	jcxKeyword: keyword('jcx'),
 	qslKeyword: keyword('qsl'),
+	oneWayKeyword: keyword('qslOneWay'),
 	modeKeyword: keyword('mode'),
 	qslYes: single(QSL_YES_WORDS),
 	qslNo: single(QSL_NO_WORDS),
@@ -96,6 +98,7 @@ const KEYWORDS: readonly Slot[] = [
 	'frequencyKeyword',
 	'jcxKeyword',
 	'qslKeyword',
+	'oneWayKeyword',
 	'modeKeyword'
 ];
 /** What may follow a complete field value: another command, or noise. */
@@ -132,6 +135,7 @@ const TRANSITIONS: Readonly<Record<Slot, readonly Next[]>> = {
 	qslYes: ['qslYes', 'qslNo', ...NEXT_COMMAND, 'end'],
 	// "no card": the negation comes before the keyword.
 	qslNo: ['qslYes', 'qslNo', ...NEXT_COMMAND, 'end'],
+	oneWayKeyword: [...NEXT_COMMAND, 'end'],
 	modeKeyword: ['mode', 'letter', 'number', 'unknown'],
 	mode: [...NEXT_COMMAND, 'end'],
 	unknown: [...SLOTS, 'end']

@@ -47,7 +47,7 @@ describe('finalizeDraft', () => {
 			rstSent: '59',
 			rstReceived: '59',
 			jcx: '100101',
-			qslRequested: false,
+			qsl: 'none',
 			timeOn: now.toISOString(),
 			operatorCall: 'JJ1ABC',
 			location: '東京都港区',
@@ -79,7 +79,7 @@ describe('toApiPayload', () => {
 			callsign: 'JL1HIS',
 			rstReceived: '57',
 			jcx: '100101',
-			qslRequested: true
+			qsl: 'requested' as const
 		};
 		const result = finalizeDraft(draft, session, 'uuid-1', now);
 		if (!result.ok) throw new Error('unexpected');
@@ -91,7 +91,7 @@ describe('toApiPayload', () => {
 			rst_sent: '59',
 			rst_rcvd: '57',
 			jcx: '100101',
-			qsl_requested: true,
+			qsl: 'requested',
 			time_on: '2026-10-03T04:05:06.000Z',
 			operator: 'JJ1ABC',
 			location: '東京都港区',

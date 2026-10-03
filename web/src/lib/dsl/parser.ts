@@ -24,8 +24,14 @@ export type SpokenUpdate =
 	| { kind: 'rstReceived'; value: string }
 	| { kind: 'frequency'; value: FrequencyPattern }
 	| { kind: 'jcx'; value: string }
-	| { kind: 'qslRequested'; value: boolean }
+	| { kind: 'qsl'; value: QslStatus }
 	| { kind: 'mode'; value: string };
+
+/**
+ * QSL card arrangement for a QSO. `requested`: the other station asked for our card.
+ * `oneWay`: the other station sends a card and expects none back.
+ */
+export type QslStatus = 'none' | 'requested' | 'oneWay';
 
 export type ParseResult =
 	| { ok: true; tokens: string[]; updates: SpokenUpdate[] }
@@ -171,15 +177,20 @@ function parseJcx(tokens: readonly string[]): string {
 	return jcx;
 }
 
-function parseQsl(tokens: readonly string[], negated: boolean): boolean {
+function parseQsl(tokens: readonly string[], negated: boolean): QslStatus {
 	if (negated) {
-		if (tokens.every((t) => QSL_YES.has(t) || QSL_NO.has(t))) return false;
+		if (tokens.every((t) => QSL_YES.has(t) || QSL_NO.has(t))) return 'none';
 		throw new DslError(`unexpected "${tokens[0]}" after "no card"`);
 	}
-	if (tokens.length === 0) return true;
-	if (QSL_NO.has(tokens[0])) return false;
-	if (QSL_YES.has(tokens[0]) && tokens.length === 1) return true;
+	if (tokens.length === 0) return 'requested';
+	if (QSL_NO.has(tokens[0])) return 'none';
+	if (QSL_YES.has(tokens[0]) && tokens.length === 1) return 'requested';
 	throw new DslError(`unexpected "${tokens.join(' ')}" after "card"`);
+}
+
+function parseQslOneWay(tokens: readonly string[]): QslStatus {
+	if (tokens.length > 0) throw new DslError(`unexpected "${tokens.join(' ')}" after "one way"`);
+	return 'oneWay';
 }
 
 function parseMode(tokens: readonly string[]): string {
@@ -209,7 +220,9 @@ function parseSegment(
 		case 'jcx':
 			return { kind: 'jcx', value: parseJcx(tokens) };
 		case 'qsl':
-			return { kind: 'qslRequested', value: parseQsl(tokens, negated) };
+			return { kind: 'qsl', value: parseQsl(tokens, negated) };
+		case 'qslOneWay':
+			return { kind: 'qsl', value: parseQslOneWay(tokens) };
 		case 'mode':
 			return { kind: 'mode', value: parseMode(tokens) };
 	}

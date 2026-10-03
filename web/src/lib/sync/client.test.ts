@@ -10,7 +10,7 @@ function record(id: string): QsoRecord {
 		mode: 'FM',
 		rstSent: '59',
 		rstReceived: '57',
-		qslRequested: true,
+		qsl: 'requested',
 		timeOn: '2026-10-03T04:00:00.000Z',
 		operatorCall: 'JJ1ABC',
 		location: 'Minato',

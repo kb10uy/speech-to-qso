@@ -1,6 +1,9 @@
 //! ADIF (ADI) rendering. Keep in sync with `web/src/lib/qso/adif.ts`.
 
-use crate::{band::band_for_frequency, qso::QsoPayload};
+use crate::{
+    band::band_for_frequency,
+    qso::{Qsl, QsoPayload},
+};
 
 fn field(out: &mut String, name: &str, value: Option<&str>) {
     if let Some(value) = value.filter(|v| !v.is_empty()) {
@@ -31,7 +34,14 @@ pub fn record(qso: &QsoPayload) -> String {
     field(&mut out, "MODE", Some(&qso.mode));
     field(&mut out, "RST_SENT", Some(&qso.rst_sent));
     field(&mut out, "RST_RCVD", Some(&qso.rst_rcvd));
-    field(&mut out, "QSL_SENT", qso.qsl_requested.then_some("R"));
+    // Requested: we owe a card. One way: we send none and one is on its way to us.
+    let (qsl_sent, qsl_rcvd) = match qso.qsl {
+        Qsl::None => (None, None),
+        Qsl::Requested => (Some("R"), None),
+        Qsl::OneWay => (Some("N"), Some("R")),
+    };
+    field(&mut out, "QSL_SENT", qsl_sent);
+    field(&mut out, "QSL_RCVD", qsl_rcvd);
     field(&mut out, "COMMENT", comment.as_deref());
     field(&mut out, "APP_SPEECHTOQSO_JCX", qso.jcx.as_deref());
     field(&mut out, "OPERATOR", Some(&qso.operator));
@@ -72,14 +82,22 @@ mod tests {
     }
 
     #[test]
+    fn renders_a_one_way_card_as_nothing_to_send_and_a_card_to_receive() {
+        let mut qso = sample();
+        qso.qsl = Qsl::OneWay;
+        // Identical to the expectation in web/src/lib/qso/adif.test.ts.
+        assert!(record(&qso).contains("<RST_RCVD:2>57 <QSL_SENT:1>N <QSL_RCVD:1>R <COMMENT:10>JCX 100101 "));
+    }
+
+    #[test]
     fn omits_empty_fields_and_counts_characters() {
         let mut qso = sample();
         qso.jcx = None;
-        qso.qsl_requested = false;
+        qso.qsl = Qsl::None;
         qso.pota_ref = None;
         qso.location = "東京都港区".into();
         let adif = record(&qso);
-        assert!(!adif.contains("QSL_SENT"));
+        assert!(!adif.contains("QSL_"));
         assert!(!adif.contains("JCX"));
         assert!(!adif.contains("MY_SIG"));
         assert!(adif.contains("<MY_CITY:5>東京都港区 "));

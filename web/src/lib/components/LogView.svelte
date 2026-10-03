@@ -62,7 +62,7 @@
 				{time(record)}Z · {formatMhz(record.frequencyHz)}
 				{record.mode} · {record.rstSent}/{record.rstReceived}
 				{#if record.jcx}· JCX {record.jcx}{/if}
-				{#if record.qslRequested}· QSL{/if}
+				{#if record.qsl === 'requested'}· QSL{:else if record.qsl === 'oneWay'}· QSL one way{/if}
 			</div>
 			{#if record.syncState === 'failed' && record.syncError}
 				<div class="err">{record.syncError}</div>

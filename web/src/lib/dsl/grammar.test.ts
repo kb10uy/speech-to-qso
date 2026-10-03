@@ -28,10 +28,11 @@ describe('grammarPhrases', () => {
 			'j c x one zero zero one zero one',
 			'jcx one one zero zero one golf',
 			'card',
-			'card please',
 			'no card',
 			'qsl requested',
-			'card not',
+			'one way',
+			'card one way',
+			'juliet lima one hotel india sierra one way',
 			'mode fm',
 			'mode foxtrot mike',
 			'mode foxtrot tango eight',
@@ -56,7 +57,7 @@ describe('grammarPhrases', () => {
 		expect(bigrams).not.toContain('frequency alpha');
 		expect(bigrams).not.toContain('megahertz five');
 		expect(starts).not.toContain('point');
-		expect(starts).not.toContain('please');
+		expect(starts).not.toContain('requested');
 		expect(ends).not.toContain('stroke');
 		expect(ends).not.toContain('received');
 		expect(ends).not.toContain('double');

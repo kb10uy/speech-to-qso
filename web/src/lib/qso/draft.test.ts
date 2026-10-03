@@ -17,7 +17,7 @@ describe('DraftQso', () => {
 		expect(draft).toEqual({
 			rstSent: '59',
 			rstReceived: '59',
-			qslRequested: false,
+			qsl: 'none',
 			frequencyHz: undefined,
 			mode: undefined
 		});
@@ -84,7 +84,7 @@ describe('DraftQso', () => {
 		expect(draft).toMatchObject({
 			callsign: 'JL1HIS',
 			rstSent: '55',
-			qslRequested: true,
+			qsl: 'requested',
 			mode: 'FM'
 		});
 		expect(descriptions).toEqual([

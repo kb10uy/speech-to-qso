@@ -2,6 +2,7 @@ import {
 	formatFrequencyPattern,
 	resolveFrequency,
 	type FrequencyContext,
+	type QslStatus,
 	type SpokenUpdate
 } from '../dsl';
 import { formatMhz } from './format';
@@ -14,7 +15,7 @@ export interface DraftQso {
 	frequencyHz?: number;
 	mode?: string;
 	jcx?: string;
-	qslRequested: boolean;
+	qsl: QslStatus;
 	/** When the first field of this QSO was entered (ISO 8601, UTC). */
 	startedAt?: string;
 }
@@ -24,7 +25,7 @@ export function newDraft(carry: Pick<DraftQso, 'frequencyHz' | 'mode'> = {}): Dr
 	return {
 		rstSent: '59',
 		rstReceived: '59',
-		qslRequested: false,
+		qsl: 'none',
 		frequencyHz: carry.frequencyHz,
 		mode: carry.mode
 	};
@@ -48,8 +49,10 @@ export function describeUpdate(update: SpokenUpdate, after: DraftQso): string {
 			return `Frequency ${formatFrequencyPattern(update.value)} → ${formatMhz(after.frequencyHz!)} MHz`;
 		case 'jcx':
 			return `JCX → ${update.value}`;
-		case 'qslRequested':
-			return update.value ? 'QSL requested' : 'QSL not requested';
+		case 'qsl':
+			return { none: 'QSL not requested', requested: 'QSL requested', oneWay: 'QSL one way' }[
+				update.value
+			];
 		case 'mode':
 			return `Mode → ${update.value}`;
 	}
@@ -82,8 +85,8 @@ export function applyUpdate(
 		case 'jcx':
 			next.jcx = update.value;
 			break;
-		case 'qslRequested':
-			next.qslRequested = update.value;
+		case 'qsl':
+			next.qsl = update.value;
 			break;
 		case 'mode':
 			next.mode = update.value;

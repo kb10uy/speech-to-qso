@@ -44,6 +44,7 @@ On a desktop, the Space key works as PTT.
 | `frequency four thirty two point nine four`            | `432.940` MHz                                       |
 | `jcx one zero zero one zero one` (also `jcc` / `jcg`)  | JCX = `"100101"` (a string; leading zeros are kept) |
 | `card requested` / `no card`                           | QSL requested on / off                              |
+| `one way`                                              | QSL one way (they send a card, we send none)        |
 | `mode foxtrot mike` / `mode fm`                        | Mode = `FM`                                         |
 
 - **There are no correction commands.** Speaking a field again overwrites that whole field.
@@ -107,6 +108,7 @@ cargo run --release
 | Frequency          | `FREQ` (MHz), `BAND`                              |
 | RST sent / rcvd    | `RST_SENT` / `RST_RCVD`                           |
 | QSL requested      | `QSL_SENT:R` (the other station requested a card) |
+| QSL one way        | `QSL_SENT:N`, `QSL_RCVD:R` (their card is coming) |
 | JCX                | `COMMENT` (`JCX 100101`), `APP_SPEECHTOQSO_JCX`   |
 | Operator callsign  | `OPERATOR`, `STATION_CALLSIGN`                    |
 | Operating location | `MY_CITY`                                         |
