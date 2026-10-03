@@ -1,7 +1,7 @@
 /** Information about the whole operating session (shared by every QSO in it). */
 export interface OperatingSession {
 	operatorCall: string;
-	/** Free-form operating location (移動地). */
+	/** Free-form operating location (the portable operation site). */
 	location: string;
 	/** Partially spoken frequencies snap to the candidate nearest to this. */
 	frequencyAnchorHz: number;
