@@ -27,13 +27,19 @@ export class VoskRecognizer implements SpeechRecognizer {
 	#model: Model | null = null;
 	#recognizer: KaldiRecognizer | null = null;
 
-	// Per-utterance state. Each pushed chunk and the final request yield exactly one response
-	// from the worker, so counting outstanding responses tells us when the final one arrives.
-	#outstanding = 0;
+	// The worker answers every request (audio chunk or final-result request) with exactly one
+	// message, in order. Tagging each request with the utterance it belongs to lets late
+	// responses of a cancelled utterance be dropped instead of leaking into the next one.
+	#generation = 0;
+	#inFlight: { generation: number; final: boolean }[] = [];
 	#segments: string[] = [];
 	#words: Word[] = [];
-	#discard = false;
-	#finish: { resolve: (r: SpeechResult) => void; reject: (e: Error) => void } | null = null;
+	#error: string | null = null;
+	#finish: {
+		generation: number;
+		resolve: (r: SpeechResult) => void;
+		reject: (e: Error) => void;
+	} | null = null;
 
 	constructor(readonly options: VoskOptions) {}
 
@@ -52,10 +58,12 @@ export class VoskRecognizer implements SpeechRecognizer {
 	}
 
 	#handle(message: RecognizerMessage) {
-		this.#outstanding = Math.max(0, this.#outstanding - 1);
+		const tag = this.#inFlight.shift();
+		if (tag === undefined || tag.generation !== this.#generation) return;
+
 		switch (message.event) {
 			case 'partialresult':
-				if (!this.#discard && message.result.partial !== '') {
+				if (message.result.partial !== '') {
 					this.onPartial?.([...this.#segments, message.result.partial].join(' '));
 				}
 				break;
@@ -68,30 +76,32 @@ export class VoskRecognizer implements SpeechRecognizer {
 				}
 				break;
 			case 'error':
-				if (this.#finish !== null) {
-					this.#finish.reject(new Error(message.error));
-					this.#finish = null;
-				}
-				return;
+				this.#error ??= message.error;
+				break;
 		}
-		if (this.#finish !== null && this.#outstanding === 0) {
-			const result: SpeechResult = { text: this.#segments.join(' '), words: this.#words };
-			const finish = this.#finish;
+
+		const finish = this.#finish;
+		if (tag.final && finish !== null && finish.generation === tag.generation) {
 			this.#finish = null;
-			if (this.#discard) finish.reject(new Error('cancelled'));
-			else finish.resolve(result);
+			if (this.#error !== null) finish.reject(new Error(this.#error));
+			else finish.resolve({ text: this.#segments.join(' '), words: this.#words });
 		}
 	}
 
+	#request(final: boolean) {
+		this.#inFlight.push({ generation: this.#generation, final });
+	}
+
 	beginUtterance(): void {
+		this.#generation += 1;
 		this.#segments = [];
 		this.#words = [];
-		this.#discard = false;
+		this.#error = null;
 	}
 
 	pushAudio(samples: Float32Array): void {
 		if (this.#recognizer === null) return;
-		this.#outstanding += 1;
+		this.#request(false);
 		this.#recognizer.acceptWaveformFloat(samples, ASR_SAMPLE_RATE);
 	}
 
@@ -99,16 +109,20 @@ export class VoskRecognizer implements SpeechRecognizer {
 		const recognizer = this.#recognizer;
 		if (recognizer === null) return Promise.reject(new Error('Vosk is not initialized'));
 		return new Promise((resolve, reject) => {
-			this.#finish = { resolve, reject };
-			this.#outstanding += 1;
+			this.#finish = { generation: this.#generation, resolve, reject };
+			this.#request(true);
 			recognizer.retrieveFinalResult();
 		});
 	}
 
 	cancelUtterance(): void {
-		this.#discard = true;
-		// Flush the recogniser so the next utterance starts clean; the result is dropped.
-		this.endUtterance().catch(() => {});
+		if (this.#recognizer === null) return;
+		// Flush the recogniser so the next utterance starts clean, and drop whatever it returns.
+		this.#request(true);
+		this.#recognizer.retrieveFinalResult();
+		this.#finish?.reject(new Error('cancelled'));
+		this.#finish = null;
+		this.#generation += 1;
 	}
 
 	dispose(): void {
