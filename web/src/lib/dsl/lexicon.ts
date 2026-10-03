@@ -6,6 +6,17 @@
  * single source of truth.
  */
 
+/**
+ * Looks a token up in a word table. Only own properties count, so inherited names such as
+ * `constructor` or `valueOf` are never mistaken for words.
+ */
+export function lookup<T>(
+	table: Readonly<Record<string, T>>,
+	token: string | undefined
+): T | undefined {
+	return token !== undefined && Object.hasOwn(table, token) ? table[token] : undefined;
+}
+
 /** ICAO/ITU phonetic alphabet, including common ASR spelling variants. */
 export const PHONETIC_LETTERS: Readonly<Record<string, string>> = {
 	alpha: 'A',

@@ -1,4 +1,4 @@
-import { COMMAND_KEYWORDS, FILLER_WORDS, MODE_WORDS, PHONETIC_LETTERS } from './lexicon';
+import { COMMAND_KEYWORDS, FILLER_WORDS, MODE_WORDS, PHONETIC_LETTERS, lookup } from './lexicon';
 
 const KEYWORD_TOKENS = new Set<string>(
 	Object.values(COMMAND_KEYWORDS).flatMap((seqs) => seqs.flatMap((seq) => [...seq]))
@@ -27,14 +27,13 @@ export function tokenize(text: string): string[] {
 	const tokens: string[] = [];
 	for (const raw of normalized.split(/\s+/)) {
 		if (raw === '') continue;
-		if (raw === '[unk]') continue;
 		const word = raw.replace(/^(?:[.'-](?!\d))+|[.'-]+$/g, '');
 		if (word === '') {
 			if (raw.includes('.')) tokens.push('point');
 			continue;
 		}
 		if (FILLERS.has(word)) continue;
-		if (KEYWORD_TOKENS.has(word) || word in MODE_WORDS) {
+		if (KEYWORD_TOKENS.has(word) || lookup(MODE_WORDS, word) !== undefined) {
 			tokens.push(word);
 		} else if (/^[a-z0-9./]+$/.test(word) && /\d/.test(word)) {
 			for (const ch of word) {

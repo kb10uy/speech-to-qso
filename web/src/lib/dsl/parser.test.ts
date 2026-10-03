@@ -184,6 +184,12 @@ describe('mode', () => {
 	it('rejects unknown modes', () => {
 		expect(error('mode alpha bravo')).toMatch(/unknown mode "AB"/);
 	});
+
+	it('does not treat inherited object properties as words', () => {
+		expect(error('mode constructor')).toMatch(/unexpected "constructor"/);
+		expect(error('received valueOf')).toMatch(/unexpected "valueof"/);
+		expect(error('toString')).toMatch(/unexpected "tostring"/);
+	});
 });
 
 describe('utterances', () => {

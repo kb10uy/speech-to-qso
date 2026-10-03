@@ -47,6 +47,7 @@ describe('readDigits', () => {
 	it('stops at the first non-number token', () => {
 		expect(readDigits(['five', 'seven', 'point', 'two'], 0)).toEqual({ digits: '57', end: 2 });
 		expect(readDigits(['point', 'two'], 0)).toEqual({ digits: '', end: 0 });
+		expect(readDigits(['constructor'], 0)).toEqual({ digits: '', end: 0 });
 	});
 
 	it('rejects misplaced hundred', () => {
