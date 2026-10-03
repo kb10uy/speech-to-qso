@@ -87,7 +87,7 @@
 	</p>
 	<dl>
 		<dt>juliett lima one hotel india sierra</dt>
-		<dd>Callsign JL1HIS (“stroke one” → /1, “portable” → /P)</dd>
+		<dd>Callsign JL1HIS (“stroke one” or “portable one” → /1, “portable” → /P)</dd>
 		<dt>sent five nine · received five seven</dt>
 		<dd>RST sent / received (defaults 59)</dd>
 		<dt>frequency point nine four</dt>

@@ -108,7 +108,9 @@ function readSpelled(tokens: readonly string[], allowStroke: boolean): string {
 			out += '/';
 			i += 1;
 		} else if (suffix !== undefined) {
-			out += suffix;
+			// "portable one" is the area number (/1), not /P1; the letter is only implied on its own.
+			const next = tokens[i + 1];
+			out += next !== undefined && isNumberToken(next) ? '/' : suffix;
 			i += 1;
 		} else {
 			throw new DslError(`unexpected "${token}"`);

@@ -33,18 +33,18 @@ On a desktop, the Space key works as PTT.
 
 ### Voice commands (DSL)
 
-| Utterance                                             | Result                                              |
-| ----------------------------------------------------- | --------------------------------------------------- |
-| `juliett lima one hotel india sierra`                 | Callsign = `JL1HIS`                                 |
-| `... stroke one` / `... portable`                     | `JL1HIS/1` / `JL1HIS/P`                             |
-| `sent five nine` (also `send`)                        | RST sent = `59`                                     |
-| `received five seven` (also `receive`)                | RST received = `57`                                 |
-| `frequency point nine four`                           | Frequency `*.940` MHz → nearest to the anchor       |
-| `frequency two point seven four`                      | `*2.740` MHz                                        |
-| `frequency four thirty two point nine four`           | `432.940` MHz                                       |
-| `jcx one zero zero one zero one` (also `jcc` / `jcg`) | JCX = `"100101"` (a string; leading zeros are kept) |
-| `card requested` / `no card`                          | QSL requested on / off                              |
-| `mode foxtrot mike` / `mode fm`                       | Mode = `FM`                                         |
+| Utterance                                              | Result                                              |
+| ------------------------------------------------------ | --------------------------------------------------- |
+| `juliett lima one hotel india sierra`                  | Callsign = `JL1HIS`                                 |
+| `... stroke one` / `... portable one` / `... portable` | `JL1HIS/1` / `JL1HIS/1` / `JL1HIS/P`                |
+| `sent five nine` (also `send`)                         | RST sent = `59`                                     |
+| `received five seven` (also `receive`)                 | RST received = `57`                                 |
+| `frequency point nine four`                            | Frequency `*.940` MHz → nearest to the anchor       |
+| `frequency two point seven four`                       | `*2.740` MHz                                        |
+| `frequency four thirty two point nine four`            | `432.940` MHz                                       |
+| `jcx one zero zero one zero one` (also `jcc` / `jcg`)  | JCX = `"100101"` (a string; leading zeros are kept) |
+| `card requested` / `no card`                           | QSL requested on / off                              |
+| `mode foxtrot mike` / `mode fm`                        | Mode = `FM`                                         |
 
 - **There are no correction commands.** Speaking a field again overwrites that whole field.
 - Several commands can be chained in one PTT press (`juliett lima one hotel india sierra received five seven`).

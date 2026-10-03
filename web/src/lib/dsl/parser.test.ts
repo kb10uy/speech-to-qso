@@ -58,6 +58,21 @@ describe('callsign', () => {
 		});
 	});
 
+	it('reads a number after portable or mobile as the area number', () => {
+		expect(single('juliett lima one hotel india sierra portable one')).toEqual({
+			kind: 'callsign',
+			value: 'JL1HIS/1'
+		});
+		expect(single('juliett lima one hotel india sierra mobile seven')).toEqual({
+			kind: 'callsign',
+			value: 'JL1HIS/7'
+		});
+		expect(single('juliett lima one hotel india sierra portable papa')).toEqual({
+			kind: 'callsign',
+			value: 'JL1HIS/PP'
+		});
+	});
+
 	it('accepts typed callsigns', () => {
 		expect(single('JL1HIS')).toEqual({ kind: 'callsign', value: 'JL1HIS' });
 		expect(single('ja1jcx')).toEqual({ kind: 'callsign', value: 'JA1JCX' });
