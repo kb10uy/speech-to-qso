@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Guidance for coding agents working on this repository. See `README.md` for the product overview (in Japanese).
+Guidance for coding agents working on this repository. See `README.md` for the product overview.
 
 ## What this is
 
@@ -12,7 +12,7 @@ parser interprets a QSO-specific DSL. There is no NLP/LLM in the pipeline, and t
 
 ## Commands
 
-Run these before committing; CI (`.github/workflows/ci.yml`, currently staged in `ci/github-workflows/` until a human moves it) runs the same.
+Run these before committing; CI (`.github/workflows/ci.yml`) runs the same.
 
 ```sh
 cd web
@@ -62,5 +62,6 @@ cargo test
 ## Style
 
 - Match the surrounding code; comments explain _why_, not _what_.
-- UI text is English (the DSL is English); README is Japanese.
+- Code comments, docs and UI text are in English (the DSL is English, too). Japanese is fine in test data,
+  e.g. to exercise multi-byte ADIF field lengths.
 - Commit in small, focused commits with descriptive messages.
