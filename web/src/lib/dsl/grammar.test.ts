@@ -1,14 +1,35 @@
 import { describe, expect, it } from 'vitest';
-import { grammarPhrases } from './grammar';
-import { FREE_TEXT_ONLY_WORDS } from './lexicon';
+import { grammarPhrases, grammarSequences } from './grammar';
+import { FREE_TEXT_ONLY_WORDS, type SpeechLanguage } from './lexicon';
 import { parseSpeech } from './parser';
 
-const phrases = grammarPhrases();
-const words = phrases.map((p) => p.split(' '));
-const starts = new Set(words.map((w) => w[0]));
-const ends = new Set(words.map((w) => w[w.length - 1]));
-const bigrams = new Set<string>();
-for (const w of words) for (let i = 0; i + 1 < w.length; i++) bigrams.add(`${w[i]} ${w[i + 1]}`);
+function analyse(language: SpeechLanguage) {
+	const phrases = grammarPhrases(language);
+	const words = phrases.map((p) => p.split(' '));
+	const bigrams = new Set<string>();
+	for (const w of words) for (let i = 0; i + 1 < w.length; i++) bigrams.add(`${w[i]} ${w[i + 1]}`);
+	return {
+		phrases,
+		words,
+		starts: new Set(words.map((w) => w[0])),
+		ends: new Set(words.map((w) => w[w.length - 1])),
+		bigrams
+	};
+}
+
+/** Checks that the grammar lets a recogniser emit `sample`, and that the parser accepts it. */
+function expectCovered(grammar: ReturnType<typeof analyse>, sample: string) {
+	expect(parseSpeech(sample).ok, sample).toBe(true);
+	const w = sample.split(' ');
+	expect(grammar.starts, sample).toContain(w[0]);
+	expect(grammar.ends, sample).toContain(w[w.length - 1]);
+	for (let i = 0; i + 1 < w.length; i++) {
+		expect(grammar.bigrams, sample).toContain(`${w[i]} ${w[i + 1]}`);
+	}
+}
+
+const english = analyse('en');
+const { phrases, words, starts, ends, bigrams } = english;
 
 describe('grammarPhrases', () => {
 	it('covers every transition of real utterances', () => {
@@ -38,15 +59,7 @@ describe('grammarPhrases', () => {
 			'mode foxtrot tango eight',
 			'juliet lima one hotel india sierra received five nine sent five nine card requested mode fm frequency four three two point nine four'
 		];
-		for (const sample of samples) {
-			expect(parseSpeech(sample).ok, sample).toBe(true);
-			const w = sample.split(' ');
-			expect(starts, sample).toContain(w[0]);
-			expect(ends, sample).toContain(w[w.length - 1]);
-			for (let i = 0; i + 1 < w.length; i++) {
-				expect(bigrams, sample).toContain(`${w[i]} ${w[i + 1]}`);
-			}
-		}
+		for (const sample of samples) expectCovered(english, sample);
 	});
 
 	it('does not allow transitions the DSL has no use for', () => {
@@ -82,5 +95,56 @@ describe('grammarPhrases', () => {
 	it('stays small enough to compile when the engine loads', () => {
 		expect(phrases.length).toBeLessThan(10_000);
 		expect(new Set(phrases).size).toBe(phrases.length);
+	});
+});
+
+describe('grammarPhrases for a Japanese model', () => {
+	const japanese = analyse('ja');
+
+	it('covers every transition of real utterances in katakana', () => {
+		const samples = [
+			'ジュリエット リマ ワン ホテル インディア シエラ',
+			'コールサイン ジュリエット アルファ ワン ズールー リマ オスカー ポータブル ワン',
+			'コール サイン セブン キロ フォー エックスレイ ヤンキー ズールー ストローク ワン',
+			'レシーブド ファイブ ナイン セント ファイブ セブン',
+			'セント ファイブ ダブル ナイン',
+			'フリクエンシー フォー サーティー ツー ポイント ナイン フォー メガヘルツ',
+			'フリクエンシー ポイント ゼロ ファイブ',
+			'ジェイ シー エックス ワン ゼロ ゼロ ワン ゼロ ワン',
+			'ジェイ シー ジー ワン ワン ゼロ ゼロ ワン ゴルフ',
+			'カード リクエステッド',
+			'カード ワン ウェイ',
+			'カード ワンウェイ',
+			'カード ネガティブ',
+			'モード エフエム',
+			'モード エフ エム',
+			'モード フォックス トロット マイク',
+			'ジュリエット リマ ワン ホテル インディア シエラ レシーブド ファイブ ナイン カード ネガティブ モード エフエム'
+		];
+		for (const sample of samples) expectCovered(japanese, sample);
+	});
+
+	it('is spelled in katakana only', () => {
+		for (const word of new Set(japanese.words.flat())) {
+			if (word !== '[unk]') expect(word).toMatch(/^[ァ-ヺー]+$/);
+		}
+	});
+
+	it('keeps a reading for every word class', () => {
+		for (const [slot, sequences] of Object.entries(grammarSequences('ja'))) {
+			expect(sequences.length, slot).toBeGreaterThan(0);
+		}
+	});
+
+	it('does not allow transitions the DSL has no use for', () => {
+		expect(japanese.bigrams).not.toContain('レシーブド アルファ');
+		expect(japanese.bigrams).not.toContain('ポイント アルファ');
+		expect(japanese.bigrams).not.toContain('カード ファイブ');
+		expect(japanese.starts).not.toContain('ネガティブ');
+	});
+
+	it('stays small enough to compile when the engine loads', () => {
+		expect(japanese.phrases.length).toBeLessThan(20_000);
+		expect(new Set(japanese.phrases).size).toBe(japanese.phrases.length);
 	});
 });

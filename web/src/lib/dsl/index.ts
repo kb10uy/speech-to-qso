@@ -6,7 +6,7 @@ export {
 	type FrequencyPattern
 } from './frequency';
 export { grammarPhrases } from './grammar';
-export { type QslStatus } from './lexicon';
+export { type QslStatus, type SpeechLanguage } from './lexicon';
 export {
 	KNOWN_MODES,
 	isCallsign,

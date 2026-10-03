@@ -3,6 +3,7 @@ import {
 	COMMAND_KEYWORDS,
 	DIGIT_WORDS,
 	FREE_TEXT_ONLY_WORDS,
+	JAPANESE_READINGS,
 	MODE_WORDS,
 	PHONETIC_LETTERS,
 	QSL_VALUES,
@@ -54,6 +55,31 @@ describe('FREE_TEXT_ONLY_WORDS', () => {
 				seqs.some((seq) => seq.every((w) => grammar.has(w))),
 				kind
 			).toBe(true);
+		}
+	});
+});
+
+describe('JAPANESE_READINGS', () => {
+	it('only reads words of the English grammar', () => {
+		const grammar = new Set(grammarPhrases('en').flatMap((p) => p.split(' ')));
+		for (const english of Object.keys(JAPANESE_READINGS)) {
+			for (const word of english.split(' ')) expect(grammar, english).toContain(word);
+		}
+	});
+
+	it('gives every reading to exactly one English sequence', () => {
+		const owners = new Map<string, string>();
+		for (const [english, readings] of Object.entries(JAPANESE_READINGS)) {
+			for (const reading of readings) {
+				expect(owners.get(reading), reading).toBeUndefined();
+				owners.set(reading, english);
+			}
+		}
+	});
+
+	it('only contains katakana words separated by single spaces', () => {
+		for (const readings of Object.values(JAPANESE_READINGS)) {
+			for (const reading of readings) expect(reading).toMatch(/^[ァ-ヺー]+(?: [ァ-ヺー]+)*$/);
 		}
 	});
 });

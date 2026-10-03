@@ -38,6 +38,8 @@ cargo test
 - **The lexicon is the single source of truth.** New words go into `web/src/lib/dsl/lexicon.ts`; the Vosk grammar is
   generated from it (`grammarPhrases()` in `web/src/lib/dsl/grammar.ts`), so the parser and the ASR never disagree.
   Spellings that only free-text input produces belong in `FREE_TEXT_ONLY_WORDS` so they stay out of the grammar.
+  A new grammar word also needs its katakana readings in `JAPANESE_READINGS` (the Japanese model's grammar and the
+  tokenizer are built from them); the DSL the parser sees stays English.
 - **No correction commands.** Speaking a field again overwrites the whole field. Utterances are all-or-nothing.
 - **Frequency anchor ≠ current frequency.** Partial frequencies resolve against `OperatingSession.frequencyAnchorHz`
   only (`resolveFrequency`); never "keep the integer part of the current frequency".

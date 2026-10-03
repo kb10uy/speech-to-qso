@@ -36,4 +36,27 @@ describe('tokenize', () => {
 		expect(tokenize('JCX 100101')).toEqual(['jcx', '1', '0', '0', '1', '0', '1']);
 		expect(tokenize('mode FT8')).toEqual(['mode', 'ft8']);
 	});
+
+	it('maps katakana readings to the English words', () => {
+		expect(tokenize('レシーブド ファイブ ナイン')).toEqual(['received', 'five', 'nine']);
+		expect(tokenize('ゼロ ゼロ ワン')).toEqual(['zero', 'zero', 'one']);
+	});
+
+	it('maps a loanword the model split into several words', () => {
+		expect(tokenize('フォックス トロット')).toEqual(['foxtrot']);
+		expect(tokenize('フォックス・トロット')).toEqual(['foxtrot']);
+		expect(tokenize('エックス レイ')).toEqual(['xray']);
+		expect(tokenize('ジェイ シー シー')).toEqual(['jcc']);
+		expect(tokenize('ジェイ シー エックス')).toEqual(['j', 'c', 'x']);
+		expect(tokenize('ワンウェイ')).toEqual(['one', 'way']);
+	});
+
+	it('folds half-width katakana and full-width letters', () => {
+		expect(tokenize('ｾﾞﾛ　ﾜﾝ')).toEqual(['zero', 'one']);
+		expect(tokenize('ＪＬ１ＨＩＳ')).toEqual(tokenize('jl1his'));
+	});
+
+	it('keeps katakana it does not know, so the parser rejects it', () => {
+		expect(tokenize('ゼロ テレビ')).toEqual(['zero', 'テレビ']);
+	});
 });

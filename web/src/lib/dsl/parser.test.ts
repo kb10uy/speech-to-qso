@@ -246,3 +246,22 @@ describe('utterances', () => {
 		expect(error('[unk]')).toMatch(/nothing recognized/);
 	});
 });
+
+describe('katakana', () => {
+	it('parses the DSL spoken with Japanese loanword pronunciation', () => {
+		expect(
+			updates(
+				'ジュリエット リマ ワン ホテル インディア シエラ レシーブド ファイブ ナイン カード ワン ウェイ'
+			)
+		).toEqual([
+			{ kind: 'callsign', value: 'JL1HIS' },
+			{ kind: 'rstReceived', value: '59' },
+			{ kind: 'qsl', value: 'oneWay' }
+		]);
+		expect(single('ジェイ シー シー ワン ゼロ ゼロ ワン')).toEqual({ kind: 'jcx', value: '1001' });
+	});
+
+	it('rejects katakana outside the DSL', () => {
+		expect(error('レシーブド ファイブ テレビ')).toMatch(/テレビ/);
+	});
+});

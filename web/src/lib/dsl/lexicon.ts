@@ -184,3 +184,129 @@ export const MODE_WORDS: Readonly<Record<string, string>> = {
 	ft8: 'FT8',
 	ft4: 'FT4'
 };
+
+/** Language of the words a recogniser emits. The DSL itself is always English. */
+export type SpeechLanguage = 'en' | 'ja';
+
+/**
+ * Katakana readings of the DSL, for a Japanese acoustic model.
+ *
+ * Japanese speakers tend to say English words with Japanese sounds (`ゼロ` rather than
+ * "zee-roh"), which an English model mishears, while to a Japanese model they are ordinary
+ * loanwords. With a Japanese model the grammar is made of these readings, and the tokenizer
+ * maps them back to the English tokens, so the parser never sees Japanese.
+ *
+ * Keys are English token sequences the parser accepts; a reading may be several words, since a
+ * model may split a loanword (`フォックス トロット`). Every reading belongs to exactly one key.
+ * Readings that are missing from a model's vocabulary are ignored by Vosk; CI reports them.
+ */
+export const JAPANESE_READINGS: Readonly<Record<string, readonly string[]>> = {
+	alpha: ['アルファ'],
+	bravo: ['ブラボー', 'ブラボ'],
+	charlie: ['チャーリー'],
+	delta: ['デルタ'],
+	echo: ['エコー'],
+	foxtrot: ['フォックストロット', 'フォックス トロット'],
+	golf: ['ゴルフ'],
+	hotel: ['ホテル'],
+	india: ['インディア'],
+	juliet: ['ジュリエット'],
+	kilo: ['キロ'],
+	lima: ['リマ'],
+	mike: ['マイク'],
+	november: ['ノベンバー', 'ノーベンバー', 'ノヴェンバー'],
+	oscar: ['オスカー'],
+	papa: ['パパ'],
+	quebec: ['ケベック'],
+	romeo: ['ロメオ'],
+	sierra: ['シエラ', 'シェラ'],
+	tango: ['タンゴ'],
+	uniform: ['ユニフォーム'],
+	victor: ['ビクター', 'ヴィクター'],
+	whiskey: ['ウイスキー', 'ウィスキー'],
+	'x ray': ['エックスレイ', 'エックス レイ'],
+	yankee: ['ヤンキー'],
+	zulu: ['ズールー', 'ズル'],
+
+	zero: ['ゼロ'],
+	one: ['ワン'],
+	two: ['ツー', 'トゥー'],
+	three: ['スリー'],
+	tree: ['ツリー'],
+	four: ['フォー'],
+	five: ['ファイブ', 'ファイヴ'],
+	fife: ['ファイフ'],
+	six: ['シックス'],
+	seven: ['セブン', 'セヴン'],
+	eight: ['エイト'],
+	nine: ['ナイン'],
+	niner: ['ナイナー'],
+	ten: ['テン'],
+	eleven: ['イレブン'],
+	twelve: ['トゥエルブ', 'トゥウェルブ'],
+	thirteen: ['サーティーン'],
+	fourteen: ['フォーティーン'],
+	fifteen: ['フィフティーン'],
+	sixteen: ['シックスティーン'],
+	seventeen: ['セブンティーン'],
+	eighteen: ['エイティーン'],
+	nineteen: ['ナインティーン'],
+	twenty: ['トゥエンティ', 'トゥエンティー'],
+	thirty: ['サーティ', 'サーティー'],
+	forty: ['フォーティ', 'フォーティー'],
+	fifty: ['フィフティ', 'フィフティー'],
+	sixty: ['シックスティ', 'シックスティー'],
+	seventy: ['セブンティ', 'セブンティー'],
+	eighty: ['エイティ', 'エイティー'],
+	ninety: ['ナインティ', 'ナインティー'],
+	hundred: ['ハンドレッド'],
+	double: ['ダブル'],
+	triple: ['トリプル'],
+
+	point: ['ポイント'],
+	decimal: ['デシマル'],
+	dot: ['ドット'],
+	megahertz: ['メガヘルツ'],
+	stroke: ['ストローク'],
+	slash: ['スラッシュ'],
+	portable: ['ポータブル'],
+	mobile: ['モバイル'],
+
+	call: ['コール'],
+	sign: ['サイン'],
+	callsign: ['コールサイン'],
+	station: ['ステーション'],
+	sent: ['セント'],
+	send: ['センド'],
+	sending: ['センディング'],
+	received: ['レシーブド', 'リシーブド'],
+	receive: ['レシーブ', 'リシーブ'],
+	receiving: ['レシービング', 'リシービング'],
+	frequency: ['フリクエンシー', 'フリーケンシー', 'フレクエンシー'],
+	j: ['ジェイ', 'ジェー'],
+	c: ['シー'],
+	x: ['エックス'],
+	jcc: ['ジェイ シー シー', 'ジェイシーシー'],
+	jcg: ['ジェイ シー ジー', 'ジェイシージー'],
+	jcx: ['ジェイシーエックス'],
+	card: ['カード'],
+	q: ['キュー'],
+	s: ['エス'],
+	l: ['エル'],
+	qsl: ['キューエスエル'],
+	requested: ['リクエステッド', 'リクエスト'],
+	'one way': ['ワンウェイ'],
+	way: ['ウェイ'],
+	negative: ['ネガティブ', 'ネガティヴ'],
+	mode: ['モード'],
+
+	fm: ['エフエム', 'エフ エム'],
+	am: ['エーエム', 'エー エム'],
+	ssb: ['エスエスビー', 'エス エス ビー'],
+	cw: ['シーダブリュー', 'シー ダブリュー'],
+	usb: ['ユーエスビー', 'ユー エス ビー'],
+	lsb: ['エルエスビー', 'エル エス ビー'],
+	rtty: ['アールティーティーワイ'],
+	ft8: ['エフティーエイト', 'エフ ティー エイト'],
+	ft4: ['エフティーフォー', 'エフ ティー フォー']
+};
