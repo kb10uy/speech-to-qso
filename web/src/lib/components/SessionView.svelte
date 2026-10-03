@@ -64,7 +64,7 @@
 			type="text"
 			bind:value={form.potaReference}
 			autocapitalize="characters"
-			placeholder="JA-0000"
+			placeholder="JP-0000"
 		/>
 	</label>
 	<label class="field">

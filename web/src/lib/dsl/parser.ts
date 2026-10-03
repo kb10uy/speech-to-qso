@@ -11,6 +11,7 @@ import {
 	QSL_YES_WORDS,
 	STROKE_WORDS,
 	SUFFIX_WORDS,
+	lookup,
 	type CommandKind
 } from './lexicon';
 import { isNumberToken, readDigits } from './numbers';
@@ -83,9 +84,8 @@ function matchKeyword(tokens: readonly string[], i: number): KeywordMatch | null
 
 /** Converts a phonetic word or a single letter into an uppercase letter. */
 function letterOf(token: string): string | undefined {
-	if (token in PHONETIC_LETTERS) return PHONETIC_LETTERS[token];
 	if (/^[a-z]$/.test(token)) return token.toUpperCase();
-	return undefined;
+	return lookup(PHONETIC_LETTERS, token);
 }
 
 /** Reads phonetic letters, digits and strokes into an uppercase string. */
@@ -95,6 +95,7 @@ function readSpelled(tokens: readonly string[], allowStroke: boolean): string {
 	while (i < tokens.length) {
 		const token = tokens[i];
 		const letter = letterOf(token);
+		const suffix = allowStroke ? lookup(SUFFIX_WORDS, token) : undefined;
 		if (letter !== undefined) {
 			out += letter;
 			i += 1;
@@ -106,8 +107,8 @@ function readSpelled(tokens: readonly string[], allowStroke: boolean): string {
 		} else if (allowStroke && STROKES.has(token)) {
 			out += '/';
 			i += 1;
-		} else if (allowStroke && token in SUFFIX_WORDS) {
-			out += SUFFIX_WORDS[token];
+		} else if (suffix !== undefined) {
+			out += suffix;
 			i += 1;
 		} else {
 			throw new DslError(`unexpected "${token}"`);
@@ -118,12 +119,15 @@ function readSpelled(tokens: readonly string[], allowStroke: boolean): string {
 
 const CALLSIGN_PATTERN = /^(?=.*[A-Z])(?=.*\d)[A-Z0-9]+(?:\/[A-Z0-9]+)*$/;
 
+/** True for an uppercase callsign with optional `/X` parts (same rule as the server). */
+export function isCallsign(s: string): boolean {
+	return s.length >= 3 && s.length <= 16 && CALLSIGN_PATTERN.test(s);
+}
+
 function parseCallsign(tokens: readonly string[]): string {
 	if (tokens.length === 0) throw new DslError('callsign is empty');
 	const callsign = readSpelled(tokens, true);
-	if (callsign.length < 3 || callsign.length > 16 || !CALLSIGN_PATTERN.test(callsign)) {
-		throw new DslError(`"${callsign}" is not a valid callsign`);
-	}
+	if (!isCallsign(callsign)) throw new DslError(`"${callsign}" is not a valid callsign`);
 	return callsign;
 }
 
@@ -177,8 +181,9 @@ function parseQsl(tokens: readonly string[], negated: boolean): boolean {
 }
 
 function parseMode(tokens: readonly string[]): string {
-	if (tokens.length === 1 && tokens[0] in MODE_WORDS) return MODE_WORDS[tokens[0]];
 	if (tokens.length === 0) throw new DslError('mode is empty');
+	const word = tokens.length === 1 ? lookup(MODE_WORDS, tokens[0]) : undefined;
+	if (word !== undefined) return word;
 	const mode = readSpelled(tokens, false);
 	if (!(KNOWN_MODES as readonly string[]).includes(mode))
 		throw new DslError(`unknown mode "${mode}"`);

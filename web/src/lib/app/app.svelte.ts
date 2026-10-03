@@ -5,6 +5,7 @@ import {
 	applyUpdates,
 	defaultSession,
 	finalizeDraft,
+	isPristine,
 	newDraft,
 	type DraftQso,
 	type OperatingSession,
@@ -90,10 +91,15 @@ export class QsoApp {
 	#capture = new AudioCapture();
 	#recognizer: SpeechRecognizer | null = null;
 	#releaseRequested = false;
+	#syncRequested = false;
 	#wakeLock: WakeLockSentinel | null = null;
 
 	get unsyncedCount(): number {
 		return this.log.filter((r) => r.syncState !== 'synced').length;
+	}
+
+	get syncConfigured(): boolean {
+		return isSyncConfigured(this.settings.sync);
 	}
 
 	get defaultModelUrl(): string {
@@ -311,7 +317,7 @@ export class QsoApp {
 		await this.#saveDraft();
 		this.feedback = {
 			kind: 'ok',
-			message: `${result.record.callsign} logged locally${isSyncConfigured(this.settings.sync) ? ', waiting for sync' : ''}`
+			message: `${result.record.callsign} logged locally${this.syncConfigured ? ', waiting for sync' : ''}`
 		};
 		vibrate(40);
 		void this.sync();
@@ -324,11 +330,17 @@ export class QsoApp {
 	}
 
 	async sync(): Promise<void> {
-		if (this.syncing || this.#qsos === null || !isSyncConfigured(this.settings.sync)) return;
+		if (this.#qsos === null || !this.syncConfigured) return;
+		// A QSO logged while a sync is running would otherwise wait for the next trigger.
+		this.#syncRequested = true;
+		if (this.syncing) return;
 		this.syncing = true;
 		try {
-			this.lastSync = await syncAll(this.#qsos, this.settings.sync);
-			this.log = await this.#qsos.list();
+			while (this.#syncRequested) {
+				this.#syncRequested = false;
+				this.lastSync = await syncAll(this.#qsos, this.settings.sync);
+				this.log = await this.#qsos.list();
+			}
 		} finally {
 			this.syncing = false;
 		}
@@ -344,7 +356,7 @@ export class QsoApp {
 		const modeChanged = session.defaultMode !== this.session.defaultMode;
 		this.session = session;
 		await this.#kv!.set('session', session);
-		if (modeChanged && this.draft.startedAt === undefined) {
+		if (modeChanged && isPristine(this.draft)) {
 			this.setDraft({ ...this.draft, mode: session.defaultMode });
 		}
 	}
@@ -384,7 +396,8 @@ export class QsoApp {
 	#onVisibilityChange() {
 		if (document.visibilityState === 'hidden') {
 			// Release the microphone in the background; it is reopened on the next PTT press.
-			if (this.ptt === 'listening') void this.pttCancel();
+			// pttCancel also abandons a press that is still waiting for the permission prompt.
+			void this.pttCancel();
 			void this.#capture.close();
 		} else {
 			void this.sync();

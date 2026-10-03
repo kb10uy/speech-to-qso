@@ -15,7 +15,7 @@ const record: QsoRecord = {
 	timeOn: '2026-10-03T04:05:06.789Z',
 	operatorCall: 'JJ1ABC',
 	location: 'Minato',
-	potaReference: 'JA-0001',
+	potaReference: 'JP-0001',
 	createdAt: '2026-10-03T04:05:30.000Z',
 	syncState: 'pending',
 	syncAttempts: 0
@@ -27,7 +27,7 @@ describe('adifRecord', () => {
 			'<CALL:6>JL1HIS <QSO_DATE:8>20261003 <TIME_ON:6>040506 <FREQ:6>432.94 <BAND:4>70cm ' +
 				'<MODE:2>FM <RST_SENT:2>59 <RST_RCVD:2>57 <QSL_SENT:1>R <COMMENT:10>JCX 100101 ' +
 				'<APP_SPEECHTOQSO_JCX:6>100101 <OPERATOR:6>JJ1ABC <STATION_CALLSIGN:6>JJ1ABC ' +
-				'<MY_CITY:6>Minato <MY_SIG:4>POTA <MY_SIG_INFO:7>JA-0001 <MY_POTA_REF:7>JA-0001 <EOR>'
+				'<MY_CITY:6>Minato <MY_SIG:4>POTA <MY_SIG_INFO:7>JP-0001 <MY_POTA_REF:7>JP-0001 <EOR>'
 		);
 	});
 

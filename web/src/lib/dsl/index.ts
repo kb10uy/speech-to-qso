@@ -6,5 +6,11 @@ export {
 	type FrequencyPattern
 } from './frequency';
 export { grammarVocabulary } from './lexicon';
-export { KNOWN_MODES, parseSpeech, type ParseResult, type SpokenUpdate } from './parser';
+export {
+	KNOWN_MODES,
+	isCallsign,
+	parseSpeech,
+	type ParseResult,
+	type SpokenUpdate
+} from './parser';
 export { tokenize } from './tokenize';

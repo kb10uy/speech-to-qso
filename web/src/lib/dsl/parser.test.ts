@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSpeech, type SpokenUpdate } from './parser';
+import { isCallsign, parseSpeech, type SpokenUpdate } from './parser';
 
 function updates(text: string): SpokenUpdate[] {
 	const result = parseSpeech(text);
@@ -67,6 +67,18 @@ describe('callsign', () => {
 		expect(error('hello world')).toMatch(/unexpected "hello"/);
 		expect(error('juliett lima hotel')).toMatch(/not a valid callsign/);
 		expect(error('one two three')).toMatch(/not a valid callsign/);
+		expect(error('juliett lima one hotel india sierra stroke')).toMatch(/not a valid callsign/);
+	});
+});
+
+describe('isCallsign', () => {
+	it('matches the server rule', () => {
+		for (const ok of ['JL1HIS', 'JL1HIS/1', 'JL1HIS/P', '7K4XYZ', 'JA1XYW/QRP']) {
+			expect(isCallsign(ok), ok).toBe(true);
+		}
+		for (const bad of ['', 'JL', 'JLHIS', '12345', 'jl1his', 'JL1HIS/', '/JL1HIS', 'JL1//P']) {
+			expect(isCallsign(bad), bad).toBe(false);
+		}
 	});
 });
 
@@ -183,6 +195,12 @@ describe('mode', () => {
 
 	it('rejects unknown modes', () => {
 		expect(error('mode alpha bravo')).toMatch(/unknown mode "AB"/);
+	});
+
+	it('does not treat inherited object properties as words', () => {
+		expect(error('mode constructor')).toMatch(/unexpected "constructor"/);
+		expect(error('received valueOf')).toMatch(/unexpected "valueof"/);
+		expect(error('toString')).toMatch(/unexpected "tostring"/);
 	});
 });
 

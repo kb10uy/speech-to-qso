@@ -46,7 +46,7 @@
 		<button class:current={tab === 'qso'} onclick={() => (tab = 'qso')}>QSO</button>
 		<button class:current={tab === 'session'} onclick={() => (tab = 'session')}>Session</button>
 		<button class:current={tab === 'log'} onclick={() => (tab = 'log')}>
-			Log{#if app.unsyncedCount > 0 && app.settings.sync.endpoint}<span class="dot"
+			Log{#if app.unsyncedCount > 0 && app.syncConfigured}<span class="dot"
 					>{app.unsyncedCount}</span
 				>{/if}
 		</button>

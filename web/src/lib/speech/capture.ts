@@ -72,9 +72,6 @@ export class AudioCapture {
 				this.onLevel(event.level);
 				this.onAudio(event.samples);
 				break;
-			case 'level':
-				this.onLevel(event.level);
-				break;
 			case 'stopped':
 				this.#stopped?.();
 				this.#stopped = null;
@@ -107,6 +104,8 @@ export class AudioCapture {
 
 	/** Releases the microphone (e.g. when the app goes to the background). */
 	async close() {
+		// An open that is still in progress (permission prompt) would otherwise leak its stream.
+		await this.#starting?.catch(() => {});
 		this.#stopped?.();
 		this.#stopped = null;
 		this.#source?.disconnect();

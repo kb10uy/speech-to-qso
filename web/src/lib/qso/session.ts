@@ -1,3 +1,5 @@
+import { isCallsign } from '../dsl';
+
 /** Information about the whole operating session (shared by every QSO in it). */
 export interface OperatingSession {
 	operatorCall: string;
@@ -23,9 +25,18 @@ export function defaultSession(): OperatingSession {
 	};
 }
 
+/** Why the operator callsign cannot be used, or `undefined` if it is fine. */
+export function operatorCallProblem(operatorCall: string): string | undefined {
+	const call = operatorCall.trim();
+	if (call === '') return 'Operator callsign is not set';
+	if (!isCallsign(call.toUpperCase())) return `"${call}" is not a valid operator callsign`;
+	return undefined;
+}
+
 export function sessionProblems(session: OperatingSession): string[] {
 	const problems: string[] = [];
-	if (session.operatorCall.trim() === '') problems.push('Operator callsign is not set');
+	const operator = operatorCallProblem(session.operatorCall);
+	if (operator !== undefined) problems.push(operator);
 	if (!(session.frequencyAnchorHz > 0)) problems.push('Frequency anchor is not set');
 	return problems;
 }
