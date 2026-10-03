@@ -17,6 +17,9 @@ const boost = /** @type {HTMLInputElement} */ ($('boost'));
 const abnf = /** @type {HTMLTextAreaElement} */ ($('abnf'));
 const models = new Map();
 let connected = false;
+const DEFAULT_PROMPT =
+	'English amateur radio QSO logging command. Callsigns and codes are spoken as letters, NATO phonetic words and digits.';
+const DEFAULT_KEYWORDS = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'].join('\n');
 let currentProvider = 'openai';
 const languageSettings = new Map([
 	['openai', 'en'],
@@ -65,6 +68,8 @@ function hints() {
 			.filter(Boolean)
 	};
 }
+prompt.value = DEFAULT_PROMPT;
+keywords.value = DEFAULT_KEYWORDS;
 const recognizer = new TranscribeRecognizer(hints);
 
 function update() {
@@ -426,8 +431,8 @@ send.addEventListener('click', () => {
 	if (audioFile && !busy) void submit(audioFile);
 });
 $('reset-hints').addEventListener('click', () => {
-	prompt.value = '';
-	keywords.value = '';
+	prompt.value = DEFAULT_PROMPT;
+	keywords.value = DEFAULT_KEYWORDS;
 	languages.value = provider.value.startsWith('google') ? 'en-US' : 'en';
 	boost.value = '0';
 	abnf.value = '';
