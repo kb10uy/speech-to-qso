@@ -58,10 +58,9 @@ describe('VoskRecognizer', () => {
 	it('creates a 16 kHz recognizer with the DSL grammar', async () => {
 		const { fake } = await recognizer();
 		expect(fake.sampleRate).toBe(16_000);
-		const grammar = JSON.parse(fake.grammar!);
-		expect(grammar).toContain('juliet');
-		expect(grammar).not.toContain('juliett');
+		const grammar: string[] = JSON.parse(fake.grammar!);
 		expect(grammar).toContain('[unk]');
+		expect(grammar.some((phrase) => phrase.startsWith('received '))).toBe(true);
 
 		const { fake: free } = await recognizer(false);
 		expect(free.grammar).toBeUndefined();

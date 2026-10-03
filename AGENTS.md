@@ -36,7 +36,8 @@ cargo test
 - **DSL logic is pure.** `web/src/lib/dsl/` (tokenizer, number words, parser, frequency resolver) and
   `web/src/lib/qso/` must not touch the DOM, audio, storage or network. Add unit tests next to the code (`*.test.ts`).
 - **The lexicon is the single source of truth.** New words go into `web/src/lib/dsl/lexicon.ts`; the Vosk grammar is
-  generated from it (`grammarVocabulary()`), so the parser and the ASR never disagree.
+  generated from it (`grammarPhrases()` in `web/src/lib/dsl/grammar.ts`), so the parser and the ASR never disagree.
+  Spellings that only free-text input produces belong in `FREE_TEXT_ONLY_WORDS` so they stay out of the grammar.
 - **No correction commands.** Speaking a field again overwrites the whole field. Utterances are all-or-nothing.
 - **Frequency anchor ≠ current frequency.** Partial frequencies resolve against `OperatingSession.frequencyAnchorHz`
   only (`resolveFrequency`); never "keep the integer part of the current frequency".

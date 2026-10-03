@@ -172,34 +172,3 @@ export const MODE_WORDS: Readonly<Record<string, string>> = {
 	ft8: 'FT8',
 	ft4: 'FT4'
 };
-
-/**
- * Word list for grammar-constrained recognisers (e.g. Vosk grammar mode).
- * Free-text-only spellings are left out (see {@link FREE_TEXT_ONLY_WORDS}); words that are
- * missing from a model's vocabulary are simply ignored by Vosk.
- */
-export function grammarVocabulary(): string[] {
-	const words = new Set<string>();
-	const add = (w: string) => {
-		if (!FREE_TEXT_ONLY_WORDS.has(w)) words.add(w);
-	};
-	Object.keys(PHONETIC_LETTERS).forEach(add);
-	['x', 'ray'].forEach(add);
-	Object.keys(DIGIT_WORDS).forEach(add);
-	Object.keys(TEEN_WORDS).forEach(add);
-	Object.keys(TENS_WORDS).forEach(add);
-	HUNDRED_WORDS.forEach(add);
-	Object.keys(REPEAT_WORDS).forEach(add);
-	POINT_WORDS.forEach(add);
-	MEGAHERTZ_WORDS.forEach(add);
-	STROKE_WORDS.forEach(add);
-	Object.keys(SUFFIX_WORDS).forEach(add);
-	for (const sequences of Object.values(COMMAND_KEYWORDS)) {
-		for (const seq of sequences) seq.forEach(add);
-	}
-	QSL_YES_WORDS.forEach(add);
-	QSL_NO_WORDS.forEach(add);
-	Object.keys(MODE_WORDS).forEach(add);
-	add('[unk]');
-	return [...words];
-}

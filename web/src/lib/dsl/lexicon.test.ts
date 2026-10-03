@@ -8,9 +8,9 @@ import {
 	QSL_NO_WORDS,
 	QSL_YES_WORDS,
 	TEEN_WORDS,
-	TENS_WORDS,
-	grammarVocabulary
+	TENS_WORDS
 } from './lexicon';
+import { grammarPhrases } from './grammar';
 
 /** Every word the parser knows, so the free-text-only list cannot drift away from the tables. */
 function allWords(): Set<string> {
@@ -35,7 +35,7 @@ describe('FREE_TEXT_ONLY_WORDS', () => {
 	});
 
 	it('only lists alternatives of a word that stays in the grammar', () => {
-		const grammar = new Set(grammarVocabulary());
+		const grammar = new Set(grammarPhrases().flatMap((p) => p.split(' ')));
 		const letters = new Set(Object.values(PHONETIC_LETTERS));
 		for (const letter of letters) {
 			const spellings = Object.entries(PHONETIC_LETTERS).filter(([, l]) => l === letter);
@@ -57,16 +57,5 @@ describe('FREE_TEXT_ONLY_WORDS', () => {
 				kind
 			).toBe(true);
 		}
-	});
-});
-
-describe('grammarVocabulary', () => {
-	it('leaves free-text-only spellings out', () => {
-		const grammar = grammarVocabulary();
-		for (const word of FREE_TEXT_ONLY_WORDS) expect(grammar).not.toContain(word);
-		expect(grammar).toContain('two');
-		expect(grammar).toContain('juliet');
-		expect(grammar).toContain('niner');
-		expect(grammar).toContain('[unk]');
 	});
 });
