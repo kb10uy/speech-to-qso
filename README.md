@@ -162,6 +162,7 @@ web/                      SvelteKit PWA
   src/service-worker/     Service worker for offline use
   e2e/                    Playwright tests
 server/                   Rust + axum backend
+transcribe-server/         Standalone gpt-transcribe experiment (see its README)
 ```
 
 ## About the ASR

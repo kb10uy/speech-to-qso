@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="color-scheme" content="dark" />
+		<title>QSO Transcription Lab</title>
+		<link rel="stylesheet" href="/style.css" />
+		<script type="module" src="/app.js"></script>
+	</head>
+	<body>
+		<main>
+			<header>
+				<div>
+					<p class="eyebrow">SPEECH TO QSO / EXPERIMENT</p>
+					<h1>Transcription lab<span>.</span></h1>
+				</div>
+				<p id="connection" class="connection">Connecting…</p>
+			</header>
+			<div class="layout">
+				<section class="panel capture" aria-labelledby="capture-title">
+					<div class="section-heading">
+						<h2 id="capture-title">01 / Capture</h2>
+						<span id="model">—</span>
+					</div>
+					<p class="intro">
+						A short command. A raw transcript.<br />Try a recording, then compare your hints.
+					</p>
+					<button id="enable-mic" class="secondary">Enable microphone</button>
+					<button id="ptt" disabled aria-label="Hold to talk" aria-pressed="false">
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.5"
+							aria-hidden="true"
+						>
+							<rect x="9" y="2" width="6" height="12" rx="3" />
+							<path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" />
+						</svg>
+						<strong>HOLD TO TALK</strong><span>Release to transcribe · Space also works</span>
+					</button>
+					<div class="recording-info">
+						<span id="status" role="status">Enable the microphone to start.</span
+						><span id="duration">00.0 s</span>
+					</div>
+					<div
+						class="level"
+						role="meter"
+						aria-label="Microphone level"
+						aria-valuemin="0"
+						aria-valuemax="100"
+						aria-valuenow="0"
+					>
+						<div id="level-fill"></div>
+					</div>
+					<p class="footnote">Only held audio is sent. Recordings stop after 30 seconds.</p>
+					<div class="divider"><span>or use a recording</span></div>
+					<label class="upload-label" for="audio-file">Choose an audio file</label>
+					<input
+						id="audio-file"
+						type="file"
+						accept="audio/*,.wav,.webm,.mp3,.mp4,.mpeg,.mpga,.m4a,.flac,.ogg"
+					/>
+					<div id="recording" hidden>
+						<p id="filename" class="filename"></p>
+						<audio id="playback" controls></audio>
+						<div class="audio-actions">
+							<button id="send" class="primary" disabled>Transcribe audio</button
+							><a id="download" download>Download</a>
+						</div>
+					</div>
+					<p id="error" role="alert" hidden></p>
+				</section>
+				<section class="panel hints" aria-labelledby="hints-title">
+					<div class="section-heading">
+						<h2 id="hints-title">02 / Recognition hints</h2>
+						<button id="reset-hints" class="text-button">Reset</button>
+					</div>
+					<p class="muted">Start without context. Add hints and send the same audio again.</p>
+					<fieldset id="hint-fields">
+						<label for="prompt">Prompt <span>optional</span></label>
+						<textarea
+							id="prompt"
+							rows="4"
+							placeholder="Describe the recording’s context…"
+						></textarea>
+						<label for="keywords">Keywords <span>one per line</span></label>
+						<textarea
+							id="keywords"
+							rows="3"
+							placeholder="Add literal terms you expect to hear…"
+						></textarea>
+						<label for="languages">Languages <span>comma separated</span></label>
+						<input id="languages" value="en" placeholder="en, ja" spellcheck="false" />
+					</fieldset>
+					<p class="footnote">Hints influence recognition; they do not restrict the vocabulary.</p>
+				</section>
+			</div>
+			<section class="results" aria-labelledby="results-title">
+				<div class="section-heading">
+					<h2 id="results-title">03 / Results</h2>
+					<button id="clear-results" class="text-button" disabled>Clear history</button>
+				</div>
+				<p id="empty-results">
+					Your transcripts will appear here. Compare exact words and response times.
+				</p>
+				<ol id="history" aria-live="polite" aria-relevant="additions"></ol>
+			</section>
+			<footer>Audio → transcription · No commands applied · History stays in this page</footer>
+		</main>
+		<template id="result-template">
+			<li class="result">
+				<div class="result-top">
+					<span class="result-source"></span><span class="result-timing"></span>
+				</div>
+				<p class="transcript"></p>
+				<details>
+					<summary class="result-context"></summary>
+					<pre class="result-details"></pre>
+				</details>
+			</li>
+		</template>
+	</body>
+</html>

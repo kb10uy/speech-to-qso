@@ -24,12 +24,20 @@ jobs:
       - run: npm test
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: transcribe-server
+      - run: npm run test:transcribe
 
   server:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate: [server, transcribe-server]
     defaults:
       run:
-        working-directory: server
+        working-directory: ${{ matrix.crate }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -37,7 +45,7 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: server
+          workspaces: ${{ matrix.crate }}
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test

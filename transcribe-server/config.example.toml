@@ -1,0 +1,4 @@
+# Copy to config.toml and set your API key. config.toml is ignored by Git.
+listen = "127.0.0.1:8081"
+model = "gpt-transcribe"
+openai_api_key = ""
