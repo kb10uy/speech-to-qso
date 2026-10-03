@@ -9,8 +9,6 @@ use axum::{
     response::{Html, IntoResponse, Response},
     routing::{get, post},
 };
-use reqwest::multipart::{Form, Part};
-use serde::Deserialize;
 use serde_json::json;
 
 const MAX_AUDIO_BYTES: usize = 25_000_000;
@@ -20,26 +18,27 @@ const MAX_BODY_BYTES: usize = MAX_AUDIO_BYTES + 64 * 1024;
 pub mod config;
 mod google;
 mod google_v1;
+mod openai;
 
 pub struct AppState {
     client: reqwest::Client,
-    api_key: String,
     model: String,
-    endpoint: String,
+    openai: Option<openai::OpenaiState>,
     google: Option<google::GoogleState>,
     google_v1: Option<google_v1::GoogleV1State>,
 }
 
 impl AppState {
     pub fn new(api_key: String, model: String) -> Result<Self, reqwest::Error> {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(60))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?;
         Ok(Self {
-            client: reqwest::Client::builder()
-                .timeout(Duration::from_secs(60))
-                .redirect(reqwest::redirect::Policy::none())
-                .build()?,
-            api_key,
+            openai: (!api_key.is_empty())
+                .then(|| openai::OpenaiState::new(&client, &api_key, model.clone(), openai::API_BASE)),
+            client,
             model,
-            endpoint: "https://api.openai.com/v1/audio/transcriptions".into(),
             google: None,
             google_v1: None,
         })
@@ -91,7 +90,7 @@ fn asset(content_type: &'static str, source: &'static str) -> impl IntoResponse 
 
 async fn health(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let mut providers = Vec::new();
-    if !state.api_key.is_empty() {
+    if state.openai.is_some() {
         providers.push(json!({ "id": "openai", "label": "OpenAI", "model": state.model }));
     }
     if let Some(google) = &state.google {
@@ -124,7 +123,6 @@ impl IntoResponse for ApiError {
 struct Upload {
     bytes: Vec<u8>,
     filename: String,
-    content_type: String,
     provider: Option<String>,
     prompt: Option<String>,
     keywords: Vec<String>,
@@ -154,7 +152,6 @@ async fn read_upload(mut multipart: Multipart) -> Result<Upload, ApiError> {
                     .filter(|name| !name.is_empty())
                     .ok_or_else(|| ApiError::bad_request("file must have a filename"))?
                     .to_owned();
-                let content_type = field.content_type().unwrap_or("application/octet-stream").to_owned();
                 let bytes = field.bytes().await?;
                 if bytes.is_empty() {
                     return Err(ApiError::bad_request("file is empty"));
@@ -165,7 +162,7 @@ async fn read_upload(mut multipart: Multipart) -> Result<Upload, ApiError> {
                         "audio file exceeds 25 MB".into(),
                     ));
                 }
-                file = Some((bytes.to_vec(), filename, content_type));
+                file = Some((bytes.to_vec(), filename));
             }
             "prompt" => {
                 if prompt.is_some() {
@@ -224,11 +221,10 @@ async fn read_upload(mut multipart: Multipart) -> Result<Upload, ApiError> {
             _ => return Err(ApiError::bad_request(format!("unsupported field: {name}"))),
         }
     }
-    let (bytes, filename, content_type) = file.ok_or_else(|| ApiError::bad_request("file is required"))?;
+    let (bytes, filename) = file.ok_or_else(|| ApiError::bad_request("file is required"))?;
     Ok(Upload {
         bytes,
         filename,
-        content_type,
         provider,
         prompt,
         keywords,
@@ -238,49 +234,12 @@ async fn read_upload(mut multipart: Multipart) -> Result<Upload, ApiError> {
     })
 }
 
-fn openai_form(upload: Upload, model: &str) -> Result<Form, ApiError> {
-    if upload.abnf.is_some() {
-        return Err(ApiError::bad_request("ABNF is only supported by Google V1"));
-    }
-    if upload.boost.is_some() {
-        return Err(ApiError::bad_request("boost is only supported by Google"));
-    }
-    let part = Part::bytes(upload.bytes)
-        .file_name(upload.filename)
-        .mime_str(&upload.content_type)
-        .map_err(|_| ApiError::bad_request("invalid file content type"))?;
-    let mut form = Form::new()
-        .text("model", model.to_owned())
-        .text("response_format", "json")
-        .part("file", part);
-    if let Some(prompt) = upload.prompt {
-        form = form.text("prompt", prompt);
-    }
-    for keyword in upload.keywords {
-        form = form.text("keywords[]", keyword);
-    }
-    let languages = if upload.languages.is_empty() {
-        vec!["en".into()]
-    } else {
-        upload.languages
-    };
-    for language in languages {
-        form = form.text("languages[]", language);
-    }
-    Ok(form)
-}
-
-#[derive(Deserialize)]
-struct Transcript {
-    text: String,
-}
-
 async fn transcribe(State(state): State<Arc<AppState>>, multipart: Multipart) -> Result<Response, ApiError> {
     let upload = read_upload(multipart).await?;
     let provider = upload
         .provider
         .as_deref()
-        .unwrap_or(if state.api_key.is_empty() { "google" } else { "openai" });
+        .unwrap_or(if state.openai.is_some() { "openai" } else { "google" });
     if provider == "google" {
         let google = state
             .google
@@ -295,69 +254,11 @@ async fn transcribe(State(state): State<Arc<AppState>>, multipart: Multipart) ->
             .ok_or_else(|| ApiError::bad_request("Google is not configured; set google.project_id in TOML"))?;
         return google.transcribe(&state.client, upload).await;
     }
-    if state.api_key.is_empty() {
-        return Err(ApiError::bad_request(
-            "OpenAI is not configured; set openai.api_key in TOML",
-        ));
-    }
-    let form = openai_form(upload, &state.model)?;
-    let started = std::time::Instant::now();
-    let response = state
-        .client
-        .post(&state.endpoint)
-        .bearer_auth(&state.api_key)
-        .multipart(form)
-        .send()
-        .await
-        .map_err(|error| {
-            tracing::warn!("transcription request failed: {error}");
-            ApiError(
-                if error.is_timeout() {
-                    StatusCode::GATEWAY_TIMEOUT
-                } else {
-                    StatusCode::BAD_GATEWAY
-                },
-                "OpenAI transcription request failed".into(),
-            )
-        })?;
-    let status = response.status();
-    let request_id = response
-        .headers()
-        .get("x-request-id")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_owned);
-    if !status.is_success() {
-        tracing::warn!(%status, ?request_id, "OpenAI rejected transcription");
-        // Do not reflect provider error bodies, which can contain credentials or uploaded text.
-        return Ok((
-            StatusCode::BAD_GATEWAY,
-            Json(json!({
-                "error": "OpenAI rejected transcription",
-                "upstream_status": status.as_u16(),
-                "request_id": request_id
-            })),
-        )
-            .into_response());
-    }
-    let transcript: Transcript = response.json().await.map_err(|error| {
-        tracing::warn!("invalid transcription response: {error}");
-        if error.is_timeout() {
-            ApiError(
-                StatusCode::GATEWAY_TIMEOUT,
-                "OpenAI transcription response timed out".into(),
-            )
-        } else {
-            ApiError(StatusCode::BAD_GATEWAY, "invalid OpenAI transcription response".into())
-        }
-    })?;
-    Ok(Json(json!({
-        "text": transcript.text,
-        "provider": "openai",
-        "model": state.model,
-        "elapsed_ms": started.elapsed().as_millis(),
-        "request_id": request_id
-    }))
-    .into_response())
+    let openai = state
+        .openai
+        .as_ref()
+        .ok_or_else(|| ApiError::bad_request("OpenAI is not configured; set openai.api_key in TOML"))?;
+    openai.transcribe(upload).await
 }
 
 #[cfg(test)]

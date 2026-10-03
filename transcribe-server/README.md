@@ -176,13 +176,14 @@ curl.exe http://127.0.0.1:8081/api/transcribe `
 
 These are experimental hints, not a second DSL vocabulary or a constrained grammar. The canonical vocabulary stays
 in `web/src/lib/dsl/lexicon.ts`. Leave the prompt and keywords out for a baseline, then compare exact transcripts,
-especially callsigns, leading zeros and partial frequencies. No prompt or keywords are injected by default.
+especially callsigns, leading zeros and partial frequencies. The server injects no prompt or keywords; the UI starts
+with a short radio prompt and the keywords A–Z and 0–9 (Reset restores them), so clear both fields for a baseline.
 
 `POST /api/transcribe` accepts multipart fields:
 
 | Field | Meaning |
 | --- | --- |
-| `file` | Exactly one nonempty file with a filename/content type; OpenAI: 25 MB, Google: 10 MB / 60 seconds |
+| `file` | Exactly one nonempty file with a filename (OpenAI detects the format from its extension); OpenAI: 25 MB, Google: 10 MB / 60 seconds |
 | `provider` | `openai`, `google` (V2), or `google-v1`; defaults to OpenAI if configured, otherwise V2 |
 | `prompt` | Optional recording context, OpenAI only |
 | `keywords[]` | Repeat for each literal hint; Google sends inline PhraseSet phrases |
@@ -201,16 +202,16 @@ Example response:
   "provider": "openai",
   "model": "gpt-transcribe",
   "elapsed_ms": 850,
-  "request_id": "req_example"
+  "request_id": null
 }
 ```
 
 `elapsed_ms` measures the upstream request and response decoding, excluding the incoming upload. The first Google
 request also includes client initialization/ADC discovery. Transcripts are returned as received: punctuation and
 number formatting are not rewritten. Google segments' top alternatives are joined with a newline, and full `results`
-are included. Google `request_id` is null because the SDK response does not expose a request ID.
-Provider failures return 502 with safe diagnostics (`upstream_status`, Google `upstream_code`, OpenAI `request_id`);
-timeouts return 504. Upstream error bodies are not exposed. Both providers have a 60-second total timeout, and Google
+are included. `request_id` is null because neither SDK response exposes a request ID.
+Provider failures return 502 with safe diagnostics (`upstream_status`, Google `upstream_code`);
+timeouts return 504. Upstream error bodies are not exposed. Both providers have a 60-second total timeout, and SDK
 automatic retries are disabled so a comparison makes one recognition attempt. No recordings or transcripts are persisted.
 V1 also returns `adaptation_info` when the service supplies speech adaptation diagnostics.
 

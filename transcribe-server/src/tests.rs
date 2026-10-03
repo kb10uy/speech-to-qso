@@ -11,7 +11,6 @@ const BOUNDARY: &str = "qso-test-boundary";
 struct UploadedField {
     name: String,
     filename: Option<String>,
-    content_type: Option<String>,
     bytes: Vec<u8>,
 }
 
@@ -40,24 +39,23 @@ async fn mock(status: StatusCode, response: serde_json::Value) -> Mock {
                 while let Some(field) = multipart.next_field().await.unwrap() {
                     let name = field.name().unwrap().to_owned();
                     let filename = field.file_name().map(str::to_owned);
-                    let content_type = field.content_type().map(str::to_owned);
                     let bytes = field.bytes().await.unwrap().to_vec();
-                    captured.lock().unwrap().push(UploadedField {
-                        name,
-                        filename,
-                        content_type,
-                        bytes,
-                    });
+                    captured.lock().unwrap().push(UploadedField { name, filename, bytes });
                 }
                 (status, Json(response))
             }
         }),
     );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let endpoint = format!("http://{}/v1/audio/transcriptions", listener.local_addr().unwrap());
+    let api_base = format!("http://{}/v1", listener.local_addr().unwrap());
     let task = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
     let mut state = AppState::new("test-key".into(), "gpt-transcribe".into()).unwrap();
-    state.endpoint = endpoint;
+    state.openai = Some(openai::OpenaiState::new(
+        &state.client,
+        "test-key",
+        "gpt-transcribe".into(),
+        &api_base,
+    ));
     Mock {
         task,
         fields,
@@ -127,7 +125,6 @@ async fn forwards_audio_and_hints_without_rewriting_transcript() {
     assert_eq!(values("languages[]"), ["en", "ja"]);
     let file = fields.iter().find(|field| field.name == "file").unwrap();
     assert_eq!(file.filename.as_deref(), Some("utterance.wav"));
-    assert_eq!(file.content_type.as_deref(), Some("audio/wav"));
     assert_eq!(file.bytes, AUDIO);
 }
 
@@ -178,7 +175,19 @@ async fn upstream_errors_do_not_expose_provider_body() {
     let (status, result) = response(mock.app.clone(), upload(&[], Some(AUDIO))).await;
     assert_eq!(status, StatusCode::BAD_GATEWAY);
     assert_eq!(result["upstream_status"], 401);
+    assert_eq!(mock.fields.lock().unwrap().len(), 4);
     assert!(!result.to_string().contains("test-key"));
+}
+
+#[tokio::test]
+async fn retryable_upstream_errors_are_not_retried() {
+    for upstream in [StatusCode::TOO_MANY_REQUESTS, StatusCode::SERVICE_UNAVAILABLE] {
+        let mock = mock(upstream, json!({ "error": { "message": "retry me" } })).await;
+        let (status, result) = response(mock.app.clone(), upload(&[], Some(AUDIO))).await;
+        assert_eq!(status, StatusCode::BAD_GATEWAY);
+        assert_eq!(result["upstream_status"], upstream.as_u16());
+        assert_eq!(mock.fields.lock().unwrap().len(), 4);
+    }
 }
 
 #[tokio::test]
