@@ -1,0 +1,393 @@
+import { asset } from '$app/paths';
+import { parseSpeech } from '../dsl';
+import {
+	adifFile,
+	applyUpdates,
+	defaultSession,
+	finalizeDraft,
+	newDraft,
+	type DraftQso,
+	type OperatingSession,
+	type QsoRecord
+} from '../qso';
+import {
+	AudioCapture,
+	VoskRecognizer,
+	WebSpeechRecognizer,
+	type SpeechRecognizer
+} from '../speech';
+import { KeyValueStore, QsoStore, openDatabase } from '../storage/db';
+import { isSyncConfigured, syncAll, type SyncReport } from '../sync/client';
+import { DEFAULT_MODEL_PATH, mergeSettings, type AppSettings } from './settings';
+
+export type PttState = 'idle' | 'opening' | 'listening' | 'finishing';
+export type AsrState = 'unloaded' | 'loading' | 'ready' | 'error';
+
+export interface Feedback {
+	kind: 'ok' | 'error' | 'info';
+	/** What the ASR heard (or what was typed). */
+	heard?: string;
+	message: string;
+}
+
+export interface Utterance {
+	at: string;
+	source: 'voice' | 'typed';
+	text: string;
+	ok: boolean;
+	message: string;
+}
+
+const FINAL_RESULT_TIMEOUT_MS = 10_000;
+const MAX_UTTERANCES = 30;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error(message)), ms);
+		promise.then(
+			(v) => (clearTimeout(timer), resolve(v)),
+			(e) => (clearTimeout(timer), reject(e))
+		);
+	});
+}
+
+function vibrate(pattern: number | number[]) {
+	try {
+		navigator.vibrate?.(pattern);
+	} catch {
+		// unsupported (e.g. iOS)
+	}
+}
+
+function errorMessage(e: unknown): string {
+	return e instanceof Error ? e.message : String(e);
+}
+
+/** Application state and the PTT → ASR → parser → draft → log pipeline. */
+export class QsoApp {
+	session = $state<OperatingSession>(defaultSession());
+	settings = $state<AppSettings>(mergeSettings(undefined));
+	draft = $state<DraftQso>(newDraft());
+	log = $state<QsoRecord[]>([]);
+
+	ptt = $state<PttState>('idle');
+	asr = $state<AsrState>('unloaded');
+	asrError = $state<string | null>(null);
+	partial = $state('');
+	level = $state(0);
+	feedback = $state<Feedback | null>(null);
+	utterances = $state<Utterance[]>([]);
+
+	online = $state(true);
+	syncing = $state(false);
+	lastSync = $state<SyncReport | null>(null);
+	ready = $state(false);
+
+	#qsos: QsoStore | null = null;
+	#kv: KeyValueStore | null = null;
+	#capture = new AudioCapture();
+	#recognizer: SpeechRecognizer | null = null;
+	#releaseRequested = false;
+	#wakeLock: WakeLockSentinel | null = null;
+
+	get unsyncedCount(): number {
+		return this.log.filter((r) => r.syncState !== 'synced').length;
+	}
+
+	get defaultModelUrl(): string {
+		// The model is fetched at deploy time, so it is not part of the typed static assets.
+		const path = asset(DEFAULT_MODEL_PATH as Parameters<typeof asset>[0]);
+		return new URL(path, location.href).href;
+	}
+
+	async init() {
+		const db = await openDatabase();
+		this.#qsos = new QsoStore(db);
+		this.#kv = new KeyValueStore(db);
+		this.session = { ...defaultSession(), ...(await this.#kv.get<OperatingSession>('session')) };
+		this.settings = mergeSettings(await this.#kv.get<Partial<AppSettings>>('settings'));
+		this.draft =
+			(await this.#kv.get<DraftQso>('draft')) ?? newDraft({ mode: this.session.defaultMode });
+		this.log = await this.#qsos.list();
+		this.online = navigator.onLine;
+
+		this.#capture.onAudio = (samples) => this.#recognizer?.pushAudio(samples);
+		this.#capture.onLevel = (level) => (this.level = level);
+
+		window.addEventListener('online', () => {
+			this.online = true;
+			void this.sync();
+		});
+		window.addEventListener('offline', () => (this.online = false));
+		document.addEventListener('visibilitychange', () => this.#onVisibilityChange());
+
+		this.ready = true;
+		if (this.settings.autoLoadAsr) void this.loadAsr();
+		void this.sync();
+	}
+
+	// ---------------------------------------------------------------- speech engine
+
+	async loadAsr() {
+		if (this.asr === 'loading') return;
+		this.#recognizer?.dispose();
+		this.#recognizer = null;
+		this.asr = 'loading';
+		this.asrError = null;
+		try {
+			const recognizer: SpeechRecognizer =
+				this.settings.asrEngine === 'webspeech'
+					? new WebSpeechRecognizer()
+					: new VoskRecognizer({
+							modelUrl:
+								this.settings.voskModelUrl.trim() !== ''
+									? new URL(this.settings.voskModelUrl.trim(), location.href).href
+									: this.defaultModelUrl,
+							useGrammar: this.settings.voskGrammar
+						});
+			recognizer.onPartial = (text) => (this.partial = text);
+			await recognizer.initialize();
+			this.#recognizer = recognizer;
+			this.asr = 'ready';
+			if (!this.settings.autoLoadAsr) {
+				this.settings.autoLoadAsr = true;
+				await this.#saveSettings();
+			}
+		} catch (e) {
+			this.asr = 'error';
+			this.asrError = errorMessage(e);
+		}
+	}
+
+	/** Uses an already initialized recognizer (custom engines, tests). */
+	useRecognizer(recognizer: SpeechRecognizer) {
+		this.#recognizer?.dispose();
+		recognizer.onPartial = (text) => (this.partial = text);
+		this.#recognizer = recognizer;
+		this.asr = 'ready';
+		this.asrError = null;
+	}
+
+	// ---------------------------------------------------------------- PTT
+
+	async pttPress() {
+		if (this.ptt !== 'idle') return;
+		const recognizer = this.#recognizer;
+		if (recognizer === null || this.asr !== 'ready') {
+			this.feedback = { kind: 'error', message: 'Speech engine is not loaded' };
+			return;
+		}
+		this.ptt = 'opening';
+		this.#releaseRequested = false;
+		this.partial = '';
+		void this.#requestWakeLock();
+		try {
+			if (recognizer.needsAudio) await this.#capture.open();
+		} catch (e) {
+			this.ptt = 'idle';
+			this.feedback = { kind: 'error', message: `Microphone: ${errorMessage(e)}` };
+			return;
+		}
+		if (this.#releaseRequested) {
+			// Typically the first press, interrupted by the permission prompt.
+			this.ptt = 'idle';
+			this.feedback = {
+				kind: 'info',
+				message: 'Microphone ready. Hold the button while speaking.'
+			};
+			return;
+		}
+		try {
+			recognizer.beginUtterance();
+			if (recognizer.needsAudio) this.#capture.begin();
+		} catch (e) {
+			this.ptt = 'idle';
+			this.feedback = { kind: 'error', message: errorMessage(e) };
+			return;
+		}
+		this.ptt = 'listening';
+		vibrate(15);
+	}
+
+	async pttRelease() {
+		if (this.ptt === 'opening') {
+			this.#releaseRequested = true;
+			return;
+		}
+		if (this.ptt !== 'listening') return;
+		const recognizer = this.#recognizer!;
+		this.ptt = 'finishing';
+		try {
+			await sleep(this.settings.releaseTailMs);
+			if (recognizer.needsAudio) await this.#capture.end();
+			const result = await withTimeout(
+				recognizer.endUtterance(),
+				FINAL_RESULT_TIMEOUT_MS,
+				'speech recognition timed out'
+			);
+			this.handleText(result.text, 'voice');
+		} catch (e) {
+			this.feedback = { kind: 'error', message: errorMessage(e) };
+			vibrate([60, 60, 60]);
+		} finally {
+			this.ptt = 'idle';
+			this.partial = '';
+			this.level = 0;
+		}
+	}
+
+	async pttCancel() {
+		if (this.ptt === 'opening') {
+			this.#releaseRequested = true;
+			return;
+		}
+		if (this.ptt !== 'listening') return;
+		const recognizer = this.#recognizer!;
+		this.ptt = 'finishing';
+		try {
+			if (recognizer.needsAudio) await this.#capture.end();
+			recognizer.cancelUtterance();
+		} finally {
+			this.ptt = 'idle';
+			this.partial = '';
+			this.level = 0;
+			this.feedback = { kind: 'info', message: 'Cancelled' };
+		}
+	}
+
+	// ---------------------------------------------------------------- DSL → draft
+
+	/** Parses one utterance (spoken or typed) and applies it to the draft. */
+	handleText(text: string, source: Utterance['source']) {
+		const heard = text.trim();
+		const parsed = parseSpeech(heard);
+		let message: string;
+		if (parsed.ok) {
+			const { draft, descriptions } = applyUpdates(this.draft, parsed.updates, {
+				anchorHz: this.session.frequencyAnchorHz,
+				currentHz: this.draft.frequencyHz
+			});
+			this.draft = draft;
+			void this.#saveDraft();
+			message = descriptions.join(', ');
+			this.feedback = { kind: 'ok', heard, message };
+		} else {
+			message = parsed.error;
+			this.feedback = { kind: 'error', heard: heard === '' ? '(nothing)' : heard, message };
+			vibrate([60, 60, 60]);
+		}
+		this.utterances = [
+			{ at: new Date().toISOString(), source, text: heard, ok: parsed.ok, message },
+			...this.utterances
+		].slice(0, MAX_UTTERANCES);
+	}
+
+	// ---------------------------------------------------------------- QSO log
+
+	/** Starts a new QSO, carrying frequency and mode over. */
+	async clearDraft() {
+		this.draft = newDraft({ frequencyHz: this.draft.frequencyHz, mode: this.draft.mode });
+		this.feedback = null;
+		await this.#saveDraft();
+	}
+
+	setDraft(draft: DraftQso) {
+		this.draft = draft;
+		void this.#saveDraft();
+	}
+
+	async logQso(): Promise<boolean> {
+		const result = finalizeDraft(this.draft, this.session, crypto.randomUUID());
+		if (!result.ok) {
+			this.feedback = { kind: 'error', message: result.problems.join(' / ') };
+			vibrate([60, 60, 60]);
+			return false;
+		}
+		await this.#qsos!.put(result.record);
+		this.log = [result.record, ...this.log];
+		this.draft = newDraft({ frequencyHz: result.record.frequencyHz, mode: result.record.mode });
+		await this.#saveDraft();
+		this.feedback = {
+			kind: 'ok',
+			message: `${result.record.callsign} logged locally${isSyncConfigured(this.settings.sync) ? ', waiting for sync' : ''}`
+		};
+		vibrate(40);
+		void this.sync();
+		return true;
+	}
+
+	async deleteQso(id: string) {
+		await this.#qsos!.delete(id);
+		this.log = this.log.filter((r) => r.id !== id);
+	}
+
+	async sync(): Promise<void> {
+		if (this.syncing || this.#qsos === null || !isSyncConfigured(this.settings.sync)) return;
+		this.syncing = true;
+		try {
+			this.lastSync = await syncAll(this.#qsos, this.settings.sync);
+			this.log = await this.#qsos.list();
+		} finally {
+			this.syncing = false;
+		}
+	}
+
+	exportAdif(): Blob {
+		return new Blob([adifFile([...this.log].reverse())], { type: 'text/plain' });
+	}
+
+	// ---------------------------------------------------------------- persistence
+
+	async saveSession(session: OperatingSession) {
+		const modeChanged = session.defaultMode !== this.session.defaultMode;
+		this.session = session;
+		await this.#kv!.set('session', session);
+		if (modeChanged && this.draft.startedAt === undefined) {
+			this.setDraft({ ...this.draft, mode: session.defaultMode });
+		}
+	}
+
+	async saveSettings(settings: AppSettings) {
+		const engineChanged =
+			settings.asrEngine !== this.settings.asrEngine ||
+			settings.voskModelUrl !== this.settings.voskModelUrl ||
+			settings.voskGrammar !== this.settings.voskGrammar;
+		this.settings = settings;
+		await this.#saveSettings();
+		if (engineChanged && this.asr !== 'unloaded') await this.loadAsr();
+		void this.sync();
+	}
+
+	async #saveSettings() {
+		await this.#kv?.set('settings', this.settings);
+	}
+
+	async #saveDraft() {
+		await this.#kv?.set('draft', this.draft);
+	}
+
+	// ---------------------------------------------------------------- lifecycle
+
+	async #requestWakeLock() {
+		if (!this.settings.keepScreenOn || this.#wakeLock !== null || !('wakeLock' in navigator))
+			return;
+		try {
+			this.#wakeLock = await navigator.wakeLock.request('screen');
+			this.#wakeLock.addEventListener('release', () => (this.#wakeLock = null));
+		} catch {
+			// Not allowed (e.g. battery saver); not critical.
+		}
+	}
+
+	#onVisibilityChange() {
+		if (document.visibilityState === 'hidden') {
+			// Release the microphone in the background; it is reopened on the next PTT press.
+			if (this.ptt === 'listening') void this.pttCancel();
+			void this.#capture.close();
+		} else {
+			void this.sync();
+		}
+	}
+}

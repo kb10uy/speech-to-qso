@@ -17,11 +17,19 @@ export default defineConfig({
 			paths: { base }
 		})
 	],
+	build: {
+		// vosk-browser bundles the WASM recogniser into one lazily loaded chunk.
+		chunkSizeWarningLimit: 6000
+	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
 			{
 				extends: './vite.config.ts',
+				build: {
+					// vosk-browser bundles the WASM recogniser into one lazily loaded chunk.
+					chunkSizeWarningLimit: 6000
+				},
 				test: {
 					name: 'unit',
 					environment: 'node',
