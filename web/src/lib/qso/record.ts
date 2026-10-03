@@ -1,5 +1,5 @@
 import type { DraftQso } from './draft';
-import type { OperatingSession } from './session';
+import { operatorCallProblem, type OperatingSession } from './session';
 
 export type SyncState = 'pending' | 'synced' | 'failed';
 
@@ -47,7 +47,8 @@ export function finalizeDraft(
 	if (draft.frequencyHz === undefined) problems.push('Frequency is missing');
 	const mode = draft.mode ?? blankToUndefined(session.defaultMode);
 	if (mode === undefined) problems.push('Mode is missing');
-	if (session.operatorCall.trim() === '') problems.push('Operator callsign is not set (Session)');
+	const operator = operatorCallProblem(session.operatorCall);
+	if (operator !== undefined) problems.push(`${operator} (Session)`);
 	if (problems.length > 0) return { ok: false, problems };
 
 	return {

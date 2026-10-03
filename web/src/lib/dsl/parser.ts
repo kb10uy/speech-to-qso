@@ -119,12 +119,15 @@ function readSpelled(tokens: readonly string[], allowStroke: boolean): string {
 
 const CALLSIGN_PATTERN = /^(?=.*[A-Z])(?=.*\d)[A-Z0-9]+(?:\/[A-Z0-9]+)*$/;
 
+/** True for an uppercase callsign with optional `/X` parts (same rule as the server). */
+export function isCallsign(s: string): boolean {
+	return s.length >= 3 && s.length <= 16 && CALLSIGN_PATTERN.test(s);
+}
+
 function parseCallsign(tokens: readonly string[]): string {
 	if (tokens.length === 0) throw new DslError('callsign is empty');
 	const callsign = readSpelled(tokens, true);
-	if (callsign.length < 3 || callsign.length > 16 || !CALLSIGN_PATTERN.test(callsign)) {
-		throw new DslError(`"${callsign}" is not a valid callsign`);
-	}
+	if (!isCallsign(callsign)) throw new DslError(`"${callsign}" is not a valid callsign`);
 	return callsign;
 }
 

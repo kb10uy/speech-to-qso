@@ -25,6 +25,15 @@ describe('finalizeDraft', () => {
 		});
 	});
 
+	it('rejects an operator callsign the server would refuse', () => {
+		const draft = { ...newDraft({ frequencyHz: 432_940_000 }), callsign: 'JL1HIS' };
+		const result = finalizeDraft(draft, { ...session, operatorCall: 'JJ1ABC/' }, 'id', now);
+		expect(result).toEqual({
+			ok: false,
+			problems: ['"JJ1ABC/" is not a valid operator callsign (Session)']
+		});
+	});
+
 	it('builds a pending record using session defaults', () => {
 		const draft = { ...newDraft({ frequencyHz: 432_940_000 }), callsign: 'JL1HIS', jcx: '100101' };
 		const result = finalizeDraft(draft, session, 'uuid-1', now);

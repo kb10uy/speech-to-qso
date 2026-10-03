@@ -44,10 +44,11 @@ fn invalid(field: &'static str, message: impl Into<String>) -> ValidationError {
     }
 }
 
+/// Same rule as `isCallsign` in `web/src/lib/dsl/parser.ts`.
 fn is_callsign(s: &str) -> bool {
     (3..=16).contains(&s.len())
-        && s.chars()
-            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '/')
+        && s.split('/')
+            .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()))
         && s.chars().any(|c| c.is_ascii_digit())
         && s.chars().any(|c| c.is_ascii_uppercase())
 }
@@ -117,6 +118,11 @@ pub(crate) mod tests {
     #[test]
     fn accepts_a_valid_payload() {
         assert_eq!(sample().validate(), Ok(()));
+        for call in ["JL1HIS/1", "JL1HIS/P", "7K4XYZ", "JA1XYW/QRP"] {
+            let mut qso = sample();
+            qso.call = call.into();
+            assert_eq!(qso.validate(), Ok(()), "{call}");
+        }
     }
 
     #[test]
@@ -139,6 +145,8 @@ pub(crate) mod tests {
             ("id", Box::new(|q| q.id.clear())),
             ("call", Box::new(|q| q.call = "jl1his".into())),
             ("call", Box::new(|q| q.call = "<EOR>".into())),
+            ("call", Box::new(|q| q.call = "JL1HIS/".into())),
+            ("call", Box::new(|q| q.call = "JL1//P".into())),
             ("operator", Box::new(|q| q.operator = "".into())),
             ("frequency", Box::new(|q| q.frequency = 0)),
             ("mode", Box::new(|q| q.mode = "F M".into())),
