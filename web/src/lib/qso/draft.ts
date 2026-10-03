@@ -50,9 +50,7 @@ export function describeUpdate(update: SpokenUpdate, after: DraftQso): string {
 		case 'jcx':
 			return `JCX → ${update.value}`;
 		case 'qsl':
-			return { none: 'QSL not requested', requested: 'QSL requested', oneWay: 'QSL one way' }[
-				update.value
-			];
+			return { none: 'No QSL', requested: 'QSL requested', oneWay: 'QSL one way' }[update.value];
 		case 'mode':
 			return `Mode → ${update.value}`;
 	}

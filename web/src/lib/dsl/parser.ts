@@ -7,12 +7,12 @@ import {
 	MODE_WORDS,
 	PHONETIC_LETTERS,
 	POINT_WORDS,
-	QSL_NO_WORDS,
-	QSL_YES_WORDS,
+	QSL_VALUES,
 	STROKE_WORDS,
 	SUFFIX_WORDS,
 	lookup,
-	type CommandKind
+	type CommandKind,
+	type QslStatus
 } from './lexicon';
 import { isNumberToken, readDigits } from './numbers';
 import { tokenize } from './tokenize';
@@ -26,12 +26,6 @@ export type SpokenUpdate =
 	| { kind: 'jcx'; value: string }
 	| { kind: 'qsl'; value: QslStatus }
 	| { kind: 'mode'; value: string };
-
-/**
- * QSL card arrangement for a QSO. `requested`: the other station asked for our card.
- * `oneWay`: the other station sends a card and expects none back.
- */
-export type QslStatus = 'none' | 'requested' | 'oneWay';
 
 export type ParseResult =
 	| { ok: true; tokens: string[]; updates: SpokenUpdate[] }
@@ -59,31 +53,22 @@ export const KNOWN_MODES = [
 const POINTS = new Set<string>(POINT_WORDS);
 const MEGAHERTZ = new Set<string>(MEGAHERTZ_WORDS);
 const STROKES = new Set<string>(STROKE_WORDS);
-const QSL_YES = new Set<string>(QSL_YES_WORDS);
-const QSL_NO = new Set<string>(QSL_NO_WORDS);
 
 interface KeywordMatch {
 	kind: CommandKind;
 	length: number;
-	negated: boolean;
 }
 
-const KEYWORD_SEQUENCES: { kind: CommandKind; seq: readonly string[]; negated: boolean }[] = (
+const KEYWORD_SEQUENCES: { kind: CommandKind; seq: readonly string[] }[] = (
 	Object.entries(COMMAND_KEYWORDS) as [CommandKind, readonly (readonly string[])[]][]
 )
-	.flatMap(([kind, seqs]) => [
-		...seqs.map((seq) => ({ kind, seq, negated: false })),
-		// "no card", "no qsl"
-		...(kind === 'qsl' ? seqs.map((seq) => ({ kind, seq: ['no', ...seq], negated: true })) : [])
-	])
+	.flatMap(([kind, seqs]) => seqs.map((seq) => ({ kind, seq })))
 	// Longest match first so that e.g. "call sign" wins over "call".
 	.sort((a, b) => b.seq.length - a.seq.length);
 
 function matchKeyword(tokens: readonly string[], i: number): KeywordMatch | null {
-	for (const { kind, seq, negated } of KEYWORD_SEQUENCES) {
-		if (seq.every((word, k) => tokens[i + k] === word)) {
-			return { kind, length: seq.length, negated };
-		}
+	for (const { kind, seq } of KEYWORD_SEQUENCES) {
+		if (seq.every((word, k) => tokens[i + k] === word)) return { kind, length: seq.length };
 	}
 	return null;
 }
@@ -177,20 +162,13 @@ function parseJcx(tokens: readonly string[]): string {
 	return jcx;
 }
 
-function parseQsl(tokens: readonly string[], negated: boolean): QslStatus {
-	if (negated) {
-		if (tokens.every((t) => QSL_YES.has(t) || QSL_NO.has(t))) return 'none';
-		throw new DslError(`unexpected "${tokens[0]}" after "no card"`);
-	}
-	if (tokens.length === 0) return 'requested';
-	if (QSL_NO.has(tokens[0])) return 'none';
-	if (QSL_YES.has(tokens[0]) && tokens.length === 1) return 'requested';
-	throw new DslError(`unexpected "${tokens.join(' ')}" after "card"`);
-}
-
-function parseQslOneWay(tokens: readonly string[]): QslStatus {
-	if (tokens.length > 0) throw new DslError(`unexpected "${tokens.join(' ')}" after "one way"`);
-	return 'oneWay';
+function parseQsl(tokens: readonly string[]): QslStatus {
+	const value = QSL_VALUES.find(
+		({ words }) => words.length === tokens.length && words.every((w, i) => w === tokens[i])
+	);
+	if (value !== undefined) return value.status;
+	const expected = QSL_VALUES.map(({ words }) => `"${words.join(' ')}"`).join(', ');
+	throw new DslError(`expected ${expected} after "card", got "${tokens.join(' ')}"`);
 }
 
 function parseMode(tokens: readonly string[]): string {
@@ -203,11 +181,7 @@ function parseMode(tokens: readonly string[]): string {
 	return mode;
 }
 
-function parseSegment(
-	kind: CommandKind,
-	tokens: readonly string[],
-	negated: boolean
-): SpokenUpdate {
+function parseSegment(kind: CommandKind, tokens: readonly string[]): SpokenUpdate {
 	switch (kind) {
 		case 'callsign':
 			return { kind: 'callsign', value: parseCallsign(tokens) };
@@ -220,9 +194,7 @@ function parseSegment(
 		case 'jcx':
 			return { kind: 'jcx', value: parseJcx(tokens) };
 		case 'qsl':
-			return { kind: 'qsl', value: parseQsl(tokens, negated) };
-		case 'qslOneWay':
-			return { kind: 'qsl', value: parseQslOneWay(tokens) };
+			return { kind: 'qsl', value: parseQsl(tokens) };
 		case 'mode':
 			return { kind: 'mode', value: parseMode(tokens) };
 	}
@@ -233,12 +205,8 @@ export function parseTokens(tokens: readonly string[]): SpokenUpdate[] {
 	if (tokens.length === 0) throw new DslError('nothing recognized');
 
 	// Split into segments at command keywords. Tokens before the first keyword are a callsign.
-	const segments: { kind: CommandKind; negated: boolean; tokens: string[] }[] = [];
-	let current: { kind: CommandKind; negated: boolean; tokens: string[] } = {
-		kind: 'callsign',
-		negated: false,
-		tokens: []
-	};
+	const segments: { kind: CommandKind; tokens: string[] }[] = [];
+	let current: { kind: CommandKind; tokens: string[] } = { kind: 'callsign', tokens: [] };
 	let i = 0;
 	while (i < tokens.length) {
 		const match = matchKeyword(tokens, i);
@@ -248,12 +216,12 @@ export function parseTokens(tokens: readonly string[]): SpokenUpdate[] {
 			continue;
 		}
 		if (segments.length > 0 || current.tokens.length > 0) segments.push(current);
-		current = { kind: match.kind, negated: match.negated, tokens: [] };
+		current = { kind: match.kind, tokens: [] };
 		i += match.length;
 	}
 	segments.push(current);
 
-	return segments.map((s) => parseSegment(s.kind, s.tokens, s.negated));
+	return segments.map((s) => parseSegment(s.kind, s.tokens));
 }
 
 /**

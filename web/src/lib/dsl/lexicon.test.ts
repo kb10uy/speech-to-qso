@@ -5,8 +5,7 @@ import {
 	FREE_TEXT_ONLY_WORDS,
 	MODE_WORDS,
 	PHONETIC_LETTERS,
-	QSL_NO_WORDS,
-	QSL_YES_WORDS,
+	QSL_VALUES,
 	TEEN_WORDS,
 	TENS_WORDS
 } from './lexicon';
@@ -19,8 +18,7 @@ function allWords(): Set<string> {
 		...Object.keys(DIGIT_WORDS),
 		...Object.keys(TEEN_WORDS),
 		...Object.keys(TENS_WORDS),
-		...QSL_YES_WORDS,
-		...QSL_NO_WORDS,
+		...QSL_VALUES.flatMap(({ words }) => words),
 		...Object.keys(MODE_WORDS)
 	]);
 	for (const seqs of Object.values(COMMAND_KEYWORDS))

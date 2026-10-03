@@ -43,8 +43,8 @@ On a desktop, the Space key works as PTT.
 | `frequency two point seven four`                       | `*2.740` MHz                                        |
 | `frequency four thirty two point nine four`            | `432.940` MHz                                       |
 | `jcx one zero zero one zero one` (also `jcc` / `jcg`)  | JCX = `"100101"` (a string; leading zeros are kept) |
-| `card requested` / `no card`                           | QSL requested on / off                              |
-| `one way`                                              | QSL one way (they send a card, we send none)        |
+| `card requested` / `card negative`                     | QSL requested on / off                              |
+| `card one way`                                         | QSL one way (they send a card, we send none)        |
 | `mode foxtrot mike` / `mode fm`                        | Mode = `FM`                                         |
 
 - **There are no correction commands.** Speaking a field again overwrites that whole field.

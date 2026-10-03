@@ -182,32 +182,24 @@ describe('JCX', () => {
 });
 
 describe('QSL', () => {
-	it('parses card requested', () => {
+	it('parses the three card values', () => {
 		expect(single('card requested')).toEqual({ kind: 'qsl', value: 'requested' });
-		expect(single('card')).toEqual({ kind: 'qsl', value: 'requested' });
-		expect(single('qsl requested')).toEqual({ kind: 'qsl', value: 'requested' });
-		expect(single('q s l requested')).toEqual({ kind: 'qsl', value: 'requested' });
-	});
-
-	it('parses negations', () => {
-		expect(single('no card')).toEqual({ kind: 'qsl', value: 'none' });
-		expect(single('no card requested')).toEqual({ kind: 'qsl', value: 'none' });
-		expect(single('card no')).toEqual({ kind: 'qsl', value: 'none' });
-	});
-
-	it('parses one way', () => {
-		expect(single('one way')).toEqual({ kind: 'qsl', value: 'oneWay' });
 		expect(single('card one way')).toEqual({ kind: 'qsl', value: 'oneWay' });
-		expect(updates('juliett lima one hotel india sierra one way')).toEqual([
+		expect(single('card negative')).toEqual({ kind: 'qsl', value: 'none' });
+		expect(single('qsl requested')).toEqual({ kind: 'qsl', value: 'requested' });
+		expect(single('q s l negative')).toEqual({ kind: 'qsl', value: 'none' });
+		expect(updates('juliett lima one hotel india sierra card one way')).toEqual([
 			{ kind: 'callsign', value: 'JL1HIS' },
 			{ kind: 'qsl', value: 'oneWay' }
 		]);
 	});
 
-	it('rejects garbage after card', () => {
-		expect(error('card five')).toMatch(/after "card"/);
-		expect(error('card please')).toMatch(/after "card"/);
-		expect(error('one way five')).toMatch(/after "one way"/);
+	it('requires a value after card', () => {
+		expect(error('card')).toMatch(/expected "requested", "one way", "negative" after "card"/);
+		expect(error('card five')).toMatch(/after "card", got "five"/);
+		expect(error('card one')).toMatch(/after "card"/);
+		expect(error('card one way please')).toMatch(/after "card"/);
+		expect(error('no card')).toMatch(/unexpected "no"/);
 	});
 });
 
