@@ -1,11 +1,10 @@
 <script lang="ts">
 	import type { QsoApp } from '../app/app.svelte';
 	import { formatMhz, type QsoRecord } from '../qso';
-	import { isSyncConfigured } from '../sync/client';
 
 	let { app }: { app: QsoApp } = $props();
 
-	const syncConfigured = $derived(isSyncConfigured(app.settings.sync));
+	const syncConfigured = $derived(app.syncConfigured);
 
 	function time(record: QsoRecord) {
 		const iso = new Date(record.timeOn).toISOString();
