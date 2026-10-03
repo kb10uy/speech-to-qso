@@ -111,6 +111,14 @@ cargo run --release
 `main` に push すると `.github/workflows/pages.yml` がビルドしてデプロイします (手動実行も可)。
 初回のみリポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** にしてください。
 
+> [!NOTE]
+> ワークフローは現在 `ci/github-workflows/` に置いてあります (作成時の push 権限に `workflow` scope がなかったため)。
+> 有効化するには一度だけ次を実行して push してください。
+>
+> ```sh
+> git mv ci/github-workflows .github/workflows
+> ```
+
 ビルド時に Vosk の小型英語モデル (`vosk-model-small-en-us-0.15`) を取得し、vosk-browser 用に
 `.tar.gz` (トップレベルにディレクトリ 1 つ) へ詰め替えて `models/` に同梱します。
 モデルは初回読み込み時に vosk-browser が IndexedDB に保存するので、以降はオフラインでも使えます。

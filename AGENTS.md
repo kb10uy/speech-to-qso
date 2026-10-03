@@ -12,7 +12,7 @@ parser interprets a QSO-specific DSL. There is no NLP/LLM in the pipeline, and t
 
 ## Commands
 
-Run these before committing; CI (`.github/workflows/ci.yml`) runs the same.
+Run these before committing; CI (`.github/workflows/ci.yml`, currently staged in `ci/github-workflows/` until a human moves it) runs the same.
 
 ```sh
 cd web

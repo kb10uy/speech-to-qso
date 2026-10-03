@@ -1,0 +1,69 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  VOSK_MODEL: vosk-model-small-en-us-0.15
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+
+      - name: Cache Vosk model
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: web/static/models
+          key: ${{ env.VOSK_MODEL }}-tar-gz
+
+      # vosk-browser expects a .tar.gz with a single top-level directory.
+      - name: Fetch Vosk model
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p static/models "$RUNNER_TEMP/model"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/model.zip" "https://alphacephei.com/vosk/models/$VOSK_MODEL.zip"
+          unzip -q "$RUNNER_TEMP/model.zip" -d "$RUNNER_TEMP/model"
+          tar -C "$RUNNER_TEMP/model" -czf "static/models/$VOSK_MODEL.tar.gz" "$VOSK_MODEL"
+          ls -la static/models
+
+      - id: pages
+        uses: actions/configure-pages@v5
+      - run: npm run build
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
