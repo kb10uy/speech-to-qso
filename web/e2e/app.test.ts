@@ -93,6 +93,27 @@ test('streams 16 kHz PCM from the microphone while PTT is held', async ({ page }
 	expect(stats.samples).toBeLessThan(16_000 * 1.8);
 });
 
+test('switches to the bundled Japanese model and takes katakana commands', async ({ page }) => {
+	await setUpSession(page);
+
+	await page.getByRole('button', { name: '⚙' }).click();
+	await page.getByRole('combobox', { name: /^Vosk model/ }).selectOption('ja');
+	await expect(page.getByLabel('Vosk model URL')).toHaveAttribute(
+		'placeholder',
+		/models\/vosk-model-small-ja-0\.22\.tar\.gz$/
+	);
+	await page.getByRole('button', { name: 'Save' }).click();
+	await page.reload();
+	await page.getByRole('button', { name: '⚙' }).click();
+	await expect(page.getByRole('combobox', { name: /^Vosk model/ })).toHaveValue('ja');
+
+	await page.getByRole('button', { name: 'QSO' }).click();
+	await type(page, 'ジュリエット リマ ワン ホテル インディア シエラ カード ワン ウェイ');
+	const draft = page.getByLabel('Draft QSO');
+	await expect(draft).toContainText('JL1HIS');
+	await expect(draft).toContainText('QSL One Way');
+});
+
 test('starts offline once installed', async ({ page, context }) => {
 	await page.goto('./');
 	await page.evaluate(() => navigator.serviceWorker.ready);

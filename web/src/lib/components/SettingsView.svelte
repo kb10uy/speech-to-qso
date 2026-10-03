@@ -32,10 +32,26 @@
 	</label>
 	{#if form.asrEngine === 'vosk'}
 		<label class="field">
+			<span>Vosk model</span>
+			<select bind:value={form.voskLanguage}>
+				<option value="en">English</option>
+				<option value="ja">Japanese (say the commands as katakana loanwords)</option>
+			</select>
+			<span class="hint">
+				The Japanese model hears <em>ゼロ ワン</em> or <em>レシーブド ファイブ ナイン</em> the way they
+				are said with Japanese pronunciation. The commands are the same.
+			</span>
+		</label>
+		<label class="field">
 			<span>Vosk model URL</span>
-			<input type="url" bind:value={form.voskModelUrl} placeholder={app.defaultModelUrl} />
+			<input
+				type="url"
+				bind:value={form.voskModelUrl}
+				placeholder={app.defaultModelUrl(form.voskLanguage)}
+			/>
 			<span class="hint"
-				>.tar.gz with a single top-level directory. Empty uses the bundled model.</span
+				>.tar.gz with a single top-level directory, in the language selected above. Empty uses the
+				bundled model.</span
 			>
 		</label>
 		<label class="check">
@@ -83,7 +99,8 @@
 <section class="help">
 	<h2>Voice commands</h2>
 	<p class="hint">
-		One utterance per PTT press. Speaking a field again overwrites it. Commands can be chained.
+		One utterance per PTT press. Speaking a field again overwrites it. Commands can be chained. With
+		the Japanese model, say the same words as katakana loanwords (ジュリエット リマ ワン …).
 	</p>
 	<dl>
 		<dt>juliett lima one hotel india sierra</dt>

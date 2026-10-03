@@ -1,10 +1,13 @@
+import type { SpeechLanguage } from '../dsl';
 import type { SyncSettings } from '../sync/client';
 
 export type AsrEngine = 'vosk' | 'webspeech';
 
 export interface AppSettings {
 	asrEngine: AsrEngine;
-	/** Vosk model archive URL. Empty means the model deployed with the app. */
+	/** Language of the Vosk model; picks the bundled model and how the grammar is spelled. */
+	voskLanguage: SpeechLanguage;
+	/** Vosk model archive URL. Empty means the model deployed with the app for `voskLanguage`. */
 	voskModelUrl: string;
 	/** Constrain Vosk to the DSL vocabulary. */
 	voskGrammar: boolean;
@@ -17,11 +20,16 @@ export interface AppSettings {
 	sync: SyncSettings;
 }
 
-export const DEFAULT_MODEL_PATH = 'models/vosk-model-small-en-us-0.15.tar.gz';
+/** Models deployed with the app. Keep in sync with `VOSK_MODEL_*` in `.github/workflows/pages.yml`. */
+export const DEFAULT_MODEL_PATHS: Readonly<Record<SpeechLanguage, string>> = {
+	en: 'models/vosk-model-small-en-us-0.15.tar.gz',
+	ja: 'models/vosk-model-small-ja-0.22.tar.gz'
+};
 
 export function defaultSettings(): AppSettings {
 	return {
 		asrEngine: 'vosk',
+		voskLanguage: 'en',
 		voskModelUrl: '',
 		voskGrammar: true,
 		autoLoadAsr: false,

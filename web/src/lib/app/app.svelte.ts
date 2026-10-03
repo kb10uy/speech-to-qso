@@ -1,5 +1,5 @@
 import { asset } from '$app/paths';
-import { parseSpeech } from '../dsl';
+import { parseSpeech, type SpeechLanguage } from '../dsl';
 import {
 	adifFile,
 	applyUpdates,
@@ -20,7 +20,7 @@ import {
 import { KeyValueStore, QsoStore, openDatabase } from '../storage/db';
 import { isSyncConfigured, syncAll, type SyncReport } from '../sync/client';
 import { sleep, withTimeout } from '../util/timeout';
-import { DEFAULT_MODEL_PATH, mergeSettings, type AppSettings } from './settings';
+import { DEFAULT_MODEL_PATHS, mergeSettings, type AppSettings } from './settings';
 
 export type PttState = 'idle' | 'opening' | 'listening' | 'finishing';
 export type AsrState = 'unloaded' | 'loading' | 'ready' | 'error';
@@ -93,9 +93,9 @@ export class QsoApp {
 		return isSyncConfigured(this.settings.sync);
 	}
 
-	get defaultModelUrl(): string {
+	defaultModelUrl(language: SpeechLanguage): string {
 		// The model is fetched at deploy time, so it is not part of the typed static assets.
-		const path = asset(DEFAULT_MODEL_PATH as Parameters<typeof asset>[0]);
+		const path = asset(DEFAULT_MODEL_PATHS[language] as Parameters<typeof asset>[0]);
 		return new URL(path, location.href).href;
 	}
 
@@ -141,7 +141,8 @@ export class QsoApp {
 							modelUrl:
 								this.settings.voskModelUrl.trim() !== ''
 									? new URL(this.settings.voskModelUrl.trim(), location.href).href
-									: this.defaultModelUrl,
+									: this.defaultModelUrl(this.settings.voskLanguage),
+							language: this.settings.voskLanguage,
 							useGrammar: this.settings.voskGrammar
 						});
 			recognizer.onPartial = (text) => (this.partial = text);
@@ -358,6 +359,7 @@ export class QsoApp {
 	async saveSettings(settings: AppSettings) {
 		const engineChanged =
 			settings.asrEngine !== this.settings.asrEngine ||
+			settings.voskLanguage !== this.settings.voskLanguage ||
 			settings.voskModelUrl !== this.settings.voskModelUrl ||
 			settings.voskGrammar !== this.settings.voskGrammar;
 		this.settings = settings;

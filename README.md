@@ -124,10 +124,11 @@ One-time repository setup:
 - **Settings → Pages → Build and deployment → Source**: **GitHub Actions**
 - **Settings → Environments → `github-pages` → Deployment branches and tags**: allow `main`
 
-The build downloads the small English Vosk model (`vosk-model-small-en-us-0.15`), repacks it as a `.tar.gz` with a
-single top-level directory (the layout vosk-browser expects) and ships it under `models/`. vosk-browser stores the
-model in IndexedDB on first load, so it keeps working offline afterwards. To use a different model, set its `.tar.gz`
-URL under "Vosk model URL" in Settings (the host must allow CORS).
+The build downloads the small English and Japanese Vosk models (`vosk-model-small-en-us-0.15`,
+`vosk-model-small-ja-0.22`), repacks each as a `.tar.gz` with a single top-level directory (the layout vosk-browser
+expects) and ships them under `models/`. Settings → "Vosk model" picks one; only the selected model is downloaded.
+vosk-browser stores it in IndexedDB on first load, so it keeps working offline afterwards. To use a different model,
+set its `.tar.gz` URL under "Vosk model URL" in Settings and pick its language above (the host must allow CORS).
 
 ## Development
 
@@ -145,8 +146,8 @@ cargo test
 cargo clippy --all-targets -- -D warnings
 ```
 
-To try Vosk locally, put the model at `web/static/models/vosk-model-small-en-us-0.15.tar.gz`
-(same steps as "Fetch Vosk model" in `pages.yml`).
+To try Vosk locally, put the models at `web/static/models/vosk-model-small-en-us-0.15.tar.gz` and
+`web/static/models/vosk-model-small-ja-0.22.tar.gz` (same steps as "Fetch Vosk models" in `pages.yml`).
 
 ### Layout
 
@@ -176,6 +177,11 @@ Vosk to sherpa-onnx, Whisper or a server-side ASR only means implementing that i
   after `call sign`, and so on. Homophones and alternative spellings that only free-text engines produce
   (`to`, `for`, `alfa`, `juliett`, ...) are kept out of the grammar, since every extra short word is one more thing
   for noise to be decoded as. Spellings missing from the model's vocabulary are ignored by Vosk.
+- **Japanese model**: Japanese speakers tend to say the DSL with Japanese sounds (`zero` as ゼロ), which the English
+  model mishears. The Japanese model hears these as ordinary loanwords, so with it the commands are spoken as
+  katakana (`ジュリエット リマ ワン`, `レシーブド ファイブ ナイン`, `カード ワン ウェイ`). Its grammar is spelled with
+  the readings in `JAPANESE_READINGS` (`web/src/lib/dsl/lexicon.ts`), and the tokenizer maps them back to the English
+  DSL, so the commands themselves do not change.
 - Vosk may finalize a segment at a pause in the middle of an utterance, so all results of one PTT press are joined
   into a single utterance.
 - Recording continues for the `Release tail` (300 ms by default) after PTT is released, so the last word is not

@@ -1,12 +1,14 @@
 import type { Model } from 'vosk-browser';
 import type { KaldiRecognizer } from 'vosk-browser/dist/model';
 import type { RecognizerMessage } from 'vosk-browser/dist/interfaces';
-import { grammarPhrases } from '../dsl';
+import { grammarPhrases, type SpeechLanguage } from '../dsl';
 import { ASR_SAMPLE_RATE, type SpeechRecognizer, type SpeechResult } from './recognizer';
 
 export interface VoskOptions {
 	/** URL of a `.tar.gz` model archive (a single top-level directory). */
 	modelUrl: string;
+	/** Language of the model, which decides how the grammar is spelled. */
+	language: SpeechLanguage;
 	/** Restrict recognition to the DSL vocabulary. */
 	useGrammar: boolean;
 }
@@ -47,7 +49,9 @@ export class VoskRecognizer implements SpeechRecognizer {
 		if (this.#model !== null) return;
 		const { createModel } = await import('vosk-browser');
 		const model = await createModel(this.options.modelUrl);
-		const grammar = this.options.useGrammar ? JSON.stringify(grammarPhrases()) : undefined;
+		const grammar = this.options.useGrammar
+			? JSON.stringify(grammarPhrases(this.options.language))
+			: undefined;
 		const recognizer = new model.KaldiRecognizer(ASR_SAMPLE_RATE, grammar);
 		recognizer.setWords(true);
 		recognizer.on('result', (m) => this.#handle(m));
