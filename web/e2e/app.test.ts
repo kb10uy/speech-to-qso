@@ -2,7 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function setUpSession(page: Page) {
 	await page.goto('./');
-	await page.getByRole('button', { name: 'Session' }).click();
+	// Exact: once the app is ready, the "set up the session" banner matches "Session" too.
+	await page.getByRole('button', { name: 'Session', exact: true }).click();
 	await page.getByLabel('Operator callsign').fill('jj1abc');
 	await page.getByLabel('Frequency anchor (MHz)').fill('433');
 	await page.getByRole('button', { name: 'Save' }).click();
@@ -103,6 +104,8 @@ test('switches to the bundled Japanese model and takes katakana commands', async
 		/models\/vosk-model-small-ja-0\.22\.tar\.gz$/
 	);
 	await page.getByRole('button', { name: 'Save' }).click();
+	// Saving is asynchronous (IndexedDB); reloading before it finishes would lose the change.
+	await expect(page.getByRole('button', { name: 'Saved ✓' })).toBeVisible();
 	await page.reload();
 	await page.getByRole('button', { name: '⚙' }).click();
 	await expect(page.getByRole('combobox', { name: /^Vosk model/ })).toHaveValue('ja');
