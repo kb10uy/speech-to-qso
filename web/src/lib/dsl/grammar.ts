@@ -21,8 +21,7 @@ import {
 	MODE_WORDS,
 	PHONETIC_LETTERS,
 	POINT_WORDS,
-	QSL_NO_WORDS,
-	QSL_YES_WORDS,
+	QSL_VALUES,
 	REPEAT_WORDS,
 	STROKE_WORDS,
 	SUFFIX_WORDS,
@@ -47,8 +46,7 @@ type Slot =
 	| 'jcxKeyword'
 	| 'qslKeyword'
 	| 'modeKeyword'
-	| 'qslYes'
-	| 'qslNo'
+	| 'qslValue'
 	| 'mode'
 	| 'unknown';
 
@@ -83,8 +81,7 @@ const WORDS: Readonly<Record<Slot, readonly Sequence[]>> = {
 	jcxKeyword: keyword('jcx'),
 	qslKeyword: keyword('qsl'),
 	modeKeyword: keyword('mode'),
-	qslYes: single(QSL_YES_WORDS),
-	qslNo: single(QSL_NO_WORDS),
+	qslValue: QSL_VALUES.map(({ words }) => words),
 	mode: single(Object.keys(MODE_WORDS)),
 	unknown: [['[unk]']]
 };
@@ -128,17 +125,15 @@ const TRANSITIONS: Readonly<Record<Slot, readonly Next[]>> = {
 	rstKeyword: ['number', 'unknown'],
 	frequencyKeyword: ['number', 'point', 'unknown'],
 	jcxKeyword: ['number', 'unknown'],
-	qslKeyword: ['qslYes', 'qslNo', ...NEXT_COMMAND, 'end'],
-	qslYes: ['qslYes', 'qslNo', ...NEXT_COMMAND, 'end'],
-	// "no card": the negation comes before the keyword.
-	qslNo: ['qslYes', 'qslNo', ...NEXT_COMMAND, 'end'],
+	qslKeyword: ['qslValue', 'unknown'],
+	qslValue: [...NEXT_COMMAND, 'end'],
 	modeKeyword: ['mode', 'letter', 'number', 'unknown'],
 	mode: [...NEXT_COMMAND, 'end'],
 	unknown: [...SLOTS, 'end']
 };
 
-/** What an utterance may start with: a bare callsign, a command, "no card", or noise. */
-const START: readonly Slot[] = ['letter', 'number', 'qslNo', ...KEYWORDS, 'unknown'];
+/** What an utterance may start with: a bare callsign, a command, or noise. */
+const START: readonly Slot[] = ['letter', 'number', ...KEYWORDS, 'unknown'];
 
 /** Shortest slot path from the start to each slot (excluding the slot itself). */
 function prefixes(): Map<Slot, Slot[]> {

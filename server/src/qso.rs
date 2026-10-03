@@ -1,7 +1,35 @@
 //! The QSO payload sent by the web client (`POST /api/qso`).
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// QSL card arrangement for a QSO. Mirrors `QslStatus` in `web/src/lib/dsl/parser.ts`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Qsl {
+    #[default]
+    None,
+    /// The other station asked for our card.
+    Requested,
+    /// The other station sends a card and expects none back.
+    OneWay,
+}
+
+/// Also reads the boolean `qsl_requested` that clients sent (and the local log stored) before
+/// `qsl` existed.
+fn deserialize_qsl<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Qsl, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Wire {
+        Status(Qsl),
+        Legacy(bool),
+    }
+    Ok(match Wire::deserialize(deserializer)? {
+        Wire::Status(qsl) => qsl,
+        Wire::Legacy(true) => Qsl::Requested,
+        Wire::Legacy(false) => Qsl::None,
+    })
+}
 
 /// Mirrors `QsoApiPayload` in `web/src/lib/qso/record.ts`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -16,8 +44,8 @@ pub struct QsoPayload {
     pub rst_rcvd: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jcx: Option<String>,
-    #[serde(default)]
-    pub qsl_requested: bool,
+    #[serde(default, alias = "qsl_requested", deserialize_with = "deserialize_qsl")]
+    pub qsl: Qsl,
     pub time_on: DateTime<Utc>,
     pub operator: String,
     #[serde(default)]
@@ -106,7 +134,7 @@ pub(crate) mod tests {
             "rst_sent": "59",
             "rst_rcvd": "57",
             "jcx": "100101",
-            "qsl_requested": true,
+            "qsl": "requested",
             "time_on": "2026-10-03T04:05:06.789Z",
             "operator": "JJ1ABC",
             "location": "Minato",
@@ -134,8 +162,31 @@ pub(crate) mod tests {
         }))
         .unwrap();
         assert_eq!(qso.validate(), Ok(()));
-        assert!(!qso.qsl_requested);
+        assert_eq!(qso.qsl, Qsl::None);
         assert_eq!(qso.location, "");
+    }
+
+    #[test]
+    fn reads_qsl_in_every_shape() {
+        let qsl = |value: serde_json::Value| {
+            let mut json = serde_json::to_value(sample()).unwrap();
+            let key = if value.is_boolean() { "qsl_requested" } else { "qsl" };
+            json.as_object_mut().unwrap().remove("qsl");
+            json[key] = value;
+            serde_json::from_value::<QsoPayload>(json).unwrap().qsl
+        };
+        assert_eq!(qsl(serde_json::json!("oneWay")), Qsl::OneWay);
+        assert_eq!(qsl(serde_json::json!("none")), Qsl::None);
+        // Lines written before `qsl` existed.
+        assert_eq!(qsl(serde_json::json!(true)), Qsl::Requested);
+        assert_eq!(qsl(serde_json::json!(false)), Qsl::None);
+    }
+
+    #[test]
+    fn rejects_an_unknown_qsl() {
+        let mut json = serde_json::to_value(sample()).unwrap();
+        json["qsl"] = serde_json::json!("maybe");
+        assert!(serde_json::from_value::<QsoPayload>(json).is_err());
     }
 
     #[test]

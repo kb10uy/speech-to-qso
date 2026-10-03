@@ -31,7 +31,9 @@ export function adifRecord(record: QsoRecord): string {
 			field('MODE', record.mode),
 			field('RST_SENT', record.rstSent),
 			field('RST_RCVD', record.rstReceived),
-			field('QSL_SENT', record.qslRequested ? 'R' : undefined),
+			// Requested: we owe a card. One way: we send none and one is on its way to us.
+			field('QSL_SENT', { none: undefined, requested: 'R', oneWay: 'N' }[record.qsl]),
+			field('QSL_RCVD', record.qsl === 'oneWay' ? 'R' : undefined),
 			field('COMMENT', comment),
 			field('APP_SPEECHTOQSO_JCX', record.jcx),
 			field('OPERATOR', record.operatorCall),

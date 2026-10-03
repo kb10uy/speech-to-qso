@@ -182,21 +182,24 @@ describe('JCX', () => {
 });
 
 describe('QSL', () => {
-	it('parses card requested', () => {
-		expect(single('card requested')).toEqual({ kind: 'qslRequested', value: true });
-		expect(single('card')).toEqual({ kind: 'qslRequested', value: true });
-		expect(single('qsl please')).toEqual({ kind: 'qslRequested', value: true });
-		expect(single('q s l requested')).toEqual({ kind: 'qslRequested', value: true });
+	it('parses the three card values', () => {
+		expect(single('card requested')).toEqual({ kind: 'qsl', value: 'requested' });
+		expect(single('card one way')).toEqual({ kind: 'qsl', value: 'oneWay' });
+		expect(single('card negative')).toEqual({ kind: 'qsl', value: 'none' });
+		expect(single('qsl requested')).toEqual({ kind: 'qsl', value: 'requested' });
+		expect(single('q s l negative')).toEqual({ kind: 'qsl', value: 'none' });
+		expect(updates('juliett lima one hotel india sierra card one way')).toEqual([
+			{ kind: 'callsign', value: 'JL1HIS' },
+			{ kind: 'qsl', value: 'oneWay' }
+		]);
 	});
 
-	it('parses negations', () => {
-		expect(single('no card')).toEqual({ kind: 'qslRequested', value: false });
-		expect(single('card not requested')).toEqual({ kind: 'qslRequested', value: false });
-		expect(single('card cancel')).toEqual({ kind: 'qslRequested', value: false });
-	});
-
-	it('rejects garbage after card', () => {
-		expect(error('card five')).toMatch(/after "card"/);
+	it('requires a value after card', () => {
+		expect(error('card')).toMatch(/expected "requested", "one way", "negative" after "card"/);
+		expect(error('card five')).toMatch(/after "card", got "five"/);
+		expect(error('card one')).toMatch(/after "card"/);
+		expect(error('card one way please')).toMatch(/after "card"/);
+		expect(error('no card')).toMatch(/unexpected "no"/);
 	});
 });
 
@@ -226,7 +229,7 @@ describe('utterances', () => {
 		).toEqual([
 			{ kind: 'callsign', value: 'JL1HIS' },
 			{ kind: 'rstReceived', value: '57' },
-			{ kind: 'qslRequested', value: true }
+			{ kind: 'qsl', value: 'requested' }
 		]);
 	});
 

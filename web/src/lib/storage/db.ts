@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { QsoRecord } from '../qso';
+import type { DraftQso, QsoRecord } from '../qso';
 
 interface QsoDb extends DBSchema {
 	qsos: {
@@ -17,13 +17,35 @@ export type Database = IDBPDatabase<QsoDb>;
 
 const DB_NAME = 'speech-to-qso';
 
+/** Version 1 stored QSL as a boolean. */
+type LegacyQsl = { qslRequested?: boolean; qsl?: QsoRecord['qsl'] };
+
+function migrateQsl<T extends LegacyQsl>(value: T): T {
+	if (value.qsl !== undefined) return value;
+	const { qslRequested, ...rest } = value;
+	return { ...rest, qsl: qslRequested === true ? 'requested' : 'none' } as unknown as T;
+}
+
 export function openDatabase(name: string = DB_NAME): Promise<Database> {
-	return openDB<QsoDb>(name, 1, {
-		upgrade(db) {
-			const qsos = db.createObjectStore('qsos', { keyPath: 'id' });
-			qsos.createIndex('createdAt', 'createdAt');
-			qsos.createIndex('syncState', 'syncState');
-			db.createObjectStore('kv');
+	return openDB<QsoDb>(name, 2, {
+		async upgrade(db, oldVersion, _newVersion, tx) {
+			if (oldVersion < 1) {
+				const qsos = db.createObjectStore('qsos', { keyPath: 'id' });
+				qsos.createIndex('createdAt', 'createdAt');
+				qsos.createIndex('syncState', 'syncState');
+				db.createObjectStore('kv');
+			}
+			if (oldVersion === 1) {
+				// Only IndexedDB requests are awaited here, so the upgrade transaction stays open.
+				let cursor = await tx.objectStore('qsos').openCursor();
+				while (cursor) {
+					await cursor.update(migrateQsl(cursor.value));
+					cursor = await cursor.continue();
+				}
+				const kv = tx.objectStore('kv');
+				const draft = (await kv.get('draft')) as DraftQso | undefined;
+				if (draft !== undefined) await kv.put(migrateQsl(draft), 'draft');
+			}
 		}
 	});
 }

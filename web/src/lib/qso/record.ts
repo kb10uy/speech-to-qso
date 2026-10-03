@@ -1,3 +1,4 @@
+import type { QslStatus } from '../dsl';
 import type { DraftQso } from './draft';
 import { operatorCallProblem, type OperatingSession } from './session';
 
@@ -13,7 +14,7 @@ export interface QsoRecord {
 	rstSent: string;
 	rstReceived: string;
 	jcx?: string;
-	qslRequested: boolean;
+	qsl: QslStatus;
 	/** QSO start time (ISO 8601, UTC). */
 	timeOn: string;
 
@@ -61,7 +62,7 @@ export function finalizeDraft(
 			rstSent: draft.rstSent,
 			rstReceived: draft.rstReceived,
 			jcx: draft.jcx,
-			qslRequested: draft.qslRequested,
+			qsl: draft.qsl,
 			timeOn: draft.startedAt ?? now.toISOString(),
 			operatorCall: session.operatorCall.trim().toUpperCase(),
 			location: session.location.trim(),
@@ -84,7 +85,7 @@ export interface QsoApiPayload {
 	rst_sent: string;
 	rst_rcvd: string;
 	jcx?: string;
-	qsl_requested: boolean;
+	qsl: QslStatus;
 	time_on: string;
 	operator: string;
 	location: string;
@@ -102,7 +103,7 @@ export function toApiPayload(record: QsoRecord): QsoApiPayload {
 		rst_sent: record.rstSent,
 		rst_rcvd: record.rstReceived,
 		jcx: record.jcx,
-		qsl_requested: record.qslRequested,
+		qsl: record.qsl,
 		time_on: record.timeOn,
 		operator: record.operatorCall,
 		location: record.location,

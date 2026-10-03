@@ -27,15 +27,16 @@ describe('grammarPhrases', () => {
 			'jcx one zero zero one zero one',
 			'j c x one zero zero one zero one',
 			'jcx one one zero zero one golf',
-			'card',
-			'card please',
-			'no card',
 			'qsl requested',
-			'card not',
+			'card requested',
+			'card one way',
+			'card negative',
+			'q s l negative',
+			'juliet lima one hotel india sierra card one way',
 			'mode fm',
 			'mode foxtrot mike',
 			'mode foxtrot tango eight',
-			'juliet lima one hotel india sierra received five nine sent five nine card mode fm frequency four three two point nine four'
+			'juliet lima one hotel india sierra received five nine sent five nine card requested mode fm frequency four three two point nine four'
 		];
 		for (const sample of samples) {
 			expect(parseSpeech(sample).ok, sample).toBe(true);
@@ -56,7 +57,9 @@ describe('grammarPhrases', () => {
 		expect(bigrams).not.toContain('frequency alpha');
 		expect(bigrams).not.toContain('megahertz five');
 		expect(starts).not.toContain('point');
-		expect(starts).not.toContain('please');
+		expect(starts).not.toContain('requested');
+		expect(starts).not.toContain('negative');
+		expect(ends).not.toContain('card');
 		expect(ends).not.toContain('stroke');
 		expect(ends).not.toContain('received');
 		expect(ends).not.toContain('double');

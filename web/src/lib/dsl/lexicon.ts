@@ -155,10 +155,22 @@ export const COMMAND_KEYWORDS = {
 
 export type CommandKind = keyof typeof COMMAND_KEYWORDS;
 
-/** Words following a QSL keyword that mean "requested". */
-export const QSL_YES_WORDS = ['requested', 'request', 'please', 'yes', 'wanted'] as const;
-/** Words around a QSL keyword that mean "not requested". */
-export const QSL_NO_WORDS = ['no', 'none', 'not', 'cancel', 'cancelled', 'canceled'] as const;
+/**
+ * QSL card arrangement for a QSO. `requested`: the other station asked for our card.
+ * `oneWay`: the other station sends a card and expects none back.
+ */
+export type QslStatus = 'none' | 'requested' | 'oneWay';
+
+/**
+ * What follows a QSL keyword (`card requested`). Always a value word: a bare `card` would turn
+ * any noise after it into a requested card, and `negative` is long and sounds like nothing
+ * else in the vocabulary, which `none` (vs. `one way`) does not.
+ */
+export const QSL_VALUES: readonly { readonly words: readonly string[]; status: QslStatus }[] = [
+	{ words: ['requested'], status: 'requested' },
+	{ words: ['one', 'way'], status: 'oneWay' },
+	{ words: ['negative'], status: 'none' }
+];
 
 /** Mode names that the ASR may emit as a single word. */
 export const MODE_WORDS: Readonly<Record<string, string>> = {

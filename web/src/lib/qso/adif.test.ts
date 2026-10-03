@@ -11,7 +11,7 @@ const record: QsoRecord = {
 	rstSent: '59',
 	rstReceived: '57',
 	jcx: '100101',
-	qslRequested: true,
+	qsl: 'requested',
 	timeOn: '2026-10-03T04:05:06.789Z',
 	operatorCall: 'JJ1ABC',
 	location: 'Minato',
@@ -31,16 +31,23 @@ describe('adifRecord', () => {
 		);
 	});
 
+	it('renders a one-way card as nothing to send and a card to receive', () => {
+		// Identical to the expectation in server/src/adif.rs.
+		expect(adifRecord({ ...record, qsl: 'oneWay' as const })).toContain(
+			'<RST_RCVD:2>57 <QSL_SENT:1>N <QSL_RCVD:1>R <COMMENT:10>JCX 100101 '
+		);
+	});
+
 	it('omits empty optional fields', () => {
 		const minimal = {
 			...record,
 			jcx: undefined,
-			qslRequested: false,
+			qsl: 'none' as const,
 			potaReference: undefined,
 			location: ''
 		};
 		const adif = adifRecord(minimal);
-		expect(adif).not.toMatch(/QSL_SENT|COMMENT|JCX|MY_SIG|MY_CITY/);
+		expect(adif).not.toMatch(/QSL_|COMMENT|JCX|MY_SIG|MY_CITY/);
 	});
 
 	it('counts characters, not UTF-16 units', () => {
