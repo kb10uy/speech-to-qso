@@ -110,6 +110,35 @@ export const STROKE_WORDS = ['stroke', 'slash'] as const;
 /** Callsign suffix words that expand to a full `/X` suffix. */
 export const SUFFIX_WORDS: Readonly<Record<string, string>> = { portable: '/P', mobile: '/M' };
 
+/**
+ * Spellings that only free-text input produces (Web Speech API output, typed text) and that a
+ * grammar-constrained recogniser never needs: homophones and alternative spellings of a word
+ * that is listed anyway (Vosk emits whichever spelling the grammar contains), text-only
+ * abbreviations, and `oh`, a single vowel that stray noise is mistaken for far too easily (the
+ * ITU pronunciation of 0 is `zero`). Every extra short word in a grammar is one more thing
+ * for breath, rig audio and PTT clicks to decode as, so these stay out of it; the parser keeps
+ * accepting them.
+ */
+export const FREE_TEXT_ONLY_WORDS: ReadonlySet<string> = new Set([
+	'alfa',
+	'fox',
+	'juliett',
+	'juliette',
+	'whisky',
+	'xray',
+	'oh',
+	'won',
+	'to',
+	'too',
+	'for',
+	'ate',
+	'fourty',
+	'rcvd',
+	'jay',
+	'see',
+	'ex'
+]);
+
 /** Words that are ignored anywhere in an utterance. */
 export const FILLER_WORDS = ['the', 'uh', 'um', 'er', 'ah', 'and', 'is', '[unk]'] as const;
 
@@ -143,31 +172,3 @@ export const MODE_WORDS: Readonly<Record<string, string>> = {
 	ft8: 'FT8',
 	ft4: 'FT4'
 };
-
-/**
- * Word list for grammar-constrained recognisers (e.g. Vosk grammar mode).
- * Words that are missing from a model's vocabulary are simply ignored by Vosk.
- */
-export function grammarVocabulary(): string[] {
-	const words = new Set<string>();
-	const add = (w: string) => words.add(w);
-	Object.keys(PHONETIC_LETTERS).forEach(add);
-	['x', 'ray'].forEach(add);
-	Object.keys(DIGIT_WORDS).forEach(add);
-	Object.keys(TEEN_WORDS).forEach(add);
-	Object.keys(TENS_WORDS).forEach(add);
-	HUNDRED_WORDS.forEach(add);
-	Object.keys(REPEAT_WORDS).forEach(add);
-	POINT_WORDS.forEach(add);
-	MEGAHERTZ_WORDS.forEach(add);
-	STROKE_WORDS.forEach(add);
-	Object.keys(SUFFIX_WORDS).forEach(add);
-	for (const sequences of Object.values(COMMAND_KEYWORDS)) {
-		for (const seq of sequences) seq.forEach(add);
-	}
-	QSL_YES_WORDS.forEach(add);
-	QSL_NO_WORDS.forEach(add);
-	Object.keys(MODE_WORDS).forEach(add);
-	add('[unk]');
-	return [...words];
-}

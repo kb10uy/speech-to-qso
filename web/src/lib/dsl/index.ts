@@ -5,7 +5,7 @@ export {
 	type FrequencyContext,
 	type FrequencyPattern
 } from './frequency';
-export { grammarVocabulary } from './lexicon';
+export { grammarPhrases } from './grammar';
 export {
 	KNOWN_MODES,
 	isCallsign,

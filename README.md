@@ -168,9 +168,12 @@ The ASR library sits behind the `SpeechRecognizer` interface (`web/src/lib/speec
 Vosk to sherpa-onnx, Whisper or a server-side ASR only means implementing that interface.
 
 - **Vosk grammar**: vosk-browser 0.0.8 accepts a grammar when creating a recognizer, so recognition is restricted to
-  the DSL vocabulary (`grammarVocabulary()` in `web/src/lib/dsl/lexicon.ts`; can be disabled in Settings).
-  Spellings missing from the model's vocabulary (e.g. `juliett`) are ignored by Vosk, and an alternative spelling of
-  the same letter (`juliet`) is used instead.
+  the DSL vocabulary (can be disabled in Settings). Vosk estimates a bigram language model from the phrases it is
+  given, so the grammar is not a word list but every word-to-word transition the DSL allows, embedded in short
+  utterances (`grammarPhrases()` in `web/src/lib/dsl/grammar.ts`): digits are expected after `received`, letters
+  after `call sign`, and so on. Homophones and alternative spellings that only free-text engines produce
+  (`to`, `for`, `alfa`, `juliett`, ...) are kept out of the grammar, since every extra short word is one more thing
+  for noise to be decoded as. Spellings missing from the model's vocabulary are ignored by Vosk.
 - Vosk may finalize a segment at a pause in the middle of an utterance, so all results of one PTT press are joined
   into a single utterance.
 - Recording continues for the `Release tail` (300 ms by default) after PTT is released, so the last word is not
