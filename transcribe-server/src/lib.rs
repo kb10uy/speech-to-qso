@@ -19,6 +19,7 @@ const MAX_BODY_BYTES: usize = MAX_AUDIO_BYTES + 64 * 1024;
 
 pub mod config;
 mod google;
+mod google_v1;
 
 pub struct AppState {
     client: reqwest::Client,
@@ -26,6 +27,7 @@ pub struct AppState {
     model: String,
     endpoint: String,
     google: Option<google::GoogleState>,
+    google_v1: Option<google_v1::GoogleV1State>,
 }
 
 impl AppState {
@@ -39,10 +41,14 @@ impl AppState {
             model,
             endpoint: "https://api.openai.com/v1/audio/transcriptions".into(),
             google: None,
+            google_v1: None,
         })
     }
 
     pub fn with_google(mut self, config: Option<config::GoogleConfig>) -> Self {
+        self.google_v1 = config
+            .as_ref()
+            .map(|config| google_v1::GoogleV1State::new(config.clone()));
         self.google = config.map(google::GoogleState::new);
         self
     }
@@ -90,6 +96,7 @@ async fn health(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     }
     if let Some(google) = &state.google {
         providers.push(json!({ "id": "google", "label": "Google Cloud STT V2", "model": google.config.model }));
+        providers.push(json!({ "id": "google-v1", "label": "Google V1 / ABNF", "model": google.config.v1_model }));
     }
     Json(json!({ "status": "ok", "model": state.model, "providers": providers }))
 }
@@ -123,6 +130,7 @@ struct Upload {
     keywords: Vec<String>,
     languages: Vec<String>,
     boost: Option<f32>,
+    abnf: Option<String>,
 }
 
 async fn read_upload(mut multipart: Multipart) -> Result<Upload, ApiError> {
@@ -130,6 +138,7 @@ async fn read_upload(mut multipart: Multipart) -> Result<Upload, ApiError> {
     let mut prompt = None;
     let mut provider = None;
     let mut boost = None;
+    let mut abnf = None;
     let mut keywords = Vec::new();
     let mut languages = Vec::new();
 
@@ -169,10 +178,20 @@ async fn read_upload(mut multipart: Multipart) -> Result<Upload, ApiError> {
                     return Err(ApiError::bad_request("send at most one provider"));
                 }
                 let value = field.text().await?;
-                if !matches!(value.as_str(), "openai" | "google") {
-                    return Err(ApiError::bad_request("provider must be openai or google"));
+                if !matches!(value.as_str(), "openai" | "google" | "google-v1") {
+                    return Err(ApiError::bad_request("provider must be openai, google or google-v1"));
                 }
                 provider = Some(value);
+            }
+            "abnf" => {
+                if abnf.is_some() {
+                    return Err(ApiError::bad_request("send at most one ABNF grammar"));
+                }
+                let value = field.text().await?;
+                if value.trim().is_empty() || value.len() > 64 * 1024 {
+                    return Err(ApiError::bad_request("ABNF must be nonempty and at most 64 KiB"));
+                }
+                abnf = Some(value);
             }
             "boost" => {
                 if boost.is_some() {
@@ -215,10 +234,14 @@ async fn read_upload(mut multipart: Multipart) -> Result<Upload, ApiError> {
         keywords,
         languages,
         boost,
+        abnf,
     })
 }
 
 fn openai_form(upload: Upload, model: &str) -> Result<Form, ApiError> {
+    if upload.abnf.is_some() {
+        return Err(ApiError::bad_request("ABNF is only supported by Google V1"));
+    }
     if upload.boost.is_some() {
         return Err(ApiError::bad_request("boost is only supported by Google"));
     }
@@ -265,9 +288,16 @@ async fn transcribe(State(state): State<Arc<AppState>>, multipart: Multipart) ->
             .ok_or_else(|| ApiError::bad_request("Google is not configured; set google.project_id in TOML"))?;
         return google.transcribe(upload).await;
     }
+    if provider == "google-v1" {
+        let google = state
+            .google_v1
+            .as_ref()
+            .ok_or_else(|| ApiError::bad_request("Google is not configured; set google.project_id in TOML"))?;
+        return google.transcribe(&state.client, upload).await;
+    }
     if state.api_key.is_empty() {
         return Err(ApiError::bad_request(
-            "OpenAI is not configured; set openai_api_key in TOML",
+            "OpenAI is not configured; set openai.api_key in TOML",
         ));
     }
     let form = openai_form(upload, &state.model)?;

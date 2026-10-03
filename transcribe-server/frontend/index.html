@@ -83,6 +83,7 @@
 						<select id="provider" disabled>
 							<option value="openai">OpenAI</option>
 							<option value="google">Google Cloud STT V2</option>
+							<option value="google-v1">Google V1 / ABNF</option>
 						</select>
 						<p id="provider-note" class="footnote">Loading provider settings…</p>
 						<label for="prompt">Prompt <span>OpenAI only</span></label>
@@ -100,6 +101,19 @@
 						<div id="google-boost" hidden>
 							<label for="boost">Phrase boost <span>Google only · 0–20</span></label>
 							<input id="boost" type="number" min="0" max="20" step="1" value="0" />
+						</div>
+						<div id="abnf-fields" hidden>
+							<label for="abnf">ABNF grammar <span>Google V1 only · optional</span></label>
+							<textarea
+								id="abnf"
+								rows="7"
+								spellcheck="false"
+								placeholder="#ABNF 1.0 UTF-8;&#10;language en-US;&#10;mode voice;&#10;root $command;&#10;public $command = tango;"
+							></textarea>
+							<p class="footnote">
+								Paste a complete SRGS ABNF grammar. Leave blank for a baseline. Grammar acceptance
+								and recognition behavior depend on Google.
+							</p>
 						</div>
 						<label for="languages">Languages <span>comma separated</span></label>
 						<input id="languages" value="en" placeholder="en, ja" spellcheck="false" />
@@ -125,6 +139,7 @@
 					<span class="result-source"></span><span class="result-timing"></span>
 				</div>
 				<p class="transcript"></p>
+				<p class="adaptation-warning footnote" hidden></p>
 				<details>
 					<summary class="result-context"></summary>
 					<pre class="result-details"></pre>

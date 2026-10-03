@@ -107,6 +107,13 @@ select,
 textarea {
 	font: inherit;
 }
+#google-boost,
+#abnf-fields {
+	margin-top: 22px;
+}
+#abnf {
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
 button,
 a {
 	-webkit-tap-highlight-color: transparent;

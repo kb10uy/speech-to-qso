@@ -6,9 +6,24 @@ use serde::Deserialize;
 
 pub struct Config {
     pub listen: SocketAddr,
+    pub openai: OpenaiConfig,
+    pub google: Option<GoogleConfig>,
+}
+
+#[derive(Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct OpenaiConfig {
     pub api_key: String,
     pub model: String,
-    pub google: Option<GoogleConfig>,
+}
+
+impl Default for OpenaiConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            model: "gpt-transcribe".into(),
+        }
+    }
 }
 
 #[derive(Clone, Deserialize)]
@@ -17,6 +32,7 @@ pub struct GoogleConfig {
     pub project_id: String,
     pub location: String,
     pub model: String,
+    pub v1_model: String,
 }
 
 impl Default for GoogleConfig {
@@ -25,6 +41,7 @@ impl Default for GoogleConfig {
             project_id: String::new(),
             location: "global".into(),
             model: "short".into(),
+            v1_model: "latest_short".into(),
         }
     }
 }
@@ -47,8 +64,7 @@ impl GoogleConfig {
 #[serde(deny_unknown_fields)]
 struct FileConfig {
     listen: Option<String>,
-    openai_api_key: Option<String>,
-    model: Option<String>,
+    openai: Option<OpenaiConfig>,
     google: Option<GoogleConfig>,
 }
 
@@ -65,20 +81,23 @@ impl Config {
 
     fn from_sources(source: &str, env: impl Fn(&str) -> Option<String>) -> Result<Self, String> {
         // TOML diagnostics include source lines, so never print them from a file containing secrets.
-        let file: FileConfig = toml::from_str(source).map_err(|_| {
-            "invalid TOML; expected listen, model, openai_api_key and optional [google] settings".to_owned()
-        })?;
+        let file: FileConfig = toml::from_str(source)
+            .map_err(|_| "invalid TOML; expected listen and optional [openai] / [google] settings".to_owned())?;
         let clean = |value: Option<String>| {
             value
                 .map(|value| value.trim().to_owned())
                 .filter(|value| !value.is_empty())
         };
         let value = |key, fallback| clean(env(key)).or_else(|| clean(fallback));
-        let api_key = value("OPENAI_API_KEY", file.openai_api_key).unwrap_or_default();
+        let mut openai = file.openai.unwrap_or_default();
+        openai.api_key = value("OPENAI_API_KEY", Some(openai.api_key)).unwrap_or_default();
+        openai.model = value("OPENAI_TRANSCRIBE_MODEL", Some(openai.model)).unwrap_or_else(|| "gpt-transcribe".into());
         let mut google = file.google.unwrap_or_default();
         google.project_id = value("GOOGLE_CLOUD_PROJECT", Some(google.project_id)).unwrap_or_default();
         google.location = value("GOOGLE_SPEECH_LOCATION", Some(google.location)).unwrap_or_else(|| "global".into());
         google.model = value("GOOGLE_SPEECH_MODEL", Some(google.model)).unwrap_or_else(|| "short".into());
+        google.v1_model =
+            value("GOOGLE_SPEECH_V1_MODEL", Some(google.v1_model)).unwrap_or_else(|| "latest_short".into());
         let google = if google.project_id.is_empty() {
             None
         } else {
@@ -91,20 +110,14 @@ impl Config {
             }
             Some(google)
         };
-        if api_key.is_empty() && google.is_none() {
-            return Err("set openai_api_key / OPENAI_API_KEY or google.project_id / GOOGLE_CLOUD_PROJECT".into());
+        if openai.api_key.is_empty() && google.is_none() {
+            return Err("set openai.api_key / OPENAI_API_KEY or google.project_id / GOOGLE_CLOUD_PROJECT".into());
         }
         let listen = value("LISTEN", file.listen)
             .unwrap_or_else(|| "127.0.0.1:8081".into())
             .parse()
             .map_err(|_| "listen must be an IP address and port, e.g. 127.0.0.1:8081")?;
-        let model = value("OPENAI_TRANSCRIBE_MODEL", file.model).unwrap_or_else(|| "gpt-transcribe".into());
-        Ok(Self {
-            listen,
-            api_key,
-            model,
-            google,
-        })
+        Ok(Self { listen, openai, google })
     }
 }
 
@@ -115,19 +128,19 @@ mod tests {
     #[test]
     fn reads_toml_settings() {
         let config = Config::from_sources(
-            "listen = '127.0.0.1:9090'\nmodel = 'gpt-transcribe'\nopenai_api_key = 'test-key'",
+            "listen = '127.0.0.1:9090'\n[openai]\nmodel = 'gpt-transcribe'\napi_key = 'test-key'",
             |_| None,
         )
         .unwrap();
         assert_eq!(config.listen, "127.0.0.1:9090".parse().unwrap());
-        assert_eq!(config.api_key, "test-key");
-        assert_eq!(config.model, "gpt-transcribe");
+        assert_eq!(config.openai.api_key, "test-key");
+        assert_eq!(config.openai.model, "gpt-transcribe");
     }
 
     #[test]
     fn environment_overrides_file_and_empty_values_fall_back() {
         let config = Config::from_sources(
-            "openai_api_key = 'file-key'\nlisten = '127.0.0.1:9090'",
+            "listen = '127.0.0.1:9090'\n[openai]\napi_key = 'file-key'",
             |key| match key {
                 "OPENAI_API_KEY" => Some("env-key".into()),
                 "LISTEN" => Some("127.0.0.1:9091".into()),
@@ -136,19 +149,19 @@ mod tests {
             },
         )
         .unwrap();
-        assert_eq!(config.api_key, "env-key");
+        assert_eq!(config.openai.api_key, "env-key");
         assert_eq!(config.listen, "127.0.0.1:9091".parse().unwrap());
-        assert_eq!(config.model, "gpt-transcribe");
+        assert_eq!(config.openai.model, "gpt-transcribe");
     }
 
     #[test]
     fn validation_errors_do_not_disclose_secrets() {
         for source in [
-            "openai_api_key = 'secret-key'\nlisten = 'invalid'",
-            "openai_api_key = 123456789",
-            "openai_api_key = 'secret-key'\nunknown_field = 'secret-key'",
-            "openai_api_key = 'secret-key",
-            "openai_api_key = ''",
+            "listen = 'invalid'\n[openai]\napi_key = 'secret-key'",
+            "[openai]\napi_key = 123456789",
+            "[openai]\napi_key = 'secret-key'\nunknown_field = 'secret-key'",
+            "[openai]\napi_key = 'secret-key",
+            "[openai]\napi_key = ''",
         ] {
             let error = Config::from_sources(source, |_| None).err().unwrap();
             assert!(!error.contains("secret-key"));
@@ -166,9 +179,10 @@ mod tests {
     #[test]
     fn google_only_uses_adc_and_global_short_defaults() {
         let config = Config::from_sources("[google]\nproject_id = 'radio-lab'", |_| None).unwrap();
-        assert!(config.api_key.is_empty());
+        assert!(config.openai.api_key.is_empty());
         let google = config.google.unwrap();
         assert_eq!(google.model, "short");
+        assert_eq!(google.v1_model, "latest_short");
         assert_eq!(google.endpoint(), "https://speech.googleapis.com");
         assert_eq!(google.recognizer(), "projects/radio-lab/locations/global/recognizers/_");
     }
@@ -179,18 +193,21 @@ mod tests {
             "GOOGLE_CLOUD_PROJECT" => Some("env-project".into()),
             "GOOGLE_SPEECH_LOCATION" => Some("us-central1".into()),
             "GOOGLE_SPEECH_MODEL" => Some("chirp_3".into()),
+            "GOOGLE_SPEECH_V1_MODEL" => Some("command_and_search".into()),
             _ => None,
         })
         .unwrap();
         let google = config.google.unwrap();
         assert_eq!(google.project_id, "env-project");
         assert_eq!(google.model, "chirp_3");
+        assert_eq!(google.v1_model, "command_and_search");
         assert_eq!(google.endpoint(), "https://us-central1-speech.googleapis.com");
     }
 
     #[test]
     fn empty_google_table_is_disabled_and_resource_segments_are_validated() {
-        let config = Config::from_sources("openai_api_key = 'test-key'\n[google]\nproject_id = ''", |_| None).unwrap();
+        let config =
+            Config::from_sources("[openai]\napi_key = 'test-key'\n[google]\nproject_id = ''", |_| None).unwrap();
         assert!(config.google.is_none());
         for source in [
             "[google]\nproject_id = '../bad'",

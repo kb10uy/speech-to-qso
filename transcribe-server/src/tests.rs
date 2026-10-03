@@ -350,7 +350,205 @@ async fn health_lists_providers_without_credentials() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         body["providers"],
-        json!([{ "id": "google", "label": "Google Cloud STT V2", "model": "short" }])
+        json!([
+            { "id": "google", "label": "Google Cloud STT V2", "model": "short" },
+            { "id": "google-v1", "label": "Google V1 / ABNF", "model": "latest_short" }
+        ])
     );
     assert!(!body.to_string().contains("radio-lab"));
+}
+
+const ABNF: &str = "#ABNF 1.0 UTF-8;\nlanguage en-US;\nmode voice;\nroot $command;\npublic $command = tango;\n";
+
+#[derive(Debug)]
+struct MockV1Credentials;
+
+impl google_cloud_auth::credentials::CredentialsProvider for MockV1Credentials {
+    async fn headers(
+        &self,
+        _: axum::http::Extensions,
+    ) -> Result<
+        google_cloud_auth::credentials::CacheableResource<axum::http::HeaderMap>,
+        google_cloud_auth::errors::CredentialsError,
+    > {
+        use google_cloud_auth::credentials::{CacheableResource, EntityTag};
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("authorization", "Bearer mock-adc".parse().unwrap());
+        headers.insert("x-goog-user-project", "adc-quota-project".parse().unwrap());
+        Ok(CacheableResource::New {
+            entity_tag: EntityTag::new(),
+            data: headers,
+        })
+    }
+
+    async fn universe_domain(&self) -> Option<String> {
+        None
+    }
+}
+
+async fn google_v1_mock(status: StatusCode, body: serde_json::Value) -> GoogleMock {
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let captured = requests.clone();
+    let upstream = Router::new().route(
+        "/v1/speech:recognize",
+        post(
+            move |headers: axum::http::HeaderMap, Json(request): Json<serde_json::Value>| {
+                let captured = captured.clone();
+                let body = body.clone();
+                async move {
+                    assert_eq!(headers["authorization"], "Bearer mock-adc");
+                    assert_eq!(headers["x-goog-user-project"], "radio-lab");
+                    assert_eq!(headers.get_all("x-goog-user-project").iter().count(), 1);
+                    captured.lock().unwrap().push(request);
+                    (status, Json(body))
+                }
+            },
+        ),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let endpoint = format!("http://{}/v1/speech:recognize", listener.local_addr().unwrap());
+    let task = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+    let mut state = AppState::new(String::new(), "gpt-transcribe".into())
+        .unwrap()
+        .with_google(Some(config::GoogleConfig {
+            project_id: "radio-lab".into(),
+            ..Default::default()
+        }));
+    let v1 = state.google_v1.as_mut().unwrap();
+    v1.endpoint = endpoint;
+    v1.credentials
+        .set(google_cloud_auth::credentials::Credentials::from(MockV1Credentials))
+        .unwrap();
+    GoogleMock {
+        task,
+        requests,
+        app: router(Arc::new(state)),
+    }
+}
+
+#[tokio::test]
+async fn v1_forwards_verbatim_abnf_audio_and_phrase_hints() {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    let mock = google_v1_mock(
+        StatusCode::OK,
+        json!({
+            "results": [{ "alternatives": [{ "transcript": "tango JCX 01008.", "confidence": 0.8 }] }],
+            "speechAdaptationInfo": { "adaptationTimeout": false }
+        }),
+    )
+    .await;
+    let (status, result) = response(
+        mock.app.clone(),
+        upload(
+            &[
+                ("provider", "google-v1"),
+                ("abnf", ABNF),
+                ("keywords[]", "tango"),
+                ("boost", "10"),
+                ("languages[]", "en-US"),
+            ],
+            Some(AUDIO),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{result}");
+    assert_eq!(result["provider"], "google-v1");
+    assert_eq!(result["model"], "latest_short");
+    assert_eq!(result["text"], "tango JCX 01008.");
+    assert_eq!(result["adaptation_info"]["adaptationTimeout"], false);
+    assert_eq!(result["results"][0]["alternatives"][0]["confidence"], 0.8);
+    let requests = mock.requests.lock().unwrap();
+    assert_eq!(requests.len(), 1);
+    let request = &requests[0];
+    assert_eq!(
+        STANDARD.decode(request["audio"]["content"].as_str().unwrap()).unwrap(),
+        AUDIO
+    );
+    assert_eq!(request["config"]["model"], "latest_short");
+    assert_eq!(request["config"]["languageCode"], "en-US");
+    assert_eq!(
+        request["config"]["adaptation"]["abnfGrammar"]["abnfStrings"],
+        json!([ABNF])
+    );
+    assert_eq!(
+        request["config"]["adaptation"]["phraseSets"][0]["boost"].as_f64(),
+        Some(10.0)
+    );
+    assert!(request["config"].get("encoding").is_none());
+    assert!(request["config"].get("sampleRateHertz").is_none());
+}
+
+#[tokio::test]
+async fn v1_baseline_has_no_adaptation_and_accepts_flac_empty_transcript() {
+    let mock = google_v1_mock(StatusCode::OK, json!({})).await;
+    let (status, result) = response(
+        mock.app.clone(),
+        upload(&[("provider", "google-v1")], Some(b"fLaC-test")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(result["text"], "");
+    let requests = mock.requests.lock().unwrap();
+    assert!(requests[0]["config"].get("adaptation").is_none());
+}
+
+#[tokio::test]
+async fn abnf_and_v1_input_validation_prevents_incompatible_requests() {
+    let mock = google_v1_mock(StatusCode::OK, json!({})).await;
+    let oversized_grammar = "a".repeat(64 * 1024 + 1);
+    for fields in [
+        vec![("provider", "google-v1"), ("abnf", " ")],
+        vec![("provider", "google-v1"), ("abnf", ABNF), ("abnf", ABNF)],
+        vec![("provider", "google-v1"), ("abnf", oversized_grammar.as_str())],
+        vec![("provider", "google"), ("abnf", ABNF)],
+        vec![("provider", "google-v1"), ("prompt", "unsupported")],
+        vec![
+            ("provider", "google-v1"),
+            ("languages[]", "en-US"),
+            ("languages[]", "ja-JP"),
+        ],
+    ] {
+        let (status, result) = response(mock.app.clone(), upload(&fields, Some(AUDIO))).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{result}");
+    }
+    let (status, _) = response(mock.app.clone(), upload(&[("provider", "google-v1")], Some(b"ID3mp3"))).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = response(
+        mock.app.clone(),
+        upload(&[("provider", "google-v1")], Some(&vec![0; 10_000_001])),
+    )
+    .await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert!(mock.requests.lock().unwrap().is_empty());
+    let openai = self::mock(StatusCode::OK, json!({ "text": "unused" })).await;
+    let (status, _) = response(openai.app.clone(), upload(&[("abnf", ABNF)], Some(AUDIO))).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(openai.fields.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn v1_upstream_failures_are_redacted_without_retry_and_malformed_results_are_rejected() {
+    let mock = google_v1_mock(
+        StatusCode::BAD_REQUEST,
+        json!({ "error": { "message": "secret-token grammar" } }),
+    )
+    .await;
+    let (status, result) = response(
+        mock.app.clone(),
+        upload(&[("provider", "google-v1"), ("abnf", ABNF)], Some(AUDIO)),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(result["upstream_status"], 400);
+    assert!(result["error"].as_str().unwrap().contains("grammar"));
+    assert!(!result.to_string().contains("secret-token"));
+    assert_eq!(mock.requests.lock().unwrap().len(), 1);
+    let mock = google_v1_mock(
+        StatusCode::OK,
+        json!({ "results": [{ "alternatives": [{ "transcript": 123 }] }] }),
+    )
+    .await;
+    let (status, result) = response(mock.app.clone(), upload(&[("provider", "google-v1")], Some(AUDIO))).await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY);
+    assert_eq!(result["error"], "invalid Google V1 transcription response");
 }

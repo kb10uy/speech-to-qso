@@ -34,6 +34,11 @@ impl GoogleState {
     }
 
     pub async fn transcribe(&self, upload: Upload) -> Result<Response, ApiError> {
+        if upload.abnf.is_some() {
+            return Err(ApiError::bad_request(
+                "ABNF is not supported by Google V2; select Google V1 / ABNF",
+            ));
+        }
         if upload.bytes.len() > 10_000_000 {
             return Err(ApiError(
                 StatusCode::PAYLOAD_TOO_LARGE,

@@ -1,7 +1,7 @@
 export const SAMPLE_RATE = 16_000;
 
-/** @typedef {{ prompt: string, keywords: string[], languages: string[], provider?: string, boost?: number }} Hints */
-/** @typedef {{ text: string, model: string, elapsed_ms: number, request_id: string | null, provider?: string, results?: unknown[] }} Transcript */
+/** @typedef {{ prompt: string, keywords: string[], languages: string[], provider?: string, boost?: number, abnf?: string }} Hints */
+/** @typedef {{ text: string, model: string, elapsed_ms: number, request_id: string | null, provider?: string, results?: unknown[], adaptation_info?: { adaptationTimeout?: boolean, timeoutMessage?: string } | null }} Transcript */
 /** @typedef {import('../../web/src/lib/speech/recognizer.ts').SpeechRecognizer} SpeechRecognizer */
 
 /** Encodes worklet PCM as 16-bit mono WAV without rewriting the recognized text. */
@@ -39,7 +39,7 @@ export function encodeWav(/** @type {Float32Array[]} */ chunks) {
 /** @returns {Promise<Transcript>} */
 export async function transcribeFile(/** @type {File} */ file, /** @type {Hints} */ hints) {
 	if (!file.size) throw new Error('The audio file is empty.');
-	const limit = hints.provider === 'google' ? 10_000_000 : 25_000_000;
+	const limit = hints.provider?.startsWith('google') ? 10_000_000 : 25_000_000;
 	if (file.size > limit) throw new Error(`Choose an audio file up to ${limit / 1_000_000} MB.`);
 	if (
 		hints.boost !== undefined &&
@@ -50,6 +50,7 @@ export async function transcribeFile(/** @type {File} */ file, /** @type {Hints}
 	form.append('file', file);
 	if (hints.provider) form.append('provider', hints.provider);
 	if (hints.boost !== undefined) form.append('boost', String(hints.boost));
+	if (hints.abnf?.trim()) form.append('abnf', hints.abnf);
 	if (hints.prompt.trim()) form.append('prompt', hints.prompt.trim());
 	for (const keyword of hints.keywords) form.append('keywords[]', keyword);
 	for (const language of hints.languages) form.append('languages[]', language);

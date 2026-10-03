@@ -212,3 +212,69 @@ test('Google-only configuration selects Google and validates audio size before s
 	await expect(page.getByRole('alert')).toContainText('10 MB');
 	expect(uploads).toHaveLength(0);
 });
+
+test('V1 sends complete ABNF, keeps a baseline and does not send grammar to V2', async ({
+	page
+}, testInfo) => {
+	const grammar =
+		'#ABNF 1.0 UTF-8;\nlanguage en-US;\nmode voice;\nroot $command;\npublic $command = tango;\n';
+	await page.route('**/api/health', (route) =>
+		route.fulfill({
+			json: {
+				status: 'ok',
+				providers: [
+					{ id: 'google', model: 'short' },
+					{ id: 'google-v1', model: 'latest_short' }
+				]
+			}
+		})
+	);
+	const uploads: Buffer[] = [];
+	await page.route('**/api/transcribe', (route) => {
+		const body = route.request().postDataBuffer()!;
+		uploads.push(body);
+		const v1 = body.toString().includes('\r\ngoogle-v1\r\n');
+		return route.fulfill({
+			json: {
+				text: 'tango',
+				provider: v1 ? 'google-v1' : 'google',
+				model: v1 ? 'latest_short' : 'short',
+				elapsed_ms: 600,
+				request_id: null,
+				adaptation_info: v1 ? { adaptationTimeout: uploads.length === 2 } : null
+			}
+		});
+	});
+	await page.goto('/');
+	await expect(page.getByText('Server connected')).toBeVisible();
+	await expect(page.getByLabel('ABNF grammar')).toBeHidden();
+	await page.getByLabel('Provider', { exact: true }).selectOption('google-v1');
+	await expect(page.getByLabel('ABNF grammar')).toBeVisible();
+	await expect(page.getByLabel('Languages')).toHaveValue('en-US');
+	await expect(page.locator('#model')).toHaveText('latest_short');
+	await page.locator('#audio-file').setInputFiles(file);
+	await page.getByRole('button', { name: 'Transcribe audio' }).click();
+	await expect(page.locator('.result')).toHaveCount(1);
+	expect(uploads[0].toString()).not.toContain('name="abnf"');
+	await page.getByLabel('ABNF grammar').fill(grammar);
+	await page.getByRole('button', { name: 'Transcribe audio' }).click();
+	await expect(page.locator('.result')).toHaveCount(2);
+	expect(uploads[1].includes(audio)).toBe(true);
+	expect(uploads[1].toString()).toContain('name="abnf"');
+	expect(uploads[1].toString()).toContain(grammar.replaceAll('\n', '\r\n'));
+	await expect(page.locator('.result-context').first()).toContainText('With ABNF');
+	await expect(page.locator('.adaptation-warning').first()).toBeVisible();
+	await page.locator('.result-context').first().click();
+	await expect(page.locator('.result-details').first()).toContainText('public $command = tango;');
+	await page.screenshot({ path: testInfo.outputPath('abnf.png'), fullPage: true });
+	await page.getByLabel('Provider', { exact: true }).selectOption('google');
+	await expect(page.getByLabel('ABNF grammar')).toBeHidden();
+	await page.getByRole('button', { name: 'Transcribe audio' }).click();
+	await expect(page.locator('.result')).toHaveCount(3);
+	expect(uploads[2].toString()).not.toContain('name="abnf"');
+	await page.getByLabel('Provider', { exact: true }).selectOption('google-v1');
+	await expect(page.getByLabel('ABNF grammar')).toHaveValue(grammar);
+	await page.getByRole('button', { name: 'Reset', exact: true }).click();
+	await expect(page.getByLabel('ABNF grammar')).toHaveValue('');
+	await expect(page.getByLabel('Languages')).toHaveValue('en-US');
+});

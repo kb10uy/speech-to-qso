@@ -14,12 +14,14 @@ const keywords = /** @type {HTMLTextAreaElement} */ ($('keywords'));
 const languages = /** @type {HTMLInputElement} */ ($('languages'));
 const provider = /** @type {HTMLSelectElement} */ ($('provider'));
 const boost = /** @type {HTMLInputElement} */ ($('boost'));
+const abnf = /** @type {HTMLTextAreaElement} */ ($('abnf'));
 const models = new Map();
 let connected = false;
 let currentProvider = 'openai';
 const languageSettings = new Map([
 	['openai', 'en'],
-	['google', 'en-US']
+	['google', 'en-US'],
+	['google-v1', 'en-US']
 ]);
 const playback = /** @type {HTMLAudioElement} */ ($('playback'));
 const download = /** @type {HTMLAnchorElement} */ ($('download'));
@@ -50,8 +52,9 @@ let keyboard = false;
 function hints() {
 	return {
 		provider: provider.value,
-		prompt: provider.value === 'google' ? '' : prompt.value,
-		...(provider.value === 'google' ? { boost: Number(boost.value) } : {}),
+		prompt: provider.value.startsWith('google') ? '' : prompt.value,
+		...(provider.value.startsWith('google') ? { boost: Number(boost.value) } : {}),
+		...(provider.value === 'google-v1' && abnf.value.trim() ? { abnf: abnf.value } : {}),
 		keywords: keywords.value
 			.split(/\r?\n/)
 			.map((value) => value.trim())
@@ -70,19 +73,23 @@ function update() {
 	fileInput.disabled = busy || recording || opening;
 	send.disabled = !connected || !audioFile || busy || recording || opening;
 	provider.disabled = !connected;
-	prompt.disabled = provider.value === 'google';
+	prompt.disabled = provider.value.startsWith('google');
 	/** @type {HTMLFieldSetElement} */ ($('hint-fields')).disabled = busy || recording;
 	/** @type {HTMLButtonElement} */ ($('reset-hints')).disabled = busy || recording;
 	ptt.setAttribute('aria-pressed', String(recording));
 }
 function updateProvider() {
-	const google = provider.value === 'google';
+	const google = provider.value.startsWith('google');
+	const v1 = provider.value === 'google-v1';
 	$('google-boost').hidden = !google;
+	$('abnf-fields').hidden = !v1;
 	languages.placeholder = google ? 'en-US, ja-JP' : 'en, ja';
 	$('model').textContent = models.get(provider.value) ?? '—';
-	$('provider-note').textContent = google
-		? 'ADC on the server · Keywords use PhraseSet · Up to 10 MB / 60 s · WAV, FLAC, MP3, OGG or WebM'
-		: 'API key on the server · Up to 25 MB';
+	$('provider-note').textContent = v1
+		? 'ADC · Global endpoint · SRGS ABNF · One language · WAV or FLAC · Up to 10 MB / 60 s'
+		: google
+			? 'ADC on the server · Keywords use PhraseSet · Up to 10 MB / 60 s · WAV, FLAC, MP3, OGG or WebM'
+			: 'API key on the server · Up to 25 MB';
 	update();
 }
 function showError(/** @type {unknown} */ reason) {
@@ -335,14 +342,27 @@ function addResult(
 	);
 	text('.result-timing', `${(result.elapsed_ms / 1000).toFixed(2)} s`);
 	text('.transcript', result.text || '(Empty transcript)');
+	if (result.adaptation_info?.adaptationTimeout) {
+		const warning = /** @type {HTMLElement | null} */ (row.querySelector('.adaptation-warning'));
+		if (warning) {
+			warning.hidden = false;
+			warning.textContent =
+				'Google reported an adaptation timeout; this result may not reflect your grammar or keywords.';
+		}
+	}
 	text(
 		'.result-context',
-		`${options.boost !== undefined ? `Boost ${options.boost}` : options.prompt.trim() ? 'With prompt' : 'No prompt'} · ${options.keywords.length} keywords · ${options.languages.join(', ')}`
+		`${options.abnf ? 'With ABNF · ' : ''}${options.boost !== undefined ? `Boost ${options.boost}` : options.prompt.trim() ? 'With prompt' : 'No prompt'} · ${options.keywords.length} keywords · ${options.languages.join(', ')}`
 	);
 	text(
 		'.result-details',
 		JSON.stringify(
-			{ hints: options, request_id: result.request_id, results: result.results },
+			{
+				hints: options,
+				request_id: result.request_id,
+				results: result.results,
+				adaptation_info: result.adaptation_info
+			},
 			null,
 			2
 		)
@@ -408,8 +428,9 @@ send.addEventListener('click', () => {
 $('reset-hints').addEventListener('click', () => {
 	prompt.value = '';
 	keywords.value = '';
-	languages.value = provider.value === 'google' ? 'en-US' : 'en';
+	languages.value = provider.value.startsWith('google') ? 'en-US' : 'en';
 	boost.value = '0';
+	abnf.value = '';
 });
 provider.addEventListener('change', () => {
 	languageSettings.set(currentProvider, languages.value);
