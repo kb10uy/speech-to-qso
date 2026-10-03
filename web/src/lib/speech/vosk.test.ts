@@ -59,7 +59,8 @@ describe('VoskRecognizer', () => {
 		const { fake } = await recognizer();
 		expect(fake.sampleRate).toBe(16_000);
 		const grammar = JSON.parse(fake.grammar!);
-		expect(grammar).toContain('juliett');
+		expect(grammar).toContain('juliet');
+		expect(grammar).not.toContain('juliett');
 		expect(grammar).toContain('[unk]');
 
 		const { fake: free } = await recognizer(false);
