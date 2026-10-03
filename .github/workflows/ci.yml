@@ -48,20 +48,23 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/vosk-words
-          key: words-${{ env.VOSK_MODEL_EN }}-${{ env.VOSK_MODEL_JA }}
+          key: vocabulary-${{ env.VOSK_MODEL_EN }}-${{ env.VOSK_MODEL_JA }}
       - name: Fetch model vocabularies
         if: steps.words-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/vosk-words"
           for model in "$VOSK_MODEL_EN" "$VOSK_MODEL_JA"; do
             curl -fsSL --retry 3 -o "$RUNNER_TEMP/$model.zip" "https://alphacephei.com/vosk/models/$model.zip"
-            unzip -p "$RUNNER_TEMP/$model.zip" '*/graph/words.txt' > "$RUNNER_TEMP/vosk-words/$model.txt"
-            test -s "$RUNNER_TEMP/vosk-words/$model.txt"
+            # Small models keep their words only as the symbol table of Gr.fst; the test reads either.
+            out="$RUNNER_TEMP/vosk-words/$model"
+            unzip -p "$RUNNER_TEMP/$model.zip" '*/graph/words.txt' > "$out" ||
+              unzip -p "$RUNNER_TEMP/$model.zip" '*/graph/Gr.fst' > "$out"
+            test -s "$out"
           done
       - run: npx vitest run --reporter=default src/lib/dsl/vocabulary.test.ts
         env:
-          VOSK_WORDS_EN: ${{ runner.temp }}/vosk-words/${{ env.VOSK_MODEL_EN }}.txt
-          VOSK_WORDS_JA: ${{ runner.temp }}/vosk-words/${{ env.VOSK_MODEL_JA }}.txt
+          VOSK_WORDS_EN: ${{ runner.temp }}/vosk-words/${{ env.VOSK_MODEL_EN }}
+          VOSK_WORDS_JA: ${{ runner.temp }}/vosk-words/${{ env.VOSK_MODEL_JA }}
 
   server:
     runs-on: ubuntu-latest
