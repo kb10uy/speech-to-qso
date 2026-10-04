@@ -15,7 +15,7 @@ export interface QsoRecord {
 	rstReceived: string;
 	jcx?: string;
 	qsl: QslStatus;
-	/** QSO start time (ISO 8601, UTC). */
+	/** When the QSO was logged (ISO 8601, UTC). */
 	timeOn: string;
 
 	operatorCall: string;
@@ -63,7 +63,7 @@ export function finalizeDraft(
 			rstReceived: draft.rstReceived,
 			jcx: draft.jcx,
 			qsl: draft.qsl,
-			timeOn: draft.startedAt ?? now.toISOString(),
+			timeOn: now.toISOString(),
 			operatorCall: session.operatorCall.trim().toUpperCase(),
 			location: session.location.trim(),
 			potaReference: blankToUndefined(session.potaReference)?.toUpperCase(),

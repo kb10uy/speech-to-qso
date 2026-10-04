@@ -11,9 +11,6 @@
 
 	const draft = $derived(app.draft);
 	const problems = $derived(sessionProblems(app.session));
-	const startedAt = $derived(
-		draft.startedAt === undefined ? null : new Date(draft.startedAt).toISOString().slice(11, 16)
-	);
 
 	function submitCommand(e: SubmitEvent) {
 		e.preventDefault();
@@ -68,7 +65,7 @@
 
 	<div class="row">
 		<button class="cell" class:empty={!draft.jcx} onclick={() => edit('jcx')}>
-			<span class="key">JCX</span><span class="mono">{draft.jcx ?? '—'}</span>
+			<span class="key">JCC/JCG</span><span class="mono">{draft.jcx ?? '—'}</span>
 		</button>
 		<button class="cell" class:qsl={draft.qsl !== 'none'} onclick={() => edit('card')}>
 			{{ none: 'No QSL', requested: 'QSL Requested', oneWay: 'QSL One Way' }[draft.qsl]}
@@ -77,7 +74,6 @@
 
 	<div class="meta">
 		<span>anchor {formatMhz(app.session.frequencyAnchorHz)} MHz</span>
-		{#if startedAt}<span>UTC {startedAt}</span>{/if}
 	</div>
 </section>
 
@@ -181,10 +177,17 @@
 		color: var(--muted);
 	}
 	.callsign {
-		font-size: clamp(2.2rem, 12vw, 3.6rem);
+		--callsign-size: clamp(2.2rem, 12vw, 3.6rem);
+		font-size: var(--callsign-size);
 		font-weight: 700;
 		letter-spacing: 0.04em;
 		padding: 0.8rem;
+		box-sizing: border-box;
+		height: calc(var(--callsign-size) * 1.2 + 1.6rem + 2px);
+		line-height: 1.2;
+		align-items: center;
+		white-space: nowrap;
+		overflow: hidden;
 	}
 	.callsign.empty {
 		font-size: 1.6rem;

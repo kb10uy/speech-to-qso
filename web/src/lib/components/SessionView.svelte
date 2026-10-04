@@ -35,7 +35,13 @@
 	<h2>Operating session</h2>
 	<label class="field">
 		<span>Operator callsign</span>
-		<input type="text" bind:value={form.operatorCall} autocapitalize="characters" required />
+		<input
+			class="callsign"
+			type="text"
+			bind:value={form.operatorCall}
+			autocapitalize="characters"
+			required
+		/>
 	</label>
 	<label class="field">
 		<span>Operating location</span>
@@ -78,6 +84,9 @@
 <style>
 	h2 {
 		margin-top: 0;
+	}
+	.callsign {
+		text-transform: uppercase;
 	}
 	.error {
 		color: var(--error);

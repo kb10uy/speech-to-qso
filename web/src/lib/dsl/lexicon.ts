@@ -160,7 +160,7 @@ export const COMMAND_LABELS: Readonly<Record<CommandKind, string>> = {
 	rstSent: 'SENT',
 	rstReceived: 'RCVD',
 	frequency: 'FREQ',
-	jcx: 'JCX',
+	jcx: 'JCC/JCG',
 	qsl: 'QSL',
 	mode: 'MODE'
 };

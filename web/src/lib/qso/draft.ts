@@ -48,7 +48,7 @@ export function describeUpdate(update: SpokenUpdate, after: DraftQso): string {
 		case 'frequency':
 			return `Frequency ${formatFrequencyPattern(update.value)} → ${formatMhz(after.frequencyHz!)} MHz`;
 		case 'jcx':
-			return `JCX → ${update.value}`;
+			return `JCC/JCG →${update.value}`;
 		case 'qsl':
 			return { none: 'No QSL', requested: 'QSL requested', oneWay: 'QSL one way' }[update.value];
 		case 'mode':

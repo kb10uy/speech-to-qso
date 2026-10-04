@@ -21,7 +21,7 @@ describe('display labels', () => {
 		expect(formatSpeech('call sign juliett lima one hotel india sierra')).toBe('CALL J L 1 H I S');
 		expect(formatSpeech('receiving five seven')).toBe('RCVD 5 7');
 		expect(formatSpeech('受信 ファイブ セブン 送信 ファイブ ナイン')).toBe('RCVD 5 7 SENT 5 9');
-		expect(formatSpeech('j c x one zero zero one')).toBe('JCX 1 0 0 1');
+		expect(formatSpeech('j c x one zero zero one')).toBe('JCC/JCG 1 0 0 1');
 		expect(formatSpeech('card one way')).toBe('QSL ONE WAY');
 		expect(formatSpeech('カード リクエスト')).toBe('QSL REQUESTED');
 	});

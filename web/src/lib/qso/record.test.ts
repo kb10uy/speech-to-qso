@@ -60,14 +60,14 @@ describe('finalizeDraft', () => {
 		});
 	});
 
-	it('uses the draft start time as the QSO time', () => {
+	it('uses the time of logging as the QSO time, not the draft start time', () => {
 		const draft = {
 			...newDraft({ frequencyHz: 145_000_000, mode: 'SSB' }),
 			callsign: 'JL1HIS',
 			startedAt: '2026-10-03T03:59:00.000Z'
 		};
 		const result = finalizeDraft(draft, session, 'id', now);
-		expect(result.ok && result.record.timeOn).toBe('2026-10-03T03:59:00.000Z');
+		expect(result.ok && result.record.timeOn).toBe(now.toISOString());
 		expect(result.ok && result.record.mode).toBe('SSB');
 	});
 });
