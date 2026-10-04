@@ -44,12 +44,8 @@ vi.mock('vosk-browser', () => ({
 
 const { VoskRecognizer } = await import('./vosk');
 
-async function recognizer(useGrammar = true, language: 'en' | 'ja' = 'en') {
-	const r = new VoskRecognizer({
-		modelUrl: 'https://example.com/model.tar.gz',
-		language,
-		useGrammar
-	});
+async function recognizer(language: 'en' | 'ja' = 'en') {
+	const r = new VoskRecognizer({ modelUrl: 'https://example.com/model.tar.gz', language });
 	await r.initialize();
 	return { r, fake: FakeRecognizer.last };
 }
@@ -65,13 +61,10 @@ describe('VoskRecognizer', () => {
 		const grammar: string[] = JSON.parse(fake.grammar!);
 		expect(grammar).toContain('[unk]');
 		expect(grammar.some((phrase) => phrase.startsWith('received '))).toBe(true);
-
-		const { fake: free } = await recognizer(false);
-		expect(free.grammar).toBeUndefined();
 	});
 
 	it('spells the grammar in Japanese for a Japanese model', async () => {
-		const { fake } = await recognizer(true, 'ja');
+		const { fake } = await recognizer('ja');
 		const grammar: string[] = JSON.parse(fake.grammar!);
 		expect(grammar).toContain('[unk]');
 		expect(grammar.some((phrase) => phrase.startsWith('受信 '))).toBe(true);

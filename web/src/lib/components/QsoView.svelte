@@ -99,9 +99,7 @@
 				<p class="error">Speech engine failed: {app.asrError}</p>
 			{/if}
 			<button class="load" onclick={() => void app.loadAsr()}>
-				Load speech engine ({app.settings.asrEngine === 'vosk'
-					? 'Vosk, ≈40 MB once'
-					: 'Web Speech API'})
+				Load speech engine (Vosk, ≈40 MB once)
 			</button>
 		{/if}
 	</div>

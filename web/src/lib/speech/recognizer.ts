@@ -8,7 +8,7 @@ export interface SpeechResult {
 }
 
 /**
- * Abstraction over ASR engines (Vosk, Web Speech API, sherpa-onnx, server-side ASR, ...).
+ * Abstraction over ASR engines (Vosk, sherpa-onnx, server-side ASR, ...).
  *
  * The app calls `beginUtterance` on PTT press, streams 16 kHz mono PCM through `pushAudio`
  * while the button is held, and calls `endUtterance` on release.
@@ -18,7 +18,7 @@ export interface SpeechRecognizer {
 	readonly name: string;
 	/**
 	 * Whether the engine consumes PCM from `pushAudio`. Engines that capture the microphone
-	 * themselves (like the Web Speech API) set this to false.
+	 * themselves set this to false.
 	 */
 	readonly needsAudio: boolean;
 

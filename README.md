@@ -9,7 +9,7 @@ interprets a **QSO-specific DSL** with a deliberately small vocabulary and gramm
 
 - Web client: a SvelteKit + TypeScript PWA, served from GitHub Pages and usable offline
 - Speech recognition: [Vosk](https://alphacephei.com/vosk/) WASM ([vosk-browser](https://github.com/ccoreilly/vosk-browser))
-  running in the browser; the Web Speech API is available as an alternative
+  running in the browser, restricted to the DSL vocabulary by a grammar
 - Backend: a thin Rust + axum API that appends QSOs to local logs and forwards them to Wavelog
 
 ```
@@ -155,7 +155,7 @@ To try Vosk locally, put the models at `web/static/models/vosk-model-small-en-us
 web/                      SvelteKit PWA
   src/lib/dsl/            Voice DSL: tokenizer, number words, parser, frequency resolver (pure logic)
   src/lib/qso/            Draft QSO, OperatingSession, QsoRecord, ADIF, band table
-  src/lib/speech/         AudioWorklet, microphone capture, SpeechRecognizer (Vosk / Web Speech API)
+  src/lib/speech/         AudioWorklet, microphone capture, SpeechRecognizer (Vosk)
   src/lib/storage/        IndexedDB (QSO log, key-value store)
   src/lib/sync/           Backend sync client
   src/lib/app/            App state and the PTT → ASR → parser → draft pipeline
@@ -171,10 +171,10 @@ The ASR library sits behind the `SpeechRecognizer` interface (`web/src/lib/speec
 Vosk to sherpa-onnx, Whisper or a server-side ASR only means implementing that interface.
 
 - **Vosk grammar**: vosk-browser 0.0.8 accepts a grammar when creating a recognizer, so recognition is restricted to
-  the DSL vocabulary (can be disabled in Settings). Vosk estimates a bigram language model from the phrases it is
+  the DSL vocabulary. Vosk estimates a bigram language model from the phrases it is
   given, so the grammar is not a word list but every word-to-word transition the DSL allows, embedded in short
   utterances (`grammarPhrases()` in `web/src/lib/dsl/grammar.ts`): digits are expected after `received`, letters
-  after `call sign`, and so on. Homophones and alternative spellings that only free-text engines produce
+  after `call sign`, and so on. Homophones and alternative spellings that only typed text produces
   (`to`, `for`, `alfa`, `juliett`, ...) are kept out of the grammar, since every extra short word is one more thing
   for noise to be decoded as. Spellings missing from the model's vocabulary are ignored by Vosk.
 - **Japanese model**: Japanese speakers tend to say the DSL with Japanese sounds (`zero` as ゼロ), which the English

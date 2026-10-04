@@ -13,6 +13,6 @@ describe('mergeSettings', () => {
 		});
 		expect(merged.releaseTailMs).toBe(500);
 		expect(merged.sync.endpoint).toBe('https://x');
-		expect(merged.asrEngine).toBe('vosk');
+		expect(merged.voskLanguage).toBe('en');
 	});
 });

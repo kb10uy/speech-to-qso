@@ -9,8 +9,6 @@ export interface VoskOptions {
 	modelUrl: string;
 	/** Language of the model, which decides how the grammar is spelled. */
 	language: SpeechLanguage;
-	/** Restrict recognition to the DSL vocabulary. */
-	useGrammar: boolean;
 }
 
 type Word = { text: string; confidence: number };
@@ -49,9 +47,7 @@ export class VoskRecognizer implements SpeechRecognizer {
 		if (this.#model !== null) return;
 		const { createModel } = await import('vosk-browser');
 		const model = await createModel(this.options.modelUrl);
-		const grammar = this.options.useGrammar
-			? JSON.stringify(grammarPhrases(this.options.language))
-			: undefined;
+		const grammar = JSON.stringify(grammarPhrases(this.options.language));
 		const recognizer = new model.KaldiRecognizer(ASR_SAMPLE_RATE, grammar);
 		recognizer.setWords(true);
 		recognizer.on('result', (m) => this.#handle(m));

@@ -11,12 +11,7 @@ import {
 	type OperatingSession,
 	type QsoRecord
 } from '../qso';
-import {
-	AudioCapture,
-	VoskRecognizer,
-	WebSpeechRecognizer,
-	type SpeechRecognizer
-} from '../speech';
+import { AudioCapture, VoskRecognizer, type SpeechRecognizer } from '../speech';
 import { KeyValueStore, QsoStore, openDatabase } from '../storage/db';
 import { isSyncConfigured, syncAll, type SyncReport } from '../sync/client';
 import { sleep, withTimeout } from '../util/timeout';
@@ -135,17 +130,13 @@ export class QsoApp {
 		this.asr = 'loading';
 		this.asrError = null;
 		try {
-			const recognizer: SpeechRecognizer =
-				this.settings.asrEngine === 'webspeech'
-					? new WebSpeechRecognizer()
-					: new VoskRecognizer({
-							modelUrl:
-								this.settings.voskModelUrl.trim() !== ''
-									? new URL(this.settings.voskModelUrl.trim(), location.href).href
-									: this.defaultModelUrl(this.settings.voskLanguage),
-							language: this.settings.voskLanguage,
-							useGrammar: this.settings.voskGrammar
-						});
+			const recognizer: SpeechRecognizer = new VoskRecognizer({
+				modelUrl:
+					this.settings.voskModelUrl.trim() !== ''
+						? new URL(this.settings.voskModelUrl.trim(), location.href).href
+						: this.defaultModelUrl(this.settings.voskLanguage),
+				language: this.settings.voskLanguage
+			});
 			recognizer.onPartial = (text) => (this.partial = formatSpeech(text));
 			await recognizer.initialize();
 			this.#recognizer = recognizer;
@@ -360,10 +351,8 @@ export class QsoApp {
 
 	async saveSettings(settings: AppSettings) {
 		const engineChanged =
-			settings.asrEngine !== this.settings.asrEngine ||
 			settings.voskLanguage !== this.settings.voskLanguage ||
-			settings.voskModelUrl !== this.settings.voskModelUrl ||
-			settings.voskGrammar !== this.settings.voskGrammar;
+			settings.voskModelUrl !== this.settings.voskModelUrl;
 		this.settings = settings;
 		await this.#saveSettings();
 		if (engineChanged && this.asr !== 'unloaded') await this.loadAsr();

@@ -111,7 +111,7 @@ export const STROKE_WORDS = ['stroke', 'slash'] as const;
 export const SUFFIX_WORDS: Readonly<Record<string, string>> = { portable: '/P', mobile: '/M' };
 
 /**
- * Spellings that only free-text input produces (Web Speech API output, typed text) and that a
+ * Spellings that only free-text input produces (typed text) and that a
  * grammar-constrained recogniser never needs: homophones and alternative spellings of a word
  * that is listed anyway (Vosk emits whichever spelling the grammar contains), text-only
  * abbreviations, and `oh`, a single vowel that stray noise is mistaken for far too easily (the

@@ -2,14 +2,12 @@
 	import { untrack } from 'svelte';
 	import type { QsoApp } from '../app/app.svelte';
 	import type { AppSettings } from '../app/settings';
-	import { isWebSpeechAvailable } from '../speech';
 
 	let { app }: { app: QsoApp } = $props();
 
 	// Edit a copy; nothing changes until Save.
 	let form = $state<AppSettings>(untrack(() => $state.snapshot(app.settings)));
 	let saved = $state(false);
-	const webSpeech = isWebSpeechAvailable();
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
@@ -22,44 +20,29 @@
 <form onsubmit={save}>
 	<h2>Speech recognition</h2>
 	<label class="field">
-		<span>Engine</span>
-		<select bind:value={form.asrEngine}>
-			<option value="vosk">Vosk (offline, in-browser)</option>
-			<option value="webspeech" disabled={!webSpeech}>
-				Web Speech API (browser built-in, usually online){webSpeech ? '' : ' — unavailable'}
-			</option>
+		<span>Vosk model</span>
+		<select bind:value={form.voskLanguage}>
+			<option value="en">English</option>
+			<option value="ja">Japanese (Japanese pronunciation)</option>
 		</select>
+		<span class="hint">
+			Hears the commands the way they are said in Japanese: <em>ゼロ ワン</em>,
+			<em>ジュリエット リマ ワン</em>, and <em>送信</em>, <em>受信</em>, <em>周波数</em> for sent, received
+			and frequency.
+		</span>
 	</label>
-	{#if form.asrEngine === 'vosk'}
-		<label class="field">
-			<span>Vosk model</span>
-			<select bind:value={form.voskLanguage}>
-				<option value="en">English</option>
-				<option value="ja">Japanese (Japanese pronunciation)</option>
-			</select>
-			<span class="hint">
-				Hears the commands the way they are said in Japanese: <em>ゼロ ワン</em>,
-				<em>ジュリエット リマ ワン</em>, and <em>送信</em>, <em>受信</em>, <em>周波数</em> for sent, received
-				and frequency.
-			</span>
-		</label>
-		<label class="field">
-			<span>Vosk model URL</span>
-			<input
-				type="url"
-				bind:value={form.voskModelUrl}
-				placeholder={app.defaultModelUrl(form.voskLanguage)}
-			/>
-			<span class="hint"
-				>.tar.gz with a single top-level directory, in the language selected above. Empty uses the
-				bundled model.</span
-			>
-		</label>
-		<label class="check">
-			<input type="checkbox" bind:checked={form.voskGrammar} />
-			Restrict recognition to the QSO vocabulary (grammar)
-		</label>
-	{/if}
+	<label class="field">
+		<span>Vosk model URL</span>
+		<input
+			type="url"
+			bind:value={form.voskModelUrl}
+			placeholder={app.defaultModelUrl(form.voskLanguage)}
+		/>
+		<span class="hint"
+			>.tar.gz with a single top-level directory, in the language selected above. Empty uses the
+			bundled model.</span
+		>
+	</label>
 	<label class="field">
 		<span>Release tail (ms)</span>
 		<input type="number" min="0" max="2000" step="50" bind:value={form.releaseTailMs} />
