@@ -41,6 +41,16 @@ export class AudioCapture {
 		return this.#node !== null;
 	}
 
+	/**
+	 * Asks for the microphone permission without keeping the microphone on. Unlike `open()` it
+	 * needs no user gesture, so the prompt can be answered before the first PTT press.
+	 */
+	async requestPermission(): Promise<void> {
+		if (this.#node !== null || this.#starting !== null) return;
+		const stream = await this.#requestMicrophone();
+		stream.getTracks().forEach((t) => t.stop());
+	}
+
 	/** Opens the microphone. Must be called from a user gesture the first time. */
 	open(): Promise<void> {
 		// The browser may have suspended the context in the background, and iOS leaves it

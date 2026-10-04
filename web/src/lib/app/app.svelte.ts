@@ -119,6 +119,27 @@ export class QsoApp {
 		this.ready = true;
 		if (this.settings.autoLoadAsr) void this.loadAsr();
 		void this.sync();
+		void this.#requestMicrophonePermission();
+	}
+
+	/**
+	 * Asks for the microphone as soon as the app opens, so the first PTT press is not interrupted
+	 * by the permission prompt. Skipped when the answer is already known.
+	 */
+	async #requestMicrophonePermission() {
+		try {
+			const status = await navigator.permissions.query({
+				name: 'microphone' as PermissionName
+			});
+			if (status.state !== 'prompt') return;
+		} catch {
+			// No Permissions API answer for the microphone (Safari); asking is the only way.
+		}
+		try {
+			await this.#capture.requestPermission();
+		} catch {
+			// Denied or dismissed; the next press asks again and reports the error.
+		}
 	}
 
 	// ---------------------------------------------------------------- speech engine

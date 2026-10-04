@@ -98,6 +98,14 @@ describe('AudioCapture', () => {
 		expect(fakes.nodes).toHaveLength(1);
 	});
 
+	it('asks for the permission without keeping the microphone or an audio context', async () => {
+		const capture = new AudioCapture();
+		await capture.requestPermission();
+		expect(fakes.tracks[0].stop).toHaveBeenCalled();
+		expect(fakes.contexts).toHaveLength(0);
+		expect(capture.isOpen).toBe(false);
+	});
+
 	it('fails instead of waiting forever for a context that never starts', async () => {
 		fakes.resumeHangs = true;
 		const capture = new AudioCapture();
