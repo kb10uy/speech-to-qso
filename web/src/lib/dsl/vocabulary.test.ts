@@ -95,7 +95,6 @@ describe('fstOutputSymbols', () => {
 for (const [language, path] of VOCABULARIES) {
 	describe.skipIf(path === undefined)(`the ${language} model vocabulary`, () => {
 		const vocabulary = path === undefined ? new Set<string>() : readVocabulary(path);
-		const known = (sequence: readonly string[]) => sequence.every((w) => vocabulary.has(w));
 
 		it('can say something for every word class', () => {
 			const missing = new Set<string>();
@@ -103,7 +102,7 @@ for (const [language, path] of VOCABULARIES) {
 			for (const [slot, sequences] of Object.entries(grammarSequences(language))) {
 				if (slot === 'unknown') continue;
 				for (const word of sequences.flat()) if (!vocabulary.has(word)) missing.add(word);
-				if (!sequences.some(known)) silent.push(slot);
+				if (!sequences.some((seq) => seq.every((w) => vocabulary.has(w)))) silent.push(slot);
 			}
 			console.log(
 				`[${language}] grammar words missing from the model (${missing.size}): ${[...missing].join(' ')}`
@@ -111,13 +110,9 @@ for (const [language, path] of VOCABULARIES) {
 			expect(silent, `word classes the ${language} model cannot say at all`).toEqual([]);
 		});
 
-		it.skipIf(language !== 'ja')('reports words without a usable katakana reading', () => {
-			const unsayable = Object.entries(JAPANESE_READINGS)
-				.filter(([, readings]) => !readings.some((r) => known(r.split(' '))))
-				.map(([english]) => english);
-			// Most of these are still sayable word by word (`call sign` as コール サイン).
-			console.log(`[ja] English words with no reading in the model: ${unsayable.join(', ')}`);
-			expect(Array.isArray(unsayable)).toBe(true);
+		it.skipIf(language !== 'ja')('knows every Japanese reading as a word', () => {
+			const unknown = Object.values(JAPANESE_READINGS).filter((r) => !vocabulary.has(r));
+			expect(unknown, 'readings missing from the ja model').toEqual([]);
 		});
 	});
 }

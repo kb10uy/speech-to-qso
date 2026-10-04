@@ -39,22 +39,21 @@ describe('tokenize', () => {
 
 	it('maps Japanese readings to the English words', () => {
 		expect(tokenize('受信 ファイブ ナイン')).toEqual(['received', 'five', 'nine']);
-		expect(tokenize('周波 数 ポイント ナイン')).toEqual(['frequency', 'point', 'nine']);
-		expect(tokenize('ゼロ ゼロ ワン')).toEqual(['zero', 'zero', 'one']);
+		expect(tokenize('周波数 ポイント ナイン')).toEqual(['frequency', 'point', 'nine']);
+		expect(tokenize('ゼロ・ゼロ・ワン')).toEqual(['zero', 'zero', 'one']);
+		expect(tokenize('フォックス ズール')).toEqual(['foxtrot', 'zulu']);
 	});
 
-	it('maps a loanword the model split into several words', () => {
-		expect(tokenize('フォックス トロット')).toEqual(['foxtrot']);
-		expect(tokenize('フォックス・トロット')).toEqual(['foxtrot']);
-		expect(tokenize('エックス レイ')).toEqual(['xray']);
-		expect(tokenize('ジェイ シー シー')).toEqual(['jcc']);
-		expect(tokenize('ジェイ シー エックス')).toEqual(['j', 'c', 'x']);
-		expect(tokenize('ワンウェイ')).toEqual(['one', 'way']);
+	it('maps a reading of several English words to all of them', () => {
+		expect(tokenize('カード ワンウェイ')).toEqual(['card', 'one', 'way']);
 	});
 
 	it('folds half-width katakana and full-width letters', () => {
 		expect(tokenize('ｾﾞﾛ　ﾜﾝ')).toEqual(['zero', 'one']);
 		expect(tokenize('ＪＬ１ＨＩＳ')).toEqual(tokenize('jl1his'));
+		expect(tokenize('Ｊ Ａ ワン ズール')).toEqual(['j', 'a', 'one', 'zulu']);
+		expect(tokenize('モード ＦＭ ＪＣＧ')).toEqual(['mode', 'fm', 'jcg']);
+		expect(tokenize('Ｊ Ｃ Ｘ')).toEqual(['j', 'c', 'x']);
 	});
 
 	it('keeps katakana it does not know, so the parser rejects it', () => {

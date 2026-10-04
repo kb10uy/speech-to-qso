@@ -60,28 +60,30 @@ describe('FREE_TEXT_ONLY_WORDS', () => {
 });
 
 describe('JAPANESE_READINGS', () => {
-	it('only reads words of the English grammar', () => {
+	it('only reads words of the English grammar, or single letters', () => {
 		const grammar = new Set(grammarPhrases('en').flatMap((p) => p.split(' ')));
 		for (const english of Object.keys(JAPANESE_READINGS)) {
-			for (const word of english.split(' ')) expect(grammar, english).toContain(word);
-		}
-	});
-
-	it('gives every reading to exactly one English sequence', () => {
-		const owners = new Map<string, string>();
-		for (const [english, readings] of Object.entries(JAPANESE_READINGS)) {
-			for (const reading of readings) {
-				expect(owners.get(reading), reading).toBeUndefined();
-				owners.set(reading, english);
+			for (const word of english.split(' ')) {
+				if (!/^[a-z]$/.test(word)) expect(grammar, english).toContain(word);
 			}
 		}
 	});
 
-	it('only contains Japanese words separated by single spaces', () => {
-		const word = '[\\p{Script=Katakana}\\p{Script=Han}ー]+';
-		const pattern = new RegExp(`^${word}(?: ${word})*$`, 'u');
-		for (const readings of Object.values(JAPANESE_READINGS)) {
-			for (const reading of readings) expect(reading).toMatch(pattern);
+	it('names every letter with its full-width capital', () => {
+		for (const letter of 'abcdefghijklmnopqrstuvwxyz') {
+			const fullWidth = String.fromCharCode(letter.charCodeAt(0) - 0x61 + 0xff21);
+			expect(JAPANESE_READINGS[letter], letter).toBe(fullWidth);
+		}
+	});
+
+	it('gives every reading to exactly one English word', () => {
+		const readings = Object.values(JAPANESE_READINGS);
+		expect(new Set(readings).size).toBe(readings.length);
+	});
+
+	it('reads every word as a single Japanese word', () => {
+		for (const reading of Object.values(JAPANESE_READINGS)) {
+			expect(reading).toMatch(/^[\p{Script=Katakana}\p{Script=Han}ーＡ-Ｚ０-９]+$/u);
 		}
 	});
 });

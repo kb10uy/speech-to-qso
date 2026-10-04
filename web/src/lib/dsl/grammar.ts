@@ -11,7 +11,7 @@
  * The transitions are a class-level, slightly permissive mirror of the parser; the parser still
  * has the final say. Free-text-only spellings (`FREE_TEXT_ONLY_WORDS`) are left out, and words
  * that are missing from a model's vocabulary are simply ignored by Vosk. For a Japanese model
- * the same grammar is spelled with the katakana readings (`JAPANESE_READINGS`).
+ * the same grammar is spelled with the Japanese readings (`JAPANESE_READINGS`).
  */
 import {
 	COMMAND_KEYWORDS,
@@ -92,29 +92,34 @@ const ENGLISH: Readonly<Record<Slot, readonly Sequence[]>> = {
 
 const SLOTS = Object.keys(ENGLISH) as Slot[];
 
-/** Every combination of one entry per list. */
-function product(lists: readonly (readonly string[])[]): string[][] {
-	return lists.reduce<string[][]>(
-		(acc, list) => acc.flatMap((prefix) => list.map((item) => [...prefix, item])),
-		[[]]
-	);
+/**
+ * The Japanese spelling of an English sequence: its own reading (`one way` → `ワンウェイ`), or else
+ * its words' readings (`j c x` → `Ｊ Ｃ Ｘ`). None if a word has no reading.
+ */
+function inJapanese(sequence: Sequence): Sequence[] {
+	const whole = lookup(JAPANESE_READINGS, sequence.join(' '));
+	if (whole !== undefined) return [[whole]];
+	const words = sequence.map((word) => lookup(JAPANESE_READINGS, word));
+	return words.every((w) => w !== undefined) ? [words as string[]] : [];
 }
 
-/** Katakana spellings of an English sequence: its own readings, or its words' readings. */
-function katakana(sequence: Sequence): Sequence[] {
-	const whole = lookup(JAPANESE_READINGS, sequence.join(' ')) ?? [];
-	const perWord = sequence.map((word) => lookup(JAPANESE_READINGS, word) ?? []);
-	const combined =
-		sequence.length > 1 && perWord.every((r) => r.length > 0)
-			? product(perWord).map((words) => words.join(' '))
-			: [];
-	return [...new Set([...whole, ...combined])].map((reading) => reading.split(' '));
-}
+/**
+ * The Japanese model has the letters themselves as words (`Ｊ`), so there a callsign can also be
+ * spelled with letter names. The English grammar keeps them out: a single short letter is what
+ * noise decodes as most easily, and the phonetic alphabet exists to avoid exactly that.
+ */
+const JAPANESE_SOURCE: Readonly<Record<Slot, readonly Sequence[]>> = {
+	...ENGLISH,
+	letter: [
+		...ENGLISH.letter,
+		...[...new Set(Object.values(PHONETIC_LETTERS))].map((letter) => [letter.toLowerCase()])
+	]
+};
 
 const JAPANESE = Object.fromEntries(
 	SLOTS.map((slot) => [
 		slot,
-		slot === 'unknown' ? ENGLISH.unknown : ENGLISH[slot].flatMap(katakana)
+		slot === 'unknown' ? ENGLISH.unknown : JAPANESE_SOURCE[slot].flatMap(inJapanese)
 	])
 ) as Record<Slot, readonly Sequence[]>;
 

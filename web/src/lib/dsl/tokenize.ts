@@ -18,26 +18,20 @@ for (const [word, letter] of Object.entries(PHONETIC_LETTERS)) {
 	if (!PHONETIC_OF_LETTER.has(letter)) PHONETIC_OF_LETTER.set(letter, word);
 }
 
-/** Katakana readings as word sequences, longest first so that a split loanword wins. */
-const READINGS = Object.entries(JAPANESE_READINGS)
-	.flatMap(([english, readings]) => readings.map((r) => ({ words: r.split(' '), english })))
-	.sort((a, b) => b.words.length - a.words.length);
+/**
+ * English words by Japanese reading. Readings go through the same normalisation as the input,
+ * which already turns full-width letters (`ＦＭ`) into the English words.
+ */
+const FROM_JAPANESE = new Map(
+	Object.entries(JAPANESE_READINGS).map(([english, reading]) => [
+		reading.normalize('NFKC').toLowerCase(),
+		english
+	])
+);
 
-/** Replaces katakana readings with the English words they stand for. */
-function fromKatakana(words: readonly string[]): string[] {
-	const out: string[] = [];
-	let i = 0;
-	while (i < words.length) {
-		const match = READINGS.find((r) => r.words.every((w, k) => words[i + k] === w));
-		if (match === undefined) {
-			out.push(words[i]);
-			i += 1;
-		} else {
-			out.push(match.english);
-			i += match.words.length;
-		}
-	}
-	return out;
+/** Replaces Japanese readings with the English words they stand for. */
+function fromJapanese(words: readonly string[]): string[] {
+	return words.map((word) => FROM_JAPANESE.get(word) ?? word);
 }
 
 /**
@@ -56,7 +50,7 @@ export function tokenize(text: string): string[] {
 		.replace(/[,;:!?"()、。・]/g, ' ')
 		.split(/\s+/)
 		.filter((w) => w !== '');
-	const normalized = fromKatakana(words)
+	const normalized = fromJapanese(words)
 		.join(' ')
 		.replace(/\bx[\s-]+ray\b/g, 'xray');
 

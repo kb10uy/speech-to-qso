@@ -113,7 +113,7 @@ test('switches to the bundled Japanese model and takes Japanese commands', async
 	await page.getByRole('button', { name: 'QSO' }).click();
 	await type(
 		page,
-		'ジュリエット リマ ワン ホテル インディア シエラ 受信 ファイブ セブン カード ワン ウェイ'
+		'ジュリエット リマ ワン ホテル インディア シエラ 受信 ファイブ セブン カード ワンウェイ'
 	);
 	const draft = page.getByLabel('Draft QSO');
 	await expect(draft).toContainText('JL1HIS');
