@@ -83,7 +83,7 @@ describe('JAPANESE_READINGS', () => {
 
 	it('reads every word as a single Japanese word', () => {
 		for (const reading of Object.values(JAPANESE_READINGS)) {
-			expect(reading).toMatch(/^[\p{Script=Katakana}\p{Script=Han}ーＡ-Ｚ０-９]+$/u);
+			expect(reading).toMatch(/^[\p{Script=Katakana}\p{Script=Han}ーＡ-Ｚａ-ｚ０-９－]+$/u);
 		}
 	});
 });

@@ -201,8 +201,8 @@ export type SpeechLanguage = 'en' | 'ja';
  * abbreviations and the few words the model only has in English are its full-width capitals
  * (`Ｊ`, `ＦＭ`, `ＮＯＶＥＭＢＥＲ`), which the tokenizer's NFKC normalisation turns into the English
  * words; and the RST and frequency keywords are the plain Japanese words an operator would say
- * (`送信`, `受信`, `周波数`). A word the model has no entry for has no reading: X-ray is said as `Ｘ`,
- * JCC as `Ｊ Ｃ Ｘ`, RTTY as `Ｒ Ｔ Ｔ Ｙ`.
+ * (`送信`, `受信`, `周波数`). A word the model has no entry for has no reading: JCC is said as
+ * `Ｊ Ｃ Ｘ`, RTTY as `Ｒ Ｔ Ｔ Ｙ`.
  */
 export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
 	alpha: 'アルファ',
@@ -229,6 +229,7 @@ export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
 	uniform: 'ユニフォーム',
 	victor: 'ビクター',
 	whiskey: 'ウイスキー',
+	'x ray': 'Ｘ－ｒａｙ',
 	yankee: 'ヤンキー',
 	zulu: 'ズール',
 

@@ -108,6 +108,7 @@ describe('grammarPhrases for a Japanese model', () => {
 			'コール セブン キロ フォー Ｘ ヤンキー ズール ストローク ワン',
 			'Ｊ Ａ ワン Ｎ Ｌ Ｏ',
 			'ジュリエット アルファ ワン ＮＯＶＥＭＢＥＲ リマ オスカー',
+			'セブン キロ ワン Ｘ－ｒａｙ ヤンキー ズール',
 			'周波数 ＦＯＲＴＹ ファイブ ポイント ゼロ',
 			'ジュリエット Ｆ ワン Ｎ ゴルフ スラッシュ Ｐ',
 			'受信 ファイブ ナイン 送信 ファイブ セブン',
@@ -131,7 +132,7 @@ describe('grammarPhrases for a Japanese model', () => {
 	it('is spelled in Japanese only', () => {
 		for (const word of new Set(japanese.words.flat())) {
 			if (word !== '[unk]') {
-				expect(word).toMatch(/^[\p{Script=Katakana}\p{Script=Han}ーＡ-Ｚ０-９]+$/u);
+				expect(word).toMatch(/^[\p{Script=Katakana}\p{Script=Han}ーＡ-Ｚａ-ｚ０-９－]+$/u);
 			}
 		}
 	});
