@@ -81,9 +81,9 @@ describe('JAPANESE_READINGS', () => {
 		expect(new Set(readings).size).toBe(readings.length);
 	});
 
-	it('reads every word as a single Japanese word', () => {
-		for (const reading of Object.values(JAPANESE_READINGS)) {
-			expect(reading).toMatch(/^[\p{Script=Katakana}\p{Script=Han}ーＡ-Ｚａ-ｚ０-９－]+$/u);
-		}
+	it('reads every word as Japanese words separated by single spaces', () => {
+		const word = '[\\p{Script=Katakana}\\p{Script=Han}ーＡ-Ｚａ-ｚ０-９－]+';
+		const pattern = new RegExp(`^${word}(?: ${word})*$`, 'u');
+		for (const reading of Object.values(JAPANESE_READINGS)) expect(reading).toMatch(pattern);
 	});
 });

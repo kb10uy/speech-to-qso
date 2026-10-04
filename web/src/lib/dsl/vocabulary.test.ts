@@ -111,7 +111,9 @@ for (const [language, path] of VOCABULARIES) {
 		});
 
 		it.skipIf(language !== 'ja')('knows every Japanese reading as a word', () => {
-			const unknown = Object.values(JAPANESE_READINGS).filter((r) => !vocabulary.has(r));
+			const unknown = Object.values(JAPANESE_READINGS)
+				.flatMap((r) => r.split(' '))
+				.filter((w) => !vocabulary.has(w));
 			expect(unknown, 'readings missing from the ja model').toEqual([]);
 		});
 	});

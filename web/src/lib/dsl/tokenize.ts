@@ -19,19 +19,27 @@ for (const [word, letter] of Object.entries(PHONETIC_LETTERS)) {
 }
 
 /**
- * English words by Japanese reading. Readings go through the same normalisation as the input,
- * which already turns full-width letters (`ＦＭ`) into the English words.
+ * Japanese readings as word sequences, longest first so that `フォックス トロット` is matched as a
+ * whole. Readings go through the same normalisation as the input, which already turns full-width
+ * letters (`ＦＭ`) into the English words.
  */
-const FROM_JAPANESE = new Map(
-	Object.entries(JAPANESE_READINGS).map(([english, reading]) => [
-		reading.normalize('NFKC').toLowerCase(),
+const READINGS = Object.entries(JAPANESE_READINGS)
+	.map(([english, reading]) => ({
+		words: reading.normalize('NFKC').toLowerCase().split(' '),
 		english
-	])
-);
+	}))
+	.sort((a, b) => b.words.length - a.words.length);
 
 /** Replaces Japanese readings with the English words they stand for. */
 function fromJapanese(words: readonly string[]): string[] {
-	return words.map((word) => FROM_JAPANESE.get(word) ?? word);
+	const out: string[] = [];
+	let i = 0;
+	while (i < words.length) {
+		const match = READINGS.find((r) => r.words.every((w, k) => words[i + k] === w));
+		out.push(match?.english ?? words[i]);
+		i += match?.words.length ?? 1;
+	}
+	return out;
 }
 
 /**

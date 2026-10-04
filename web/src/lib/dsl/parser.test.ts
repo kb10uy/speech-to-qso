@@ -259,7 +259,10 @@ describe('Japanese readings', () => {
 			{ kind: 'qsl', value: 'oneWay' }
 		]);
 		expect(single('Ｊ Ｃ Ｘ ワン ゼロ ゼロ ワン')).toEqual({ kind: 'jcx', value: '1001' });
-		expect(single('Ｊ Ａ ワン Ｎ Ｘ フォックス')).toEqual({ kind: 'callsign', value: 'JA1NXF' });
+		expect(single('Ｊ Ａ ワン Ｎ Ｘ フォックス トロット')).toEqual({
+			kind: 'callsign',
+			value: 'JA1NXF'
+		});
 		expect(single('送信 ファイブ セブン')).toEqual({ kind: 'rstSent', value: '57' });
 		expect(single('周波数 ポイント ナイン フォー')).toEqual({
 			kind: 'frequency',

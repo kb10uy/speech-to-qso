@@ -98,7 +98,7 @@ const SLOTS = Object.keys(ENGLISH) as Slot[];
  */
 function inJapanese(sequence: Sequence): Sequence[] {
 	const whole = lookup(JAPANESE_READINGS, sequence.join(' '));
-	if (whole !== undefined) return [[whole]];
+	if (whole !== undefined) return [whole.split(' ')];
 	const words = sequence.map((word) => lookup(JAPANESE_READINGS, word));
 	return words.every((w) => w !== undefined) ? [words as string[]] : [];
 }

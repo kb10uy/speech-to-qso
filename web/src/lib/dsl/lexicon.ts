@@ -196,8 +196,9 @@ export type SpeechLanguage = 'en' | 'ja';
  * loanwords. With a Japanese model the grammar is made of these readings, and the tokenizer
  * maps them back to the English tokens, so the parser never sees Japanese.
  *
- * Each English word has exactly one reading, and every reading is a single word of the model's
- * vocabulary (`vosk-model-small-ja-0.22`; CI checks it). Most are katakana loanwords; letters,
+ * Each English word has exactly one reading, made of words of the model's vocabulary
+ * (`vosk-model-small-ja-0.22`; CI checks it): a single word wherever the model has one, and the
+ * model's halves where it has none (`フォックス トロット`). Most are katakana loanwords; letters,
  * abbreviations and the few words the model only has in English are its full-width capitals
  * (`Ｊ`, `ＦＭ`, `ＮＯＶＥＭＢＥＲ`), which the tokenizer's NFKC normalisation turns into the English
  * words; and the RST and frequency keywords are the plain Japanese words an operator would say
@@ -210,8 +211,8 @@ export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
 	charlie: 'チャーリー',
 	delta: 'デルタ',
 	echo: 'エコー',
-	// Only the two halves are words; operators shorten it to "fox" in English, too.
-	foxtrot: 'フォックス',
+	// The model only has the halves; saying just the first would leave トロット to be misheard.
+	foxtrot: 'フォックス トロット',
 	golf: 'ゴルフ',
 	hotel: 'ホテル',
 	india: 'インディア',

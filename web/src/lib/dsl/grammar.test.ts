@@ -123,7 +123,7 @@ describe('grammarPhrases for a Japanese model', () => {
 			'Ｑ Ｓ Ｌ リクエスト',
 			'モード ＦＭ',
 			'モード Ｒ Ｔ Ｔ Ｙ',
-			'モード フォックス タンゴ エイト',
+			'モード フォックス トロット タンゴ エイト',
 			'ジュリエット リマ ワン ホテル インディア シエラ 受信 ファイブ ナイン カード ネガティブ モード ＦＭ 周波数 ポイント ナイン フォー'
 		];
 		for (const sample of samples) expectCovered(japanese, sample);
