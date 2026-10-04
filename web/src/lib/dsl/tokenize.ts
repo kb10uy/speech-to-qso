@@ -19,8 +19,8 @@ for (const [word, letter] of Object.entries(PHONETIC_LETTERS)) {
 }
 
 /**
- * Japanese readings as word sequences, longest first so that `フォックス トロット` is matched as a
- * whole. Readings go through the same normalisation as the input, which already turns full-width
+ * Japanese readings as word sequences, longest first so that `シックス ティーン` is not read as
+ * `six` followed by an unknown word. Readings go through the same normalisation as the input, which already turns full-width
  * letters (`ＦＭ`) into the English words.
  */
 const READINGS = Object.entries(JAPANESE_READINGS)

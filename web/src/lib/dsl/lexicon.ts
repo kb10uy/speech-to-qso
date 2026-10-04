@@ -196,14 +196,15 @@ export type SpeechLanguage = 'en' | 'ja';
  * loanwords. With a Japanese model the grammar is made of these readings, and the tokenizer
  * maps them back to the English tokens, so the parser never sees Japanese.
  *
- * Each English word has exactly one reading, made of words of the model's vocabulary
- * (`vosk-model-small-ja-0.22`; CI checks it): a single word wherever the model has one, and the
- * model's halves where it has none (`フォックス トロット`). Most are katakana loanwords; letters,
+ * Each English word has one reading: alternatives that sound the same (`アルファ`, `Ａｌｐｈａ`) only
+ * give noise more words to match. Readings are made of words of the model's vocabulary
+ * (`vosk-model-small-ja-0.22`; CI checks it): a single word wherever the model has one, and
+ * several where it has none (`フォックス トロット`). Most are katakana loanwords; letters,
  * abbreviations and the few words the model only has in English are its full-width capitals
  * (`Ｊ`, `ＦＭ`, `ＮＯＶＥＭＢＥＲ`), which the tokenizer's NFKC normalisation turns into the English
  * words; and the RST and frequency keywords are the plain Japanese words an operator would say
- * (`送信`, `受信`, `周波数`). A word the model has no entry for has no reading: JCC is said as
- * `Ｊ Ｃ Ｘ`, RTTY as `Ｒ Ｔ Ｔ Ｙ`.
+ * (`送信`, `受信`, `周波数`). A word that is already sayable with the same sounds has no reading of
+ * its own: JCX is `Ｊ Ｃ Ｘ` and RTTY is `Ｒ Ｔ Ｔ Ｙ` through the letter names.
  */
 export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
 	alpha: 'アルファ',
@@ -279,12 +280,16 @@ export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
 	thirteen: 'サーティーン',
 	fourteen: 'フォーティーン',
 	fifteen: 'フィフティーン',
+	sixteen: 'シックス ティーン',
 	seventeen: 'セブンティーン',
+	eighteen: 'エイ ティーン',
 	nineteen: 'ナインティーン',
 	twenty: 'トゥエンティー',
 	thirty: 'サーティー',
 	forty: 'ＦＯＲＴＹ',
 	fifty: 'フィフティー',
+	// ティ rather than ティー, which is also how the letter Ｔ sounds.
+	sixty: 'シックス ティ',
 	seventy: 'セブンティー',
 	eighty: 'エイティ',
 	ninety: 'ナインティー',
@@ -306,6 +311,7 @@ export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
 	sent: '送信',
 	received: '受信',
 	frequency: '周波数',
+	jcc: 'Ｊ Ｃ Ｃ',
 	jcg: 'ＪＣＧ',
 	card: 'カード',
 	requested: 'リクエスト',

@@ -44,6 +44,13 @@ describe('tokenize', () => {
 		expect(tokenize('フォックス トロット ズール')).toEqual(['foxtrot', 'zulu']);
 		// Half a reading is not a word of the DSL, so the parser rejects it.
 		expect(tokenize('フォックス ズール')).toEqual(['フォックス', 'zulu']);
+		expect(tokenize('シックス ティーン シックス ティ シックス')).toEqual([
+			'sixteen',
+			'sixty',
+			'six'
+		]);
+		expect(tokenize('エイ ティーン')).toEqual(['eighteen']);
+		expect(tokenize('Ｊ Ｃ Ｃ')).toEqual(['jcc']);
 		expect(tokenize('ＮＯＶＥＭＢＥＲ ＦＯＲＴＹ Ｘ－ｒａｙ')).toEqual([
 			'november',
 			'forty',
