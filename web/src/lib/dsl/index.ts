@@ -1,3 +1,4 @@
+export { formatSpeech, formatTokens } from './display';
 export { DslError } from './errors';
 export {
 	formatFrequencyPattern,

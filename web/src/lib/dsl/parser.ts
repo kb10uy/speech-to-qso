@@ -1,11 +1,11 @@
+import { formatTokens, letterOf, tokenLabel } from './display';
 import { DslError } from './errors';
 import type { FrequencyPattern } from './frequency';
 import { MAX_FRACTION_DIGITS, MAX_INTEGER_DIGITS } from './frequency';
+import { matchKeyword } from './keywords';
 import {
-	COMMAND_KEYWORDS,
 	MEGAHERTZ_WORDS,
 	MODE_WORDS,
-	PHONETIC_LETTERS,
 	POINT_WORDS,
 	QSL_VALUES,
 	STROKE_WORDS,
@@ -54,31 +54,6 @@ const POINTS = new Set<string>(POINT_WORDS);
 const MEGAHERTZ = new Set<string>(MEGAHERTZ_WORDS);
 const STROKES = new Set<string>(STROKE_WORDS);
 
-interface KeywordMatch {
-	kind: CommandKind;
-	length: number;
-}
-
-const KEYWORD_SEQUENCES: { kind: CommandKind; seq: readonly string[] }[] = (
-	Object.entries(COMMAND_KEYWORDS) as [CommandKind, readonly (readonly string[])[]][]
-)
-	.flatMap(([kind, seqs]) => seqs.map((seq) => ({ kind, seq })))
-	// Longest match first so that e.g. "call sign" wins over "call".
-	.sort((a, b) => b.seq.length - a.seq.length);
-
-function matchKeyword(tokens: readonly string[], i: number): KeywordMatch | null {
-	for (const { kind, seq } of KEYWORD_SEQUENCES) {
-		if (seq.every((word, k) => tokens[i + k] === word)) return { kind, length: seq.length };
-	}
-	return null;
-}
-
-/** Converts a phonetic word or a single letter into an uppercase letter. */
-function letterOf(token: string): string | undefined {
-	if (/^[a-z]$/.test(token)) return token.toUpperCase();
-	return lookup(PHONETIC_LETTERS, token);
-}
-
 /** Reads phonetic letters, digits and strokes into an uppercase string. */
 function readSpelled(tokens: readonly string[], allowStroke: boolean): string {
 	let out = '';
@@ -92,7 +67,7 @@ function readSpelled(tokens: readonly string[], allowStroke: boolean): string {
 			i += 1;
 		} else if (isNumberToken(token)) {
 			const { digits, end } = readDigits(tokens, i);
-			if (end === i) throw new DslError(`unexpected "${token}"`);
+			if (end === i) throw new DslError(`unexpected "${tokenLabel(token)}"`);
 			out += digits;
 			i = end;
 		} else if (allowStroke && STROKES.has(token)) {
@@ -104,7 +79,7 @@ function readSpelled(tokens: readonly string[], allowStroke: boolean): string {
 			out += next !== undefined && isNumberToken(next) ? '/' : suffix;
 			i += 1;
 		} else {
-			throw new DslError(`unexpected "${token}"`);
+			throw new DslError(`unexpected "${tokenLabel(token)}"`);
 		}
 	}
 	return out;
@@ -126,7 +101,8 @@ function parseCallsign(tokens: readonly string[]): string {
 
 function readAllDigits(tokens: readonly string[], what: string): string {
 	const { digits, end } = readDigits(tokens, 0);
-	if (end !== tokens.length) throw new DslError(`unexpected "${tokens[end]}" in ${what}`);
+	if (end !== tokens.length)
+		throw new DslError(`unexpected "${tokenLabel(tokens[end])}" in ${what}`);
 	if (digits === '') throw new DslError(`${what} is empty`);
 	return digits;
 }
@@ -148,7 +124,7 @@ function parseFrequency(tokens: readonly string[]): FrequencyPattern {
 		i = fraction.end;
 	}
 	if (i < tokens.length && MEGAHERTZ.has(tokens[i])) i += 1;
-	if (i !== tokens.length) throw new DslError(`unexpected "${tokens[i]}" in frequency`);
+	if (i !== tokens.length) throw new DslError(`unexpected "${tokenLabel(tokens[i])}" in frequency`);
 	if (integer.digits === '' && fractionDigits === '') throw new DslError('frequency is empty');
 	if (integer.digits.length > MAX_INTEGER_DIGITS || fractionDigits.length > MAX_FRACTION_DIGITS) {
 		throw new DslError('frequency has too many digits');
@@ -168,7 +144,7 @@ function parseQsl(tokens: readonly string[]): QslStatus {
 	);
 	if (value !== undefined) return value.status;
 	const expected = QSL_VALUES.map(({ words }) => `"${words.join(' ')}"`).join(', ');
-	throw new DslError(`expected ${expected} after "card", got "${tokens.join(' ')}"`);
+	throw new DslError(`expected ${expected} after "card", got "${formatTokens(tokens)}"`);
 }
 
 function parseMode(tokens: readonly string[]): string {

@@ -158,7 +158,7 @@ describe('frequency', () => {
 	it('rejects malformed frequencies', () => {
 		expect(error('frequency')).toMatch(/frequency is empty/);
 		expect(error('frequency four point')).toMatch(/digits after "point"/);
-		expect(error('frequency four point two point five')).toMatch(/unexpected "point"/);
+		expect(error('frequency four point two point five')).toMatch(/unexpected "\."/);
 		expect(error('frequency point one two three four five six seven')).toMatch(/too many digits/);
 	});
 });
@@ -196,7 +196,7 @@ describe('QSL', () => {
 
 	it('requires a value after card', () => {
 		expect(error('card')).toMatch(/expected "requested", "one way", "negative" after "card"/);
-		expect(error('card five')).toMatch(/after "card", got "five"/);
+		expect(error('card five')).toMatch(/after "card", got "5"/);
 		expect(error('card one')).toMatch(/after "card"/);
 		expect(error('card one way please')).toMatch(/after "card"/);
 		expect(error('no card')).toMatch(/unexpected "no"/);

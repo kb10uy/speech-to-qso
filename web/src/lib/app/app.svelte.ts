@@ -1,5 +1,5 @@
 import { asset } from '$app/paths';
-import { parseSpeech, type SpeechLanguage } from '../dsl';
+import { formatSpeech, formatTokens, parseSpeech, type SpeechLanguage } from '../dsl';
 import {
 	adifFile,
 	applyUpdates,
@@ -27,7 +27,7 @@ export type AsrState = 'unloaded' | 'loading' | 'ready' | 'error';
 
 export interface Feedback {
 	kind: 'ok' | 'error' | 'info';
-	/** What the ASR heard (or what was typed). */
+	/** What the ASR heard (or what was typed), as display labels. */
 	heard?: string;
 	message: string;
 }
@@ -36,6 +36,7 @@ export interface Utterance {
 	at: string;
 	source: 'voice' | 'typed';
 	text: string;
+	heard: string;
 	ok: boolean;
 	message: string;
 }
@@ -145,7 +146,7 @@ export class QsoApp {
 							language: this.settings.voskLanguage,
 							useGrammar: this.settings.voskGrammar
 						});
-			recognizer.onPartial = (text) => (this.partial = text);
+			recognizer.onPartial = (text) => (this.partial = formatSpeech(text));
 			await recognizer.initialize();
 			this.#recognizer = recognizer;
 			this.asr = 'ready';
@@ -162,7 +163,7 @@ export class QsoApp {
 	/** Uses an already initialized recognizer (custom engines, tests). */
 	useRecognizer(recognizer: SpeechRecognizer) {
 		this.#recognizer?.dispose();
-		recognizer.onPartial = (text) => (this.partial = text);
+		recognizer.onPartial = (text) => (this.partial = formatSpeech(text));
 		this.#recognizer = recognizer;
 		this.asr = 'ready';
 		this.asrError = null;
@@ -262,8 +263,9 @@ export class QsoApp {
 
 	/** Parses one utterance (spoken or typed) and applies it to the draft. */
 	handleText(text: string, source: Utterance['source']) {
-		const heard = text.trim();
-		const parsed = parseSpeech(heard);
+		const raw = text.trim();
+		const parsed = parseSpeech(raw);
+		const heard = formatTokens(parsed.tokens) || '(nothing)';
 		let message: string;
 		if (parsed.ok) {
 			const { draft, descriptions } = applyUpdates(this.draft, parsed.updates, {
@@ -276,11 +278,11 @@ export class QsoApp {
 			this.feedback = { kind: 'ok', heard, message };
 		} else {
 			message = parsed.error;
-			this.feedback = { kind: 'error', heard: heard === '' ? '(nothing)' : heard, message };
+			this.feedback = { kind: 'error', heard, message };
 			vibrate([60, 60, 60]);
 		}
 		this.utterances = [
-			{ at: new Date().toISOString(), source, text: heard, ok: parsed.ok, message },
+			{ at: new Date().toISOString(), source, text: raw, heard, ok: parsed.ok, message },
 			...this.utterances
 		].slice(0, MAX_UTTERANCES);
 	}

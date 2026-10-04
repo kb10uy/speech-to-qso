@@ -155,6 +155,16 @@ export const COMMAND_KEYWORDS = {
 
 export type CommandKind = keyof typeof COMMAND_KEYWORDS;
 
+export const COMMAND_LABELS: Readonly<Record<CommandKind, string>> = {
+	callsign: 'CALL',
+	rstSent: 'SENT',
+	rstReceived: 'RCVD',
+	frequency: 'FREQ',
+	jcx: 'JCX',
+	qsl: 'QSL',
+	mode: 'MODE'
+};
+
 /**
  * QSL card arrangement for a QSO. `requested`: the other station asked for our card.
  * `oneWay`: the other station sends a card and expects none back.
@@ -166,10 +176,14 @@ export type QslStatus = 'none' | 'requested' | 'oneWay';
  * any noise after it into a requested card, and `negative` is long and sounds like nothing
  * else in the vocabulary, which `none` (vs. `one way`) does not.
  */
-export const QSL_VALUES: readonly { readonly words: readonly string[]; status: QslStatus }[] = [
-	{ words: ['requested'], status: 'requested' },
-	{ words: ['one', 'way'], status: 'oneWay' },
-	{ words: ['negative'], status: 'none' }
+export const QSL_VALUES: readonly {
+	readonly words: readonly string[];
+	status: QslStatus;
+	label: string;
+}[] = [
+	{ words: ['requested'], status: 'requested', label: 'REQUESTED' },
+	{ words: ['one', 'way'], status: 'oneWay', label: 'ONE WAY' },
+	{ words: ['negative'], status: 'none', label: 'NEGATIVE' }
 ];
 
 /** Mode names that the ASR may emit as a single word. */

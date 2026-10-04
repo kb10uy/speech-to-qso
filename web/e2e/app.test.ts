@@ -119,6 +119,7 @@ test('switches to the bundled Japanese model and takes Japanese commands', async
 	await expect(draft).toContainText('JL1HIS');
 	await expect(draft).toContainText('57');
 	await expect(draft).toContainText('QSL One Way');
+	await expect(page.getByRole('status')).toContainText('J L 1 H I S RCVD 5 7 QSL ONE WAY');
 });
 
 test('starts offline once installed', async ({ page, context }) => {

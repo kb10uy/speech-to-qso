@@ -140,7 +140,7 @@
 		<ol class="utterances">
 			{#each app.utterances as u (u.at + u.text)}
 				<li class:bad={!u.ok}>
-					<span class="mono">{u.source === 'typed' ? '⌨' : '🎙'} {u.text || '(nothing)'}</span>
+					<span class="mono" title={u.text}>{u.source === 'typed' ? '⌨' : '🎙'} {u.heard}</span>
 					<span class="hint">{u.message}</span>
 				</li>
 			{/each}

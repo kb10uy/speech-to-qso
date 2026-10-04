@@ -27,7 +27,7 @@ export function isNumberToken(token: string): boolean {
 }
 
 /** Reads a group of at most two digits (`seven`, `fourteen`, `thirty`, `thirty two`). */
-function readSmallGroup(
+export function readSmallGroup(
 	tokens: readonly string[],
 	i: number
 ): { digits: string; end: number } | null {
