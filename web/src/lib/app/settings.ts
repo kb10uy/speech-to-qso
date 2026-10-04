@@ -21,9 +21,14 @@ export const DEFAULT_MODEL_PATHS: Readonly<Record<SpeechLanguage, string>> = {
 	ja: 'models/vosk-model-small-ja-0.22.tar.gz'
 };
 
+/** The model language for a browser language tag (`navigator.language`). */
+export function speechLanguageFor(browserLanguage: string | undefined): SpeechLanguage {
+	return browserLanguage?.toLowerCase().split('-')[0] === 'ja' ? 'ja' : 'en';
+}
+
 export function defaultSettings(): AppSettings {
 	return {
-		voskLanguage: 'en',
+		voskLanguage: speechLanguageFor(globalThis.navigator?.language),
 		voskModelUrl: '',
 		autoLoadAsr: false,
 		releaseTailMs: 300,
