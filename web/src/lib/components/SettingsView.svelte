@@ -32,10 +32,27 @@
 	</label>
 	{#if form.asrEngine === 'vosk'}
 		<label class="field">
+			<span>Vosk model</span>
+			<select bind:value={form.voskLanguage}>
+				<option value="en">English</option>
+				<option value="ja">Japanese (Japanese pronunciation)</option>
+			</select>
+			<span class="hint">
+				Hears the commands the way they are said in Japanese: <em>ゼロ ワン</em>,
+				<em>ジュリエット リマ ワン</em>, and <em>送信</em>, <em>受信</em>, <em>周波数</em> for sent, received
+				and frequency.
+			</span>
+		</label>
+		<label class="field">
 			<span>Vosk model URL</span>
-			<input type="url" bind:value={form.voskModelUrl} placeholder={app.defaultModelUrl} />
+			<input
+				type="url"
+				bind:value={form.voskModelUrl}
+				placeholder={app.defaultModelUrl(form.voskLanguage)}
+			/>
 			<span class="hint"
-				>.tar.gz with a single top-level directory. Empty uses the bundled model.</span
+				>.tar.gz with a single top-level directory, in the language selected above. Empty uses the
+				bundled model.</span
 			>
 		</label>
 		<label class="check">
@@ -83,7 +100,9 @@
 <section class="help">
 	<h2>Voice commands</h2>
 	<p class="hint">
-		One utterance per PTT press. Speaking a field again overwrites it. Commands can be chained.
+		One utterance per PTT press. Speaking a field again overwrites it. Commands can be chained. With
+		the Japanese model, say the same words as katakana loanwords (ジュリエット リマ ワン …), and
+		送信, 受信 and 周波数 for sent, received and frequency.
 	</p>
 	<dl>
 		<dt>juliett lima one hotel india sierra</dt>
@@ -96,8 +115,10 @@
 		<dd>*2.740 MHz; “four thirty two point nine four” is fully specified</dd>
 		<dt>jcx one zero zero one zero one</dt>
 		<dd>JCC/JCG 100101 (also “jcc”, “jcg”)</dd>
-		<dt>card requested · no card</dt>
+		<dt>card requested · card negative</dt>
 		<dd>QSL requested on/off</dd>
+		<dt>card one way</dt>
+		<dd>QSL one way: they send a card and expect none back</dd>
 		<dt>mode foxtrot mike</dt>
 		<dd>Mode FM (also SSB, CW, FT8, …)</dd>
 	</dl>

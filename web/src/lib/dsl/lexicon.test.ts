@@ -3,6 +3,7 @@ import {
 	COMMAND_KEYWORDS,
 	DIGIT_WORDS,
 	FREE_TEXT_ONLY_WORDS,
+	JAPANESE_READINGS,
 	MODE_WORDS,
 	PHONETIC_LETTERS,
 	QSL_VALUES,
@@ -55,5 +56,34 @@ describe('FREE_TEXT_ONLY_WORDS', () => {
 				kind
 			).toBe(true);
 		}
+	});
+});
+
+describe('JAPANESE_READINGS', () => {
+	it('only reads words of the English grammar, or single letters', () => {
+		const grammar = new Set(grammarPhrases('en').flatMap((p) => p.split(' ')));
+		for (const english of Object.keys(JAPANESE_READINGS)) {
+			for (const word of english.split(' ')) {
+				if (!/^[a-z]$/.test(word)) expect(grammar, english).toContain(word);
+			}
+		}
+	});
+
+	it('names every letter with its full-width capital', () => {
+		for (const letter of 'abcdefghijklmnopqrstuvwxyz') {
+			const fullWidth = String.fromCharCode(letter.charCodeAt(0) - 0x61 + 0xff21);
+			expect(JAPANESE_READINGS[letter], letter).toBe(fullWidth);
+		}
+	});
+
+	it('gives every reading to exactly one English word', () => {
+		const readings = Object.values(JAPANESE_READINGS);
+		expect(new Set(readings).size).toBe(readings.length);
+	});
+
+	it('reads every word as Japanese words separated by single spaces', () => {
+		const word = '[\\p{Script=Katakana}\\p{Script=Han}ーＡ-Ｚａ-ｚ０-９－]+';
+		const pattern = new RegExp(`^${word}(?: ${word})*$`, 'u');
+		for (const reading of Object.values(JAPANESE_READINGS)) expect(reading).toMatch(pattern);
 	});
 });

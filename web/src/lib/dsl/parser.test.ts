@@ -246,3 +246,31 @@ describe('utterances', () => {
 		expect(error('[unk]')).toMatch(/nothing recognized/);
 	});
 });
+
+describe('Japanese readings', () => {
+	it('parses the DSL spoken with Japanese loanword pronunciation', () => {
+		expect(
+			updates(
+				'ジュリエット リマ ワン ホテル インディア シエラ 受信 ファイブ ナイン カード ワンウェイ'
+			)
+		).toEqual([
+			{ kind: 'callsign', value: 'JL1HIS' },
+			{ kind: 'rstReceived', value: '59' },
+			{ kind: 'qsl', value: 'oneWay' }
+		]);
+		expect(single('Ｊ Ｃ Ｘ ワン ゼロ ゼロ ワン')).toEqual({ kind: 'jcx', value: '1001' });
+		expect(single('Ｊ Ａ ワン Ｎ Ｘ フォックス トロット')).toEqual({
+			kind: 'callsign',
+			value: 'JA1NXF'
+		});
+		expect(single('送信 ファイブ セブン')).toEqual({ kind: 'rstSent', value: '57' });
+		expect(single('周波数 ポイント ナイン フォー')).toEqual({
+			kind: 'frequency',
+			value: { integerDigits: '', fractionDigits: '94' }
+		});
+	});
+
+	it('rejects Japanese outside the DSL', () => {
+		expect(error('受信 ファイブ テレビ')).toMatch(/テレビ/);
+	});
+});

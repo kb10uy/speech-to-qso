@@ -184,3 +184,146 @@ export const MODE_WORDS: Readonly<Record<string, string>> = {
 	ft8: 'FT8',
 	ft4: 'FT4'
 };
+
+/** Language of the words a recogniser emits. The DSL itself is always English. */
+export type SpeechLanguage = 'en' | 'ja';
+
+/**
+ * Japanese readings of the DSL, for a Japanese acoustic model.
+ *
+ * Japanese speakers tend to say English words with Japanese sounds (`ゼロ` rather than
+ * "zee-roh"), which an English model mishears, while to a Japanese model they are ordinary
+ * loanwords. With a Japanese model the grammar is made of these readings, and the tokenizer
+ * maps them back to the English tokens, so the parser never sees Japanese.
+ *
+ * Each English word has one reading: alternatives that sound the same (`アルファ`, `Ａｌｐｈａ`) only
+ * give noise more words to match. Readings are made of words of the model's vocabulary
+ * (`vosk-model-small-ja-0.22`; CI checks it): a single word wherever the model has one, and
+ * several where it has none (`フォックス トロット`). Most are katakana loanwords; letters,
+ * abbreviations and the few words the model only has in English are its full-width capitals
+ * (`Ｊ`, `ＦＭ`, `ＮＯＶＥＭＢＥＲ`), which the tokenizer's NFKC normalisation turns into the English
+ * words; and the RST and frequency keywords are the plain Japanese words an operator would say
+ * (`送信`, `受信`, `周波数`). A word that is already sayable with the same sounds has no reading of
+ * its own: JCX is `Ｊ Ｃ Ｘ` and RTTY is `Ｒ Ｔ Ｔ Ｙ` through the letter names.
+ */
+export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
+	alpha: 'アルファ',
+	bravo: 'ブラボー',
+	charlie: 'チャーリー',
+	delta: 'デルタ',
+	echo: 'エコー',
+	// The model only has the halves; saying just the first would leave トロット to be misheard.
+	foxtrot: 'フォックス トロット',
+	golf: 'ゴルフ',
+	hotel: 'ホテル',
+	india: 'インディア',
+	juliet: 'ジュリエット',
+	kilo: 'キロ',
+	lima: 'リマ',
+	mike: 'マイク',
+	november: 'ＮＯＶＥＭＢＥＲ',
+	oscar: 'オスカー',
+	papa: 'パパ',
+	quebec: 'ケベック',
+	romeo: 'ロメオ',
+	sierra: 'シエラ',
+	tango: 'タンゴ',
+	uniform: 'ユニフォーム',
+	victor: 'ビクター',
+	whiskey: 'ウイスキー',
+	'x ray': 'Ｘ－ｒａｙ',
+	yankee: 'ヤンキー',
+	zulu: 'ズール',
+
+	// Letter names. The English grammar spells with the phonetic alphabet only, but these are
+	// what the Japanese model writes for a letter name, so they spell callsigns there too.
+	a: 'Ａ',
+	b: 'Ｂ',
+	c: 'Ｃ',
+	d: 'Ｄ',
+	e: 'Ｅ',
+	f: 'Ｆ',
+	g: 'Ｇ',
+	h: 'Ｈ',
+	i: 'Ｉ',
+	j: 'Ｊ',
+	k: 'Ｋ',
+	l: 'Ｌ',
+	m: 'Ｍ',
+	n: 'Ｎ',
+	o: 'Ｏ',
+	p: 'Ｐ',
+	q: 'Ｑ',
+	r: 'Ｒ',
+	s: 'Ｓ',
+	t: 'Ｔ',
+	u: 'Ｕ',
+	v: 'Ｖ',
+	w: 'Ｗ',
+	x: 'Ｘ',
+	y: 'Ｙ',
+	z: 'Ｚ',
+
+	zero: 'ゼロ',
+	one: 'ワン',
+	two: 'ツー',
+	three: 'スリー',
+	four: 'フォー',
+	five: 'ファイブ',
+	six: 'シックス',
+	seven: 'セブン',
+	eight: 'エイト',
+	nine: 'ナイン',
+	ten: 'テン',
+	eleven: 'イレブン',
+	twelve: 'トゥウェルブ',
+	thirteen: 'サーティーン',
+	fourteen: 'フォーティーン',
+	fifteen: 'フィフティーン',
+	sixteen: 'シックス ティーン',
+	seventeen: 'セブンティーン',
+	eighteen: 'エイ ティーン',
+	nineteen: 'ナインティーン',
+	twenty: 'トゥエンティー',
+	thirty: 'サーティー',
+	forty: 'ＦＯＲＴＹ',
+	fifty: 'フィフティー',
+	// ティ rather than ティー, which is also how the letter Ｔ sounds.
+	sixty: 'シックス ティ',
+	seventy: 'セブンティー',
+	eighty: 'エイティ',
+	ninety: 'ナインティー',
+	hundred: 'ハンドレッド',
+	double: 'ダブル',
+	triple: 'トリプル',
+
+	point: 'ポイント',
+	dot: 'ドット',
+	megahertz: 'メガヘルツ',
+	stroke: 'ストローク',
+	slash: 'スラッシュ',
+	portable: 'ポータブル',
+	mobile: 'モバイル',
+
+	call: 'コール',
+	callsign: 'コールサイン',
+	station: 'ステーション',
+	sent: '送信',
+	received: '受信',
+	frequency: '周波数',
+	jcc: 'Ｊ Ｃ Ｃ',
+	jcg: 'ＪＣＧ',
+	card: 'カード',
+	requested: 'リクエスト',
+	'one way': 'ワンウェイ',
+	negative: 'ネガティブ',
+	mode: 'モード',
+
+	fm: 'ＦＭ',
+	am: 'ＡＭ',
+	ssb: 'ＳＳＢ',
+	cw: 'ＣＷ',
+	usb: 'ＵＳＢ',
+	lsb: 'ＬＳＢ',
+	ft4: 'ＦＴ４'
+};

@@ -2,7 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function setUpSession(page: Page) {
 	await page.goto('./');
-	await page.getByRole('button', { name: 'Session' }).click();
+	// Exact: once the app is ready, the "set up the session" banner matches "Session" too.
+	await page.getByRole('button', { name: 'Session', exact: true }).click();
 	await page.getByLabel('Operator callsign').fill('jj1abc');
 	await page.getByLabel('Frequency anchor (MHz)').fill('433');
 	await page.getByRole('button', { name: 'Save' }).click();
@@ -91,6 +92,33 @@ test('streams 16 kHz PCM from the microphone while PTT is held', async ({ page }
 	// ~1 s held + 300 ms release tail at 16 kHz.
 	expect(stats.samples).toBeGreaterThan(16_000 * 1.0);
 	expect(stats.samples).toBeLessThan(16_000 * 1.8);
+});
+
+test('switches to the bundled Japanese model and takes Japanese commands', async ({ page }) => {
+	await setUpSession(page);
+
+	await page.getByRole('button', { name: '⚙' }).click();
+	await page.getByRole('combobox', { name: /^Vosk model/ }).selectOption('ja');
+	await expect(page.getByLabel('Vosk model URL')).toHaveAttribute(
+		'placeholder',
+		/models\/vosk-model-small-ja-0\.22\.tar\.gz$/
+	);
+	await page.getByRole('button', { name: 'Save' }).click();
+	// Saving is asynchronous (IndexedDB); reloading before it finishes would lose the change.
+	await expect(page.getByRole('button', { name: 'Saved ✓' })).toBeVisible();
+	await page.reload();
+	await page.getByRole('button', { name: '⚙' }).click();
+	await expect(page.getByRole('combobox', { name: /^Vosk model/ })).toHaveValue('ja');
+
+	await page.getByRole('button', { name: 'QSO' }).click();
+	await type(
+		page,
+		'ジュリエット リマ ワン ホテル インディア シエラ 受信 ファイブ セブン カード ワンウェイ'
+	);
+	const draft = page.getByLabel('Draft QSO');
+	await expect(draft).toContainText('JL1HIS');
+	await expect(draft).toContainText('57');
+	await expect(draft).toContainText('QSL One Way');
 });
 
 test('starts offline once installed', async ({ page, context }) => {

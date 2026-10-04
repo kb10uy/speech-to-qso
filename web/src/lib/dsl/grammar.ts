@@ -10,13 +10,15 @@
  *
  * The transitions are a class-level, slightly permissive mirror of the parser; the parser still
  * has the final say. Free-text-only spellings (`FREE_TEXT_ONLY_WORDS`) are left out, and words
- * that are missing from a model's vocabulary are simply ignored by Vosk.
+ * that are missing from a model's vocabulary are simply ignored by Vosk. For a Japanese model
+ * the same grammar is spelled with the Japanese readings (`JAPANESE_READINGS`).
  */
 import {
 	COMMAND_KEYWORDS,
 	DIGIT_WORDS,
 	FREE_TEXT_ONLY_WORDS,
 	HUNDRED_WORDS,
+	JAPANESE_READINGS,
 	MEGAHERTZ_WORDS,
 	MODE_WORDS,
 	PHONETIC_LETTERS,
@@ -27,7 +29,9 @@ import {
 	SUFFIX_WORDS,
 	TEEN_WORDS,
 	TENS_WORDS,
-	type CommandKind
+	lookup,
+	type CommandKind,
+	type SpeechLanguage
 } from './lexicon';
 
 /** A word class of the DSL; every member is a sequence of one or more tokens. */
@@ -50,7 +54,7 @@ type Slot =
 	| 'mode'
 	| 'unknown';
 
-type Sequence = readonly string[];
+export type Sequence = readonly string[];
 
 function single(words: Iterable<string>): Sequence[] {
 	return [...words].filter((w) => !FREE_TEXT_ONLY_WORDS.has(w)).map((w) => [w]);
@@ -62,7 +66,7 @@ function keyword(...kinds: CommandKind[]): Sequence[] {
 	);
 }
 
-const WORDS: Readonly<Record<Slot, readonly Sequence[]>> = {
+const ENGLISH: Readonly<Record<Slot, readonly Sequence[]>> = {
 	letter: [...single(Object.keys(PHONETIC_LETTERS)), ['x', 'ray']],
 	number: single([
 		...Object.keys(DIGIT_WORDS),
@@ -86,7 +90,45 @@ const WORDS: Readonly<Record<Slot, readonly Sequence[]>> = {
 	unknown: [['[unk]']]
 };
 
-const SLOTS = Object.keys(WORDS) as Slot[];
+const SLOTS = Object.keys(ENGLISH) as Slot[];
+
+/**
+ * The Japanese spelling of an English sequence: its own reading (`one way` → `ワンウェイ`), or else
+ * its words' readings (`j c x` → `Ｊ Ｃ Ｘ`). None if a word has no reading.
+ */
+function inJapanese(sequence: Sequence): Sequence[] {
+	const whole = lookup(JAPANESE_READINGS, sequence.join(' '));
+	if (whole !== undefined) return [whole.split(' ')];
+	const words = sequence.map((word) => lookup(JAPANESE_READINGS, word));
+	return words.every((w) => w !== undefined) ? [words as string[]] : [];
+}
+
+/**
+ * The Japanese model has the letters themselves as words (`Ｊ`), so there a callsign can also be
+ * spelled with letter names. The English grammar keeps them out: a single short letter is what
+ * noise decodes as most easily, and the phonetic alphabet exists to avoid exactly that.
+ */
+const JAPANESE_SOURCE: Readonly<Record<Slot, readonly Sequence[]>> = {
+	...ENGLISH,
+	letter: [
+		...ENGLISH.letter,
+		...[...new Set(Object.values(PHONETIC_LETTERS))].map((letter) => [letter.toLowerCase()])
+	]
+};
+
+const JAPANESE = Object.fromEntries(
+	SLOTS.map((slot) => [
+		slot,
+		slot === 'unknown' ? ENGLISH.unknown : JAPANESE_SOURCE[slot].flatMap(inJapanese)
+	])
+) as Record<Slot, readonly Sequence[]>;
+
+/** The word sequences of each word class, as a recogniser for `language` emits them. */
+export function grammarSequences(
+	language: SpeechLanguage
+): Readonly<Record<string, readonly Sequence[]>> {
+	return language === 'ja' ? JAPANESE : ENGLISH;
+}
 const KEYWORDS: readonly Slot[] = [
 	'callsignKeyword',
 	'rstKeyword',
@@ -181,13 +223,14 @@ function suffixes(): Map<Slot, Slot[]> {
  * Phrases for Vosk's grammar: every allowed word-to-word transition, embedded in a shortest
  * complete utterance so that sentence starts and ends are counted correctly too.
  */
-export function grammarPhrases(): string[] {
+export function grammarPhrases(language: SpeechLanguage = 'en'): string[] {
+	const words = language === 'ja' ? JAPANESE : ENGLISH;
 	const prefix = prefixes();
 	const suffix = suffixes();
 	// Fill the padding slots round-robin so no word is favoured just by being first in a table.
 	const counters = new Map<Slot, number>();
 	const pick = (slot: Slot): Sequence => {
-		const seqs = WORDS[slot];
+		const seqs = words[slot];
 		const n = counters.get(slot) ?? 0;
 		counters.set(slot, n + 1);
 		return seqs[n % seqs.length];
@@ -199,16 +242,16 @@ export function grammarPhrases(): string[] {
 	};
 
 	for (const slot of START) {
-		for (const seq of WORDS[slot]) emit([], [seq], suffix.get(slot)!);
+		for (const seq of words[slot]) emit([], [seq], suffix.get(slot)!);
 	}
 	for (const slot of SLOTS) {
 		for (const next of TRANSITIONS[slot]) {
 			if (next === 'end') {
-				for (const seq of WORDS[slot]) emit(prefix.get(slot)!, [seq], []);
+				for (const seq of words[slot]) emit(prefix.get(slot)!, [seq], []);
 				continue;
 			}
-			for (const seq of WORDS[slot]) {
-				for (const nextSeq of WORDS[next]) {
+			for (const seq of words[slot]) {
+				for (const nextSeq of words[next]) {
 					emit(prefix.get(slot)!, [seq, nextSeq], suffix.get(next)!);
 				}
 			}
