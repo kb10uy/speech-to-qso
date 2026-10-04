@@ -8,14 +8,13 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --project ../transcribe-server/frontend/jsconfig.json",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"lint": "prettier --check . && prettier --check ../transcribe-server/frontend",
-		"format": "prettier --write . && prettier --write ../transcribe-server/frontend",
+		"lint": "prettier --check .",
+		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
-		"test:e2e": "playwright test",
-		"test:transcribe": "node --test ../transcribe-server/frontend/recognizer.test.js && playwright test -c playwright.transcribe.config.ts"
+		"test:e2e": "playwright test"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.56.1",

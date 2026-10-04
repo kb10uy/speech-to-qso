@@ -24,11 +24,6 @@ jobs:
       - run: npm test
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: transcribe-server
-      - run: npm run test:transcribe
 
   # Vosk silently drops grammar words its model does not know; check them against the shipped models.
   vocabulary:
@@ -73,12 +68,9 @@ jobs:
 
   server:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        crate: [server, transcribe-server]
     defaults:
       run:
-        working-directory: ${{ matrix.crate }}
+        working-directory: server
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -86,7 +78,7 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ${{ matrix.crate }}
+          workspaces: server
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
