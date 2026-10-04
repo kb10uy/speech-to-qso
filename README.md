@@ -183,7 +183,7 @@ Vosk to sherpa-onnx, Whisper or a server-side ASR only means implementing that i
   and the RST and frequency keywords are the plain Japanese words (`受信 ファイブ ナイン`, `送信 ファイブ セブン`,
   `周波数 ポイント ナイン フォー`). Every English word has one reading in `JAPANESE_READINGS`
   (`web/src/lib/dsl/lexicon.ts`), a single word of the model's vocabulary; words the model has no entry for, such as
-  November, are spelled with letter names. The tokenizer maps the readings back to the English DSL, so the parser does
+  X-ray, are spelled with letter names. The tokenizer maps the readings back to the English DSL, so the parser does
   not change. CI checks the readings against the model's vocabulary.
 - Vosk may finalize a segment at a pause in the middle of an utterance, so all results of one PTT press are joined
   into a single utterance.

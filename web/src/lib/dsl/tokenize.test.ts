@@ -42,6 +42,7 @@ describe('tokenize', () => {
 		expect(tokenize('周波数 ポイント ナイン')).toEqual(['frequency', 'point', 'nine']);
 		expect(tokenize('ゼロ・ゼロ・ワン')).toEqual(['zero', 'zero', 'one']);
 		expect(tokenize('フォックス ズール')).toEqual(['foxtrot', 'zulu']);
+		expect(tokenize('ＮＯＶＥＭＢＥＲ ＦＯＲＴＹ')).toEqual(['november', 'forty']);
 	});
 
 	it('maps a reading of several English words to all of them', () => {

@@ -197,11 +197,12 @@ export type SpeechLanguage = 'en' | 'ja';
  * maps them back to the English tokens, so the parser never sees Japanese.
  *
  * Each English word has exactly one reading, and every reading is a single word of the model's
- * vocabulary (`vosk-model-small-ja-0.22`; CI checks it). Most are katakana loanwords; letters and
- * abbreviations are the model's full-width capitals (`Ｊ`, `ＦＭ`), which the tokenizer's NFKC
- * normalisation turns into the English letters; and the RST and frequency keywords are the plain
- * Japanese words an operator would say (`送信`, `受信`, `周波数`). A word the model has no entry for
- * has no reading: November is said as `Ｎ`, X-ray as `Ｘ`, JCC as `Ｊ Ｃ Ｘ`, RTTY as `Ｒ Ｔ Ｔ Ｙ`.
+ * vocabulary (`vosk-model-small-ja-0.22`; CI checks it). Most are katakana loanwords; letters,
+ * abbreviations and the few words the model only has in English are its full-width capitals
+ * (`Ｊ`, `ＦＭ`, `ＮＯＶＥＭＢＥＲ`), which the tokenizer's NFKC normalisation turns into the English
+ * words; and the RST and frequency keywords are the plain Japanese words an operator would say
+ * (`送信`, `受信`, `周波数`). A word the model has no entry for has no reading: X-ray is said as `Ｘ`,
+ * JCC as `Ｊ Ｃ Ｘ`, RTTY as `Ｒ Ｔ Ｔ Ｙ`.
  */
 export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
 	alpha: 'アルファ',
@@ -218,6 +219,7 @@ export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
 	kilo: 'キロ',
 	lima: 'リマ',
 	mike: 'マイク',
+	november: 'ＮＯＶＥＭＢＥＲ',
 	oscar: 'オスカー',
 	papa: 'パパ',
 	quebec: 'ケベック',
@@ -279,6 +281,7 @@ export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
 	nineteen: 'ナインティーン',
 	twenty: 'トゥエンティー',
 	thirty: 'サーティー',
+	forty: 'ＦＯＲＴＹ',
 	fifty: 'フィフティー',
 	seventy: 'セブンティー',
 	eighty: 'エイティ',
