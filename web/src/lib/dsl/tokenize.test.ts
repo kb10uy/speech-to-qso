@@ -37,8 +37,9 @@ describe('tokenize', () => {
 		expect(tokenize('mode FT8')).toEqual(['mode', 'ft8']);
 	});
 
-	it('maps katakana readings to the English words', () => {
-		expect(tokenize('レシーブド ファイブ ナイン')).toEqual(['received', 'five', 'nine']);
+	it('maps Japanese readings to the English words', () => {
+		expect(tokenize('受信 ファイブ ナイン')).toEqual(['received', 'five', 'nine']);
+		expect(tokenize('周波 数 ポイント ナイン')).toEqual(['frequency', 'point', 'nine']);
 		expect(tokenize('ゼロ ゼロ ワン')).toEqual(['zero', 'zero', 'one']);
 	});
 

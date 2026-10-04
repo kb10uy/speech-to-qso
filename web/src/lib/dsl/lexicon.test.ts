@@ -77,9 +77,11 @@ describe('JAPANESE_READINGS', () => {
 		}
 	});
 
-	it('only contains katakana words separated by single spaces', () => {
+	it('only contains Japanese words separated by single spaces', () => {
+		const word = '[\\p{Script=Katakana}\\p{Script=Han}ー]+';
+		const pattern = new RegExp(`^${word}(?: ${word})*$`, 'u');
 		for (const readings of Object.values(JAPANESE_READINGS)) {
-			for (const reading of readings) expect(reading).toMatch(/^[ァ-ヺー]+(?: [ァ-ヺー]+)*$/);
+			for (const reading of readings) expect(reading).toMatch(pattern);
 		}
 	});
 });

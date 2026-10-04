@@ -189,12 +189,16 @@ export const MODE_WORDS: Readonly<Record<string, string>> = {
 export type SpeechLanguage = 'en' | 'ja';
 
 /**
- * Katakana readings of the DSL, for a Japanese acoustic model.
+ * Japanese readings of the DSL, for a Japanese acoustic model.
  *
  * Japanese speakers tend to say English words with Japanese sounds (`ゼロ` rather than
  * "zee-roh"), which an English model mishears, while to a Japanese model they are ordinary
  * loanwords. With a Japanese model the grammar is made of these readings, and the tokenizer
  * maps them back to the English tokens, so the parser never sees Japanese.
+ *
+ * Most readings are katakana loanwords. The RST and frequency keywords are the plain Japanese
+ * words an operator would say (`送信`, `受信`, `周波数`): their loanwords are not in the model's
+ * vocabulary, and nobody says them anyway.
  *
  * Keys are English token sequences the parser accepts; a reading may be several words, since a
  * model may split a loanword (`フォックス トロット`). Every reading belongs to exactly one key.
@@ -276,13 +280,10 @@ export const JAPANESE_READINGS: Readonly<Record<string, readonly string[]>> = {
 	sign: ['サイン'],
 	callsign: ['コールサイン'],
 	station: ['ステーション'],
-	sent: ['セント'],
-	send: ['センド'],
-	sending: ['センディング'],
-	received: ['レシーブド', 'リシーブド'],
-	receive: ['レシーブ', 'リシーブ'],
-	receiving: ['レシービング', 'リシービング'],
-	frequency: ['フリクエンシー', 'フリーケンシー', 'フレクエンシー'],
+	sent: ['送信'],
+	received: ['受信'],
+	// A model may split it into short units.
+	frequency: ['周波数', '周波 数'],
 	j: ['ジェイ', 'ジェー'],
 	c: ['シー'],
 	x: ['エックス'],

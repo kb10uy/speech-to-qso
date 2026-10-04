@@ -179,9 +179,10 @@ Vosk to sherpa-onnx, Whisper or a server-side ASR only means implementing that i
   for noise to be decoded as. Spellings missing from the model's vocabulary are ignored by Vosk.
 - **Japanese model**: Japanese speakers tend to say the DSL with Japanese sounds (`zero` as ゼロ), which the English
   model mishears. The Japanese model hears these as ordinary loanwords, so with it the commands are spoken as
-  katakana (`ジュリエット リマ ワン`, `レシーブド ファイブ ナイン`, `カード ワン ウェイ`). Its grammar is spelled with
-  the readings in `JAPANESE_READINGS` (`web/src/lib/dsl/lexicon.ts`), and the tokenizer maps them back to the English
-  DSL, so the commands themselves do not change.
+  katakana (`ジュリエット リマ ワン`, `カード ワン ウェイ`), except that the RST and frequency keywords are the plain
+  Japanese words (`受信 ファイブ ナイン`, `送信 ファイブ セブン`, `周波数 ポイント ナイン フォー`). Its grammar is spelled
+  with the readings in `JAPANESE_READINGS` (`web/src/lib/dsl/lexicon.ts`), and the tokenizer maps them back to the
+  English DSL, so the parser does not change. CI checks the readings against the model's vocabulary.
 - Vosk may finalize a segment at a pause in the middle of an utterance, so all results of one PTT press are joined
   into a single utterance.
 - Recording continues for the `Release tail` (300 ms by default) after PTT is released, so the last word is not

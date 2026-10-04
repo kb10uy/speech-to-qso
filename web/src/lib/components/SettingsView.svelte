@@ -35,11 +35,12 @@
 			<span>Vosk model</span>
 			<select bind:value={form.voskLanguage}>
 				<option value="en">English</option>
-				<option value="ja">Japanese (say the commands as katakana loanwords)</option>
+				<option value="ja">Japanese (Japanese pronunciation)</option>
 			</select>
 			<span class="hint">
-				The Japanese model hears <em>ゼロ ワン</em> or <em>レシーブド ファイブ ナイン</em> the way they
-				are said with Japanese pronunciation. The commands are the same.
+				Hears the commands the way they are said in Japanese: <em>ゼロ ワン</em>,
+				<em>ジュリエット リマ ワン</em>, and <em>送信</em>, <em>受信</em>, <em>周波数</em> for sent, received
+				and frequency.
 			</span>
 		</label>
 		<label class="field">
@@ -100,7 +101,8 @@
 	<h2>Voice commands</h2>
 	<p class="hint">
 		One utterance per PTT press. Speaking a field again overwrites it. Commands can be chained. With
-		the Japanese model, say the same words as katakana loanwords (ジュリエット リマ ワン …).
+		the Japanese model, say the same words as katakana loanwords (ジュリエット リマ ワン …), and
+		送信, 受信 and 周波数 for sent, received and frequency.
 	</p>
 	<dl>
 		<dt>juliett lima one hotel india sierra</dt>

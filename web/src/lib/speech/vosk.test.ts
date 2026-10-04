@@ -70,11 +70,11 @@ describe('VoskRecognizer', () => {
 		expect(free.grammar).toBeUndefined();
 	});
 
-	it('spells the grammar in katakana for a Japanese model', async () => {
+	it('spells the grammar in Japanese for a Japanese model', async () => {
 		const { fake } = await recognizer(true, 'ja');
 		const grammar: string[] = JSON.parse(fake.grammar!);
 		expect(grammar).toContain('[unk]');
-		expect(grammar.some((phrase) => phrase.startsWith('レシーブド '))).toBe(true);
+		expect(grammar.some((phrase) => phrase.startsWith('受信 '))).toBe(true);
 		expect(grammar.some((phrase) => phrase.startsWith('received '))).toBe(false);
 	});
 

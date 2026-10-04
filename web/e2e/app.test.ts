@@ -94,7 +94,7 @@ test('streams 16 kHz PCM from the microphone while PTT is held', async ({ page }
 	expect(stats.samples).toBeLessThan(16_000 * 1.8);
 });
 
-test('switches to the bundled Japanese model and takes katakana commands', async ({ page }) => {
+test('switches to the bundled Japanese model and takes Japanese commands', async ({ page }) => {
 	await setUpSession(page);
 
 	await page.getByRole('button', { name: '⚙' }).click();
@@ -111,9 +111,13 @@ test('switches to the bundled Japanese model and takes katakana commands', async
 	await expect(page.getByRole('combobox', { name: /^Vosk model/ })).toHaveValue('ja');
 
 	await page.getByRole('button', { name: 'QSO' }).click();
-	await type(page, 'ジュリエット リマ ワン ホテル インディア シエラ カード ワン ウェイ');
+	await type(
+		page,
+		'ジュリエット リマ ワン ホテル インディア シエラ 受信 ファイブ セブン カード ワン ウェイ'
+	);
 	const draft = page.getByLabel('Draft QSO');
 	await expect(draft).toContainText('JL1HIS');
+	await expect(draft).toContainText('57');
 	await expect(draft).toContainText('QSL One Way');
 });
 

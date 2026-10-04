@@ -101,15 +101,15 @@ describe('grammarPhrases', () => {
 describe('grammarPhrases for a Japanese model', () => {
 	const japanese = analyse('ja');
 
-	it('covers every transition of real utterances in katakana', () => {
+	it('covers every transition of real utterances in Japanese', () => {
 		const samples = [
 			'ジュリエット リマ ワン ホテル インディア シエラ',
 			'コールサイン ジュリエット アルファ ワン ズールー リマ オスカー ポータブル ワン',
 			'コール サイン セブン キロ フォー エックスレイ ヤンキー ズールー ストローク ワン',
-			'レシーブド ファイブ ナイン セント ファイブ セブン',
-			'セント ファイブ ダブル ナイン',
-			'フリクエンシー フォー サーティー ツー ポイント ナイン フォー メガヘルツ',
-			'フリクエンシー ポイント ゼロ ファイブ',
+			'受信 ファイブ ナイン 送信 ファイブ セブン',
+			'送信 ファイブ ダブル ナイン',
+			'周波数 フォー サーティー ツー ポイント ナイン フォー メガヘルツ',
+			'周波 数 ポイント ゼロ ファイブ',
 			'ジェイ シー エックス ワン ゼロ ゼロ ワン ゼロ ワン',
 			'ジェイ シー ジー ワン ワン ゼロ ゼロ ワン ゴルフ',
 			'カード リクエステッド',
@@ -119,14 +119,14 @@ describe('grammarPhrases for a Japanese model', () => {
 			'モード エフエム',
 			'モード エフ エム',
 			'モード フォックス トロット マイク',
-			'ジュリエット リマ ワン ホテル インディア シエラ レシーブド ファイブ ナイン カード ネガティブ モード エフエム'
+			'ジュリエット リマ ワン ホテル インディア シエラ 受信 ファイブ ナイン カード ネガティブ モード エフエム 周波数 ポイント ナイン フォー'
 		];
 		for (const sample of samples) expectCovered(japanese, sample);
 	});
 
-	it('is spelled in katakana only', () => {
+	it('is spelled in Japanese only', () => {
 		for (const word of new Set(japanese.words.flat())) {
-			if (word !== '[unk]') expect(word).toMatch(/^[ァ-ヺー]+$/);
+			if (word !== '[unk]') expect(word).toMatch(/^[\p{Script=Katakana}\p{Script=Han}ー]+$/u);
 		}
 	});
 
@@ -137,7 +137,8 @@ describe('grammarPhrases for a Japanese model', () => {
 	});
 
 	it('does not allow transitions the DSL has no use for', () => {
-		expect(japanese.bigrams).not.toContain('レシーブド アルファ');
+		expect(japanese.bigrams).not.toContain('受信 アルファ');
+		expect(japanese.bigrams).not.toContain('周波数 アルファ');
 		expect(japanese.bigrams).not.toContain('ポイント アルファ');
 		expect(japanese.bigrams).not.toContain('カード ファイブ');
 		expect(japanese.starts).not.toContain('ネガティブ');

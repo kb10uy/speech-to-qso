@@ -247,11 +247,11 @@ describe('utterances', () => {
 	});
 });
 
-describe('katakana', () => {
+describe('Japanese readings', () => {
 	it('parses the DSL spoken with Japanese loanword pronunciation', () => {
 		expect(
 			updates(
-				'ジュリエット リマ ワン ホテル インディア シエラ レシーブド ファイブ ナイン カード ワン ウェイ'
+				'ジュリエット リマ ワン ホテル インディア シエラ 受信 ファイブ ナイン カード ワン ウェイ'
 			)
 		).toEqual([
 			{ kind: 'callsign', value: 'JL1HIS' },
@@ -259,9 +259,14 @@ describe('katakana', () => {
 			{ kind: 'qsl', value: 'oneWay' }
 		]);
 		expect(single('ジェイ シー シー ワン ゼロ ゼロ ワン')).toEqual({ kind: 'jcx', value: '1001' });
+		expect(single('送信 ファイブ セブン')).toEqual({ kind: 'rstSent', value: '57' });
+		expect(single('周波数 ポイント ナイン フォー')).toEqual({
+			kind: 'frequency',
+			value: { integerDigits: '', fractionDigits: '94' }
+		});
 	});
 
-	it('rejects katakana outside the DSL', () => {
-		expect(error('レシーブド ファイブ テレビ')).toMatch(/テレビ/);
+	it('rejects Japanese outside the DSL', () => {
+		expect(error('受信 ファイブ テレビ')).toMatch(/テレビ/);
 	});
 });
