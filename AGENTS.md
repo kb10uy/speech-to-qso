@@ -7,8 +7,10 @@ Guidance for coding agents working on this repository. See `README.md` for the p
 A push-to-talk voice input tool for amateur radio QSO logging. The ASR is used as a **lexer**; a small hand-written
 parser interprets a QSO-specific DSL. There is no NLP/LLM in the pipeline, and there should not be.
 
-- `web/`: SvelteKit 3 + Svelte 5 (runes) + TypeScript, built with `adapter-static` as a client-only SPA/PWA for GitHub Pages.
-- `server/`: Rust (edition 2024) + axum 0.8. Thin API: `POST /api/qso` → append-only local logs → Wavelog.
+- `web/`: SvelteKit 3 + Svelte 5 (runes) + TypeScript, built with `adapter-static` as a client-only SPA/PWA.
+- `server/`: Rust (edition 2024) + axum 0.8 + sqlx (SQLite). Serves `web/build` and the API on one origin;
+  passkey-only sign-in (webauthn-rs), per-user QSOs and stations, forwarding to each user's Wavelog (API v2).
+  Also the admin CLI (`user ...`, `passkey bootstrap ...`).
 
 ## Commands
 
@@ -20,7 +22,8 @@ npm ci
 npm run lint        # prettier --check (tabs, single quotes, width 100)
 npm run check       # svelte-check / TypeScript
 npm test            # vitest unit tests
-npm run test:e2e    # Playwright (Chromium with fake microphone); builds with BASE_PATH=/speech-to-qso
+npm run test:e2e    # Playwright (Chromium with fake microphone), the app alone
+npm run test:e2e:server  # Playwright with the real server (cargo) and a virtual passkey authenticator
 
 cd server
 cargo fmt --check   # max_width = 120
@@ -48,7 +51,14 @@ cargo test
   produced by the AudioWorklet (`pcm-worklet.ts`), and audio only flows while PTT is held.
 - **Local first.** LOG QSO writes to IndexedDB before any network call. Sync is idempotent (client UUID `id`;
   the server de-duplicates), so retries are always safe.
-- **Secrets stay on the server.** The Wavelog API key must never be sent to or stored in the browser.
+- **Secrets stay on the server.** The Wavelog API token must never be sent to or stored in the browser.
+- **Passkeys only.** No passwords. A user's first passkey comes from a one-time `passkey bootstrap` link (refused once
+  the user has a passkey); later ones are added from a signed-in session. Users are UUIDs internally (also the WebAuthn
+  user handle) and shown as their callsign.
+- **No CSRF tokens.** The session is a `__Host-` `SameSite=Lax` cookie, and state-changing requests must come from
+  `PUBLIC_ORIGIN` (`same_origin_only` in `server/src/api/mod.rs`). Keep it that way: tokens would go stale while
+  QSOs wait offline.
+- **Schema changes are migrations.** Add a file to `server/migrations/`; never edit an applied one.
 - **Keep both ADIF writers in sync.** `web/src/lib/qso/adif.ts` and `server/src/adif.rs` render identical records; their
   tests share the same expected string. The same applies to the band tables and to the API payload
   (`QsoApiPayload` in `web/src/lib/qso/record.ts` ↔ `QsoPayload` in `server/src/qso.rs`).
@@ -58,7 +68,8 @@ cargo test
 - Import library code with relative paths (`../lib/...`). The `#lib/*` subpath import maps to exact files only.
 - `$app/paths` exports `asset()` and `resolve()` (no `base`); `$app/manifest` and `$app/service-worker` replace
   `$service-worker`. The service worker lives in `src/service-worker/` with its own `tsconfig.json`.
-- The app is client-only (`ssr = false`, `prerender = true` in `src/routes/+layout.ts`). `BASE_PATH` sets `paths.base`.
+- The app is client-only (`ssr = false`, `prerender = true` in `src/routes/+layout.ts`) and served at the root of
+  `PUBLIC_ORIGIN`; API calls use absolute `/api/...` paths. `npm run dev` proxies `/api` to `API_SERVER`.
 - `window.__qso` exposes the `QsoApp` instance for on-device debugging and e2e tests
   (e.g. `__qso.useRecognizer(fake)`, `__qso.handleText('received five seven', 'typed')`).
 

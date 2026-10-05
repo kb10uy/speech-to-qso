@@ -1,3 +1,4 @@
 /target
 /server/target
 .DS_Store
+/server/data
