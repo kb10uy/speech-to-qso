@@ -12,8 +12,10 @@ export interface OperatingSession {
 	potaReference?: string;
 	/** Own JCC/JCG code at the operating location. */
 	myJcx?: string;
-	/** Wavelog station location (station profile) id; the backend default is used if empty. */
-	stationProfileId?: string;
+	/** The station (`Station.id`) chosen on this device; the server's default is used if unset. */
+	stationId?: string;
+	/** Callsign of the station, when it differs from the operator's (e.g. a club station). */
+	stationCallsign?: string;
 }
 
 export function defaultSession(): OperatingSession {

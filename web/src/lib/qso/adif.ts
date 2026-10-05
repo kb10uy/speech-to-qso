@@ -37,7 +37,7 @@ export function adifRecord(record: QsoRecord): string {
 			field('COMMENT', comment),
 			field('APP_SPEECHTOQSO_JCX', record.jcx),
 			field('OPERATOR', record.operatorCall),
-			field('STATION_CALLSIGN', record.operatorCall),
+			field('STATION_CALLSIGN', record.stationCallsign ?? record.operatorCall),
 			field('MY_CITY', record.location),
 			field('APP_SPEECHTOQSO_MY_JCX', record.myJcx),
 			field('MY_SIG', record.potaReference === undefined ? undefined : 'POTA'),

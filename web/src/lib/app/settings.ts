@@ -1,5 +1,4 @@
 import type { SpeechLanguage } from '../dsl';
-import type { SyncSettings } from '../sync/client';
 
 export interface AppSettings {
 	/** Language of the Vosk model; picks the bundled model and how the grammar is spelled. */
@@ -12,10 +11,9 @@ export interface AppSettings {
 	releaseTailMs: number;
 	/** Request a screen wake lock while the app is visible. */
 	keepScreenOn: boolean;
-	sync: SyncSettings;
 }
 
-/** Models deployed with the app. Keep in sync with `VOSK_MODEL_*` in `.github/workflows/pages.yml`. */
+/** Models deployed with the app. Keep in sync with `web/scripts/fetch-models.sh`. */
 export const DEFAULT_MODEL_PATHS: Readonly<Record<SpeechLanguage, string>> = {
 	en: 'models/vosk-model-small-en-us-0.15.tar.gz',
 	ja: 'models/vosk-model-small-ja-0.22.tar.gz'
@@ -32,13 +30,15 @@ export function defaultSettings(): AppSettings {
 		voskModelUrl: '',
 		autoLoadAsr: false,
 		releaseTailMs: 300,
-		keepScreenOn: true,
-		sync: { endpoint: '', token: '' }
+		keepScreenOn: true
 	};
 }
 
-/** Fills in fields added in newer versions when loading stored settings. */
+/**
+ * Fills in fields added in newer versions when loading stored settings, and drops removed ones
+ * (`sync`: the backend URL and token from before the app was served by the backend).
+ */
 export function mergeSettings(stored: Partial<AppSettings> | undefined): AppSettings {
-	const defaults = defaultSettings();
-	return { ...defaults, ...stored, sync: { ...defaults.sync, ...stored?.sync } };
+	const { sync: _, ...rest } = (stored ?? {}) as Partial<AppSettings> & { sync?: unknown };
+	return { ...defaultSettings(), ...rest };
 }

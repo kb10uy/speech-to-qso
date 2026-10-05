@@ -2,6 +2,8 @@
 	import { untrack } from 'svelte';
 	import type { QsoApp } from '../app/app.svelte';
 	import type { AppSettings } from '../app/settings';
+	import AccountView from './AccountView.svelte';
+	import StationsView from './StationsView.svelte';
 
 	let { app }: { app: QsoApp } = $props();
 
@@ -16,6 +18,11 @@
 		setTimeout(() => (saved = false), 2000);
 	}
 </script>
+
+<AccountView {app} />
+{#if app.user !== null}
+	<StationsView {app} />
+{/if}
 
 <form onsubmit={save}>
 	<h2>Speech recognition</h2>
@@ -51,20 +58,6 @@
 	<label class="check">
 		<input type="checkbox" bind:checked={form.keepScreenOn} />
 		Keep the screen on while operating
-	</label>
-
-	<h2>Sync</h2>
-	<label class="field">
-		<span>Backend URL</span>
-		<input type="url" bind:value={form.sync.endpoint} placeholder="https://qso.example.com" />
-		<span class="hint">
-			The speech-to-qso server (see README). Empty keeps QSOs on this device only; you can still
-			export ADIF from the Log tab.
-		</span>
-	</label>
-	<label class="field">
-		<span>API token</span>
-		<input type="password" bind:value={form.sync.token} autocomplete="off" />
 	</label>
 
 	<button type="submit" class="primary">{saved ? 'Saved ✓' : 'Save'}</button>
@@ -112,7 +105,7 @@
 		margin: 1.2rem 0 0.8rem;
 	}
 	form h2:first-child {
-		margin-top: 0;
+		margin-top: 1.4rem;
 	}
 	.check {
 		display: flex;

@@ -1,23 +1,30 @@
+import { goto } from '$app/navigation';
 import { asset } from '$app/paths';
+import { ApiError, ServerApi, type Me } from '../account/api';
 import { formatSpeech, formatTokens, parseSpeech, type SpeechLanguage } from '../dsl';
 import {
 	adifFile,
+	applyStation,
 	applyUpdates,
 	defaultSession,
 	finalizeDraft,
 	isPristine,
 	newDraft,
+	stationToApply,
 	type DraftQso,
 	type OperatingSession,
-	type QsoRecord
+	type QsoRecord,
+	type StationList
 } from '../qso';
 import { AudioCapture, VoskRecognizer, type SpeechRecognizer } from '../speech';
 import { KeyValueStore, QsoStore, openDatabase } from '../storage/db';
-import { isSyncConfigured, syncAll, type SyncReport } from '../sync/client';
+import { syncAll, type SyncReport } from '../sync/client';
 import { sleep, withTimeout } from '../util/timeout';
 import { DEFAULT_MODEL_PATHS, mergeSettings, type AppSettings } from './settings';
 
 export type PttState = 'idle' | 'opening' | 'listening' | 'finishing';
+/** `unavailable`: no answer from the server (offline, or the app is served without it). */
+export type AccountState = 'unknown' | 'signedIn' | 'signedOut' | 'unavailable';
 export type AsrState = 'unloaded' | 'loading' | 'ready' | 'error';
 
 export interface Feedback {
@@ -47,6 +54,10 @@ function vibrate(pattern: number | number[]) {
 	}
 }
 
+function bootstrapTokenIn(hash: string): string | null {
+	return new URLSearchParams(hash.slice(1)).get('bootstrap');
+}
+
 function errorMessage(e: unknown): string {
 	return e instanceof Error ? e.message : String(e);
 }
@@ -71,6 +82,14 @@ export class QsoApp {
 	lastSync = $state<SyncReport | null>(null);
 	ready = $state(false);
 
+	readonly api = new ServerApi();
+	account = $state<AccountState>('unknown');
+	/** The signed-in user; kept on the device so that the app works offline. */
+	user = $state<Me | null>(null);
+	stations = $state<StationList>({ default_station_id: null, stations: [] });
+	/** Token of a passkey bootstrap link (`#bootstrap=…`) the app was opened with. */
+	bootstrapToken = $state<string | null>(null);
+
 	#qsos: QsoStore | null = null;
 	#kv: KeyValueStore | null = null;
 	#capture = new AudioCapture();
@@ -85,8 +104,9 @@ export class QsoApp {
 		return this.log.filter((r) => r.syncState !== 'synced').length;
 	}
 
+	/** QSOs are synced while a user is signed in (or was, when last online). */
 	get syncConfigured(): boolean {
-		return isSyncConfigured(this.settings.sync);
+		return this.user !== null;
 	}
 
 	defaultModelUrl(language: SpeechLanguage): string {
@@ -99,8 +119,14 @@ export class QsoApp {
 		const db = await openDatabase();
 		this.#qsos = new QsoStore(db);
 		this.#kv = new KeyValueStore(db);
-		this.session = { ...defaultSession(), ...(await this.#kv.get<OperatingSession>('session')) };
+		// `stationProfileId` was the Wavelog station before stations came from the server.
+		const { stationProfileId: _, ...session } =
+			(await this.#kv.get<OperatingSession & { stationProfileId?: string }>('session')) ?? {};
+		this.session = { ...defaultSession(), ...session };
 		this.settings = mergeSettings(await this.#kv.get<Partial<AppSettings>>('settings'));
+		this.user = (await this.#kv.get<Me>('user')) ?? null;
+		this.stations = (await this.#kv.get<StationList>('stations')) ?? this.stations;
+		this.bootstrapToken = bootstrapTokenIn(location.hash);
 		this.draft =
 			(await this.#kv.get<DraftQso>('draft')) ?? newDraft({ mode: this.session.defaultMode });
 		this.log = await this.#qsos.list();
@@ -114,12 +140,83 @@ export class QsoApp {
 			void this.sync();
 		});
 		window.addEventListener('offline', () => (this.online = false));
+		// A setup link opened in a tab that already shows the app only changes the hash.
+		window.addEventListener('hashchange', () => {
+			this.bootstrapToken = bootstrapTokenIn(location.hash) ?? this.bootstrapToken;
+		});
 		document.addEventListener('visibilitychange', () => this.#onVisibilityChange());
 
 		this.ready = true;
 		if (this.settings.autoLoadAsr) void this.loadAsr();
-		void this.sync();
+		void this.refreshAccount();
 		void this.#requestMicrophonePermission();
+	}
+
+	// ---------------------------------------------------------------- account
+
+	/** Asks the server who is signed in, then syncs. Offline, the remembered user is kept. */
+	async refreshAccount() {
+		try {
+			await this.#signedIn(await this.api.me());
+		} catch (e) {
+			if (e instanceof ApiError && e.unauthorized) {
+				await this.#signedOut();
+			} else {
+				this.account = this.user === null ? 'unavailable' : 'signedIn';
+			}
+		}
+	}
+
+	async signIn() {
+		await this.#signedIn(await this.api.signIn());
+	}
+
+	/** Registers the first passkey through a bootstrap link and signs in. */
+	async completeBootstrap(user: Me) {
+		await this.cancelBootstrap();
+		await this.#signedIn(user);
+	}
+
+	/** Leaves the setup screen, and drops the used token from the address bar and history. */
+	async cancelBootstrap() {
+		this.bootstrapToken = null;
+		await goto(location.pathname + location.search, { replace: true, shallow: true });
+	}
+
+	async signOut() {
+		await this.api.logout();
+		await this.#signedOut();
+	}
+
+	async #signedIn(user: Me) {
+		this.user = user;
+		this.account = 'signedIn';
+		await this.#kv?.set('user', user);
+		if (this.session.operatorCall.trim() === '') {
+			await this.saveSession({ ...this.session, operatorCall: user.callsign });
+		}
+		await this.loadStations().catch(() => {});
+		void this.sync();
+	}
+
+	async #signedOut() {
+		this.user = null;
+		this.account = 'signedOut';
+		this.stations = { default_station_id: null, stations: [] };
+		await this.#kv?.set('user', null);
+		await this.#kv?.set('stations', this.stations);
+	}
+
+	/** Fetches the user's stations; the session switches to the default if it has none. */
+	async loadStations() {
+		await this.setStations(await this.api.stations());
+	}
+
+	async setStations(list: StationList) {
+		this.stations = list;
+		await this.#kv?.set('stations', list);
+		const station = stationToApply(this.session, list);
+		if (station !== undefined) await this.saveSession(applyStation(this.session, station));
 	}
 
 	/**
@@ -347,8 +444,9 @@ export class QsoApp {
 		try {
 			while (this.#syncRequested) {
 				this.#syncRequested = false;
-				this.lastSync = await syncAll(this.#qsos, this.settings.sync);
+				this.lastSync = await syncAll(this.#qsos, this.api);
 				this.log = await this.#qsos.list();
+				if (this.lastSync.unauthorized) await this.#signedOut();
 			}
 		} finally {
 			this.syncing = false;
@@ -377,7 +475,6 @@ export class QsoApp {
 		this.settings = settings;
 		await this.#saveSettings();
 		if (engineChanged && this.asr !== 'unloaded') await this.loadAsr();
-		void this.sync();
 	}
 
 	async #saveSettings() {

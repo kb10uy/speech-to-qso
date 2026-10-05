@@ -44,6 +44,13 @@
 		<button onclick={download} disabled={app.log.length === 0}>Export ADIF</button>
 	</span>
 </div>
+{#if app.user !== null}
+	<p class="hint">
+		Export ADIF saves the QSOs on this device. <a href="/api/qso.adi" download
+			>Download the server log</a
+		> for every QSO synced from any device.
+	</p>
+{/if}
 
 {#if !app.online}
 	<p class="hint">Offline — QSOs are kept on this device and synced when back online.</p>
@@ -75,6 +82,9 @@
 </ul>
 
 <style>
+	a {
+		color: var(--info);
+	}
 	.toolbar {
 		display: flex;
 		justify-content: space-between;

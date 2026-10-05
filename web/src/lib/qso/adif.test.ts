@@ -38,6 +38,13 @@ describe('adifRecord', () => {
 		);
 	});
 
+	it('uses the station callsign when given', () => {
+		// Identical to the expectation in server/src/adif.rs.
+		expect(adifRecord({ ...record, stationCallsign: 'JJ1ABC/1' })).toContain(
+			'<OPERATOR:6>JJ1ABC <STATION_CALLSIGN:8>JJ1ABC/1 '
+		);
+	});
+
 	it('omits empty optional fields', () => {
 		const minimal = {
 			...record,

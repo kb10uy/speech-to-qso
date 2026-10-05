@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import type { QsoApp } from '../app/app.svelte';
-	import { formatMhz, parseMhz } from '../qso';
+	import { applyStation, formatMhz, parseMhz, stationLabel } from '../qso';
 
 	let { app, onDone }: { app: QsoApp; onDone: () => void } = $props();
 
@@ -11,11 +11,28 @@
 			...app.session,
 			potaReference: app.session.potaReference ?? '',
 			myJcx: app.session.myJcx ?? '',
-			stationProfileId: app.session.stationProfileId ?? '',
+			stationCallsign: app.session.stationCallsign ?? '',
 			anchor: formatMhz(app.session.frequencyAnchorHz)
 		}))
 	);
 	const anchorHz = $derived(parseMhz(form.anchor));
+
+	/** Picking a station fills in its defaults; they can still be edited before saving. */
+	function pickStation(e: Event) {
+		const station = app.stations.stations.find(
+			(s) => s.id === (e.currentTarget as HTMLSelectElement).value
+		);
+		if (station === undefined) return;
+		const applied = applyStation({ ...app.session, operatorCall: form.operatorCall }, station);
+		form = {
+			...form,
+			stationId: applied.stationId,
+			stationCallsign: applied.stationCallsign ?? '',
+			location: applied.location,
+			potaReference: applied.potaReference ?? '',
+			myJcx: applied.myJcx ?? ''
+		};
+	}
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();
@@ -24,6 +41,7 @@
 		await app.saveSession({
 			...rest,
 			operatorCall: rest.operatorCall.trim().toUpperCase(),
+			stationCallsign: rest.stationCallsign.trim().toUpperCase() || undefined,
 			defaultMode: rest.defaultMode.trim().toUpperCase() || 'FM',
 			frequencyAnchorHz: anchorHz
 		});
@@ -33,6 +51,18 @@
 
 <form onsubmit={save}>
 	<h2>Operating session</h2>
+	{#if app.stations.stations.length > 0}
+		<label class="field">
+			<span>Station</span>
+			<select value={form.stationId ?? ''} onchange={pickStation}>
+				{#if form.stationId === undefined}<option value="" disabled>Choose a station</option>{/if}
+				{#each app.stations.stations as station (station.id)}
+					<option value={station.id}>{stationLabel(station)}</option>
+				{/each}
+			</select>
+			<span class="hint">Fills in the fields below. Manage stations in Settings.</span>
+		</label>
+	{/if}
 	<label class="field">
 		<span>Operator callsign</span>
 		<input
@@ -41,6 +71,15 @@
 			bind:value={form.operatorCall}
 			autocapitalize="characters"
 			required
+		/>
+	</label>
+	<label class="field">
+		<span>Station callsign (if not the operator's)</span>
+		<input
+			class="callsign"
+			type="text"
+			bind:value={form.stationCallsign}
+			autocapitalize="characters"
 		/>
 	</label>
 	<label class="field">
@@ -72,11 +111,6 @@
 			autocapitalize="characters"
 			placeholder="JP-0000"
 		/>
-	</label>
-	<label class="field">
-		<span>Wavelog station location id (optional)</span>
-		<input type="text" bind:value={form.stationProfileId} inputmode="numeric" />
-		<span class="hint">Empty uses the backend's default station.</span>
 	</label>
 	<button type="submit" class="primary" disabled={anchorHz === undefined}>Save</button>
 </form>

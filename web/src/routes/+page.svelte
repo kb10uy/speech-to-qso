@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { QsoApp } from '../lib/app/app.svelte';
+	import BootstrapView from '../lib/components/BootstrapView.svelte';
 	import LogView from '../lib/components/LogView.svelte';
 	import QsoView from '../lib/components/QsoView.svelte';
 	import SessionView from '../lib/components/SessionView.svelte';
@@ -53,7 +54,14 @@
 		<button class:current={tab === 'settings'} onclick={() => (tab = 'settings')}>⚙</button>
 	</nav>
 	<div class="status">
-		<span class="mono">{app.session.operatorCall || '—'}</span>
+		{#if app.user !== null}
+			<span class="mono" title="Signed in">{app.session.operatorCall || app.user.callsign}</span>
+		{:else}
+			<span class="mono">{app.session.operatorCall || '—'}</span>
+			{#if app.account === 'signedOut'}
+				<button class="sign-in" onclick={() => (tab = 'settings')}>Sign in</button>
+			{/if}
+		{/if}
 		{#if !app.online}<span class="offline">offline</span>{/if}
 	</div>
 </header>
@@ -63,6 +71,10 @@
 		<p class="error">Failed to start: {initError}</p>
 	{:else if !app.ready}
 		<p class="hint">Loading…</p>
+	{:else if app.bootstrapToken !== null}
+		{#key app.bootstrapToken}
+			<BootstrapView {app} token={app.bootstrapToken} />
+		{/key}
 	{:else if tab === 'qso'}
 		<QsoView {app} onOpenSession={() => (tab = 'session')} />
 	{:else if tab === 'session'}
@@ -120,6 +132,10 @@
 	}
 	.offline {
 		color: var(--error);
+	}
+	.sign-in {
+		padding: 0.25rem 0.6rem;
+		font-size: 0.85rem;
 	}
 	main {
 		max-width: 32rem;

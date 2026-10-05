@@ -22,7 +22,8 @@ export interface QsoRecord {
 	location: string;
 	potaReference?: string;
 	myJcx?: string;
-	stationProfileId?: string;
+	stationId?: string;
+	stationCallsign?: string;
 
 	createdAt: string;
 	syncState: SyncState;
@@ -68,7 +69,8 @@ export function finalizeDraft(
 			location: session.location.trim(),
 			potaReference: blankToUndefined(session.potaReference)?.toUpperCase(),
 			myJcx: blankToUndefined(session.myJcx),
-			stationProfileId: blankToUndefined(session.stationProfileId),
+			stationId: blankToUndefined(session.stationId),
+			stationCallsign: blankToUndefined(session.stationCallsign)?.toUpperCase(),
 			createdAt: now.toISOString(),
 			syncState: 'pending',
 			syncAttempts: 0
@@ -76,7 +78,7 @@ export function finalizeDraft(
 	};
 }
 
-/** JSON body for `POST /api/qso` on the backend. */
+/** JSON body for `POST /api/qso`. Mirrors `QsoPayload` in `server/src/qso.rs`. */
 export interface QsoApiPayload {
 	id: string;
 	call: string;
@@ -91,7 +93,8 @@ export interface QsoApiPayload {
 	location: string;
 	pota_ref?: string;
 	my_jcx?: string;
-	station_profile_id?: string;
+	station_callsign?: string;
+	station_id?: string;
 }
 
 export function toApiPayload(record: QsoRecord): QsoApiPayload {
@@ -109,6 +112,7 @@ export function toApiPayload(record: QsoRecord): QsoApiPayload {
 		location: record.location,
 		pota_ref: record.potaReference,
 		my_jcx: record.myJcx,
-		station_profile_id: record.stationProfileId
+		station_callsign: record.stationCallsign,
+		station_id: record.stationId
 	};
 }

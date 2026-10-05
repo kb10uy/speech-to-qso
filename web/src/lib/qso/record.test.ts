@@ -9,7 +9,8 @@ const session: OperatingSession = {
 	operatorCall: ' jj1abc ',
 	location: '東京都港区',
 	potaReference: 'jp-0001',
-	stationProfileId: ''
+	stationId: '',
+	stationCallsign: ' jj1abc/1 '
 };
 
 describe('finalizeDraft', () => {
@@ -53,7 +54,8 @@ describe('finalizeDraft', () => {
 			location: '東京都港区',
 			potaReference: 'JP-0001',
 			myJcx: undefined,
-			stationProfileId: undefined,
+			stationId: undefined,
+			stationCallsign: 'JJ1ABC/1',
 			createdAt: now.toISOString(),
 			syncState: 'pending',
 			syncAttempts: 0
@@ -95,7 +97,8 @@ describe('toApiPayload', () => {
 			time_on: '2026-10-03T04:05:06.000Z',
 			operator: 'JJ1ABC',
 			location: '東京都港区',
-			pota_ref: 'JP-0001'
+			pota_ref: 'JP-0001',
+			station_callsign: 'JJ1ABC/1'
 		});
 	});
 });
