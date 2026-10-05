@@ -45,7 +45,11 @@ pub fn record(qso: &QsoPayload) -> String {
     field(&mut out, "COMMENT", comment.as_deref());
     field(&mut out, "APP_SPEECHTOQSO_JCX", qso.jcx.as_deref());
     field(&mut out, "OPERATOR", Some(&qso.operator));
-    field(&mut out, "STATION_CALLSIGN", Some(&qso.operator));
+    field(
+        &mut out,
+        "STATION_CALLSIGN",
+        Some(qso.station_callsign.as_deref().unwrap_or(&qso.operator)),
+    );
     field(&mut out, "MY_CITY", Some(&qso.location));
     field(&mut out, "APP_SPEECHTOQSO_MY_JCX", qso.my_jcx.as_deref());
     field(&mut out, "MY_SIG", pota.map(|_| "POTA"));
@@ -87,6 +91,14 @@ mod tests {
         qso.qsl = Qsl::OneWay;
         // Identical to the expectation in web/src/lib/qso/adif.test.ts.
         assert!(record(&qso).contains("<RST_RCVD:2>57 <QSL_SENT:1>N <QSL_RCVD:1>R <COMMENT:10>JCX 100101 "));
+    }
+
+    #[test]
+    fn uses_the_station_callsign_when_given() {
+        let mut qso = sample();
+        qso.station_callsign = Some("JJ1ABC/1".into());
+        // Identical to the expectation in web/src/lib/qso/adif.test.ts.
+        assert!(record(&qso).contains("<OPERATOR:6>JJ1ABC <STATION_CALLSIGN:8>JJ1ABC/1 "));
     }
 
     #[test]

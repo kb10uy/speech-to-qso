@@ -2,6 +2,9 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::{Map, Value};
+
+use crate::band::band_for_frequency;
 
 /// QSL card arrangement for a QSO. Mirrors `QslStatus` in `web/src/lib/dsl/parser.ts`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -54,8 +57,12 @@ pub struct QsoPayload {
     pub pota_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub my_jcx: Option<String>,
+    /// Callsign of the station location, when it differs from the operator's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub station_profile_id: Option<String>,
+    pub station_callsign: Option<String>,
+    /// The user's station (`stations.id`). The user's default station is used when it is missing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub station_id: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -73,7 +80,7 @@ fn invalid(field: &'static str, message: impl Into<String>) -> ValidationError {
 }
 
 /// Same rule as `isCallsign` in `web/src/lib/dsl/parser.ts`.
-fn is_callsign(s: &str) -> bool {
+pub fn is_callsign(s: &str) -> bool {
     (3..=16).contains(&s.len())
         && s.split('/')
             .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()))
@@ -112,12 +119,60 @@ impl QsoPayload {
         if !is_rst(&self.rst_rcvd) {
             return Err(invalid("rst_rcvd", format!("{:?} is not a valid RST", self.rst_rcvd)));
         }
+        if let Some(call) = &self.station_callsign
+            && !is_callsign(call)
+        {
+            return Err(invalid("station_callsign", format!("{call:?} is not a valid callsign")));
+        }
         if let Some(jcx) = &self.jcx
             && !jcx.chars().all(|c| c.is_ascii_alphanumeric())
         {
             return Err(invalid("jcx", "must be alphanumeric"));
         }
         Ok(())
+    }
+}
+
+impl QsoPayload {
+    /// The body of `POST /api/v2/qso`. Mirrors the ADIF record, except that the station callsign
+    /// comes from the station location and app-defined fields are left out.
+    pub fn to_wavelog(&self, station_profile_id: i64) -> Result<Value, ValidationError> {
+        let band = band_for_frequency(self.frequency)
+            .ok_or_else(|| invalid("frequency", format!("{} Hz is not in an amateur band", self.frequency)))?;
+        let mut body = Map::new();
+        let mut set = |key: &str, value: Value| {
+            body.insert(key.into(), value);
+        };
+        set("station_profile_id", station_profile_id.into());
+        set("call", self.call.clone().into());
+        set("band", band.into());
+        set("mode", self.mode.clone().into());
+        set("freq", self.frequency.into());
+        set("qso_date", self.time_on.format("%Y-%m-%d").to_string().into());
+        set("time_on", self.time_on.format("%H%M%S").to_string().into());
+        set("rst_sent", self.rst_sent.clone().into());
+        set("rst_rcvd", self.rst_rcvd.clone().into());
+        match self.qsl {
+            Qsl::None => {}
+            Qsl::Requested => set("qsl_sent", "R".into()),
+            Qsl::OneWay => {
+                set("qsl_sent", "N".into());
+                set("qsl_rcvd", "R".into());
+            }
+        }
+        if let Some(jcx) = &self.jcx {
+            set("comment", format!("JCX {jcx}").into());
+        }
+        set("operator", self.operator.clone().into());
+        if !self.location.is_empty() {
+            set("my_city", self.location.clone().into());
+        }
+        if let Some(pota) = &self.pota_ref {
+            set("my_sig", "POTA".into());
+            set("my_sig_info", pota.clone().into());
+            set("my_pota_ref", pota.clone().into());
+        }
+        Ok(Value::Object(body))
     }
 }
 
@@ -190,6 +245,35 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn builds_the_wavelog_request() {
+        assert_eq!(
+            sample().to_wavelog(3).unwrap(),
+            serde_json::json!({
+                "station_profile_id": 3,
+                "call": "JL1HIS",
+                "band": "70cm",
+                "mode": "FM",
+                "freq": 432940000u64,
+                "qso_date": "2026-10-03",
+                "time_on": "040506",
+                "rst_sent": "59",
+                "rst_rcvd": "57",
+                "qsl_sent": "R",
+                "comment": "JCX 100101",
+                "operator": "JJ1ABC",
+                "my_city": "Minato",
+                "my_sig": "POTA",
+                "my_sig_info": "JP-0001",
+                "my_pota_ref": "JP-0001"
+            })
+        );
+
+        let mut qso = sample();
+        qso.frequency = 100_000_000;
+        assert_eq!(qso.to_wavelog(3).unwrap_err().field, "frequency");
+    }
+
+    #[test]
     fn rejects_invalid_fields() {
         type Mutation = Box<dyn Fn(&mut QsoPayload)>;
         let cases: Vec<(&str, Mutation)> = vec![
@@ -204,6 +288,7 @@ pub(crate) mod tests {
             ("rst_sent", Box::new(|q| q.rst_sent = "69".into())),
             ("rst_rcvd", Box::new(|q| q.rst_rcvd = "5".into())),
             ("jcx", Box::new(|q| q.jcx = Some("10 01".into()))),
+            ("station_callsign", Box::new(|q| q.station_callsign = Some("x".into()))),
         ];
         for (field, mutate) in cases {
             let mut qso = sample();
