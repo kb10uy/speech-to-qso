@@ -1,17 +1,22 @@
 //! Wavelog API v2 client (Wavelog 3.1.0 or later).
 //!
-//! The token needs the `station:read` and `qso:write` scopes.
+//! The token needs the `station:read`, `qso:read` and `qso:write` scopes.
 
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
-use serde::{Deserialize, Deserializer, de::DeserializeOwned};
+use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
+use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
+    adif,
     db::{self, Db},
     error::Result,
 };
+
+/// The largest page `GET /api/v2/qso` returns.
+const QSO_PAGE_SIZE: u32 = 5000;
 
 #[derive(Debug, thiserror::Error)]
 pub enum WavelogError {
@@ -36,6 +41,13 @@ pub struct WavelogConnection {
 impl WavelogConnection {
     fn endpoint(&self, resource: &str) -> String {
         format!("{}/index.php/api/v2/{resource}", self.url.trim_end_matches('/'))
+    }
+
+    fn endpoint_with_query(&self, resource: &str, query: &[(&str, &str)]) -> Result<url::Url, WavelogError> {
+        let mut url = url::Url::parse(&self.endpoint(resource))
+            .map_err(|e| WavelogError::Unexpected(format!("invalid Wavelog URL: {e}")))?;
+        url.query_pairs_mut().extend_pairs(query);
+        Ok(url)
     }
 }
 
@@ -94,9 +106,56 @@ pub struct WavelogStation {
     pub active: bool,
 }
 
+/// What the user's log says about a callsign.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct CallsignHistory {
+    pub qsos: u64,
+    pub last_qso: Option<DateTime<Utc>>,
+    /// When the latest QSO whose card was sent (`QSL_SENT` = Y) was made, not when it was sent.
+    pub last_qsl_sent: Option<DateTime<Utc>>,
+}
+
+impl CallsignHistory {
+    fn add(&mut self, record: &HashMap<String, String>) {
+        let Some(time) = qso_time(record) else {
+            return;
+        };
+        self.last_qso = self.last_qso.max(Some(time));
+        if record.get("QSL_SENT").is_some_and(|s| s.eq_ignore_ascii_case("Y")) {
+            self.last_qsl_sent = self.last_qsl_sent.max(Some(time));
+        }
+    }
+}
+
+fn qso_time(record: &HashMap<String, String>) -> Option<DateTime<Utc>> {
+    let date = NaiveDate::parse_from_str(record.get("QSO_DATE")?, "%Y%m%d").ok()?;
+    let time = record.get("TIME_ON").map_or("0000", String::as_str);
+    let time = NaiveTime::parse_from_str(time, "%H%M%S")
+        .or_else(|_| NaiveTime::parse_from_str(time, "%H%M"))
+        .ok()?;
+    Some(date.and_time(time).and_utc())
+}
+
 #[derive(Deserialize)]
 struct Envelope<T> {
     data: T,
+}
+
+#[derive(Deserialize)]
+struct Listing<T> {
+    data: T,
+    meta: ListMeta,
+}
+
+#[derive(Deserialize)]
+struct ListMeta {
+    total: u64,
+    has_more: bool,
+}
+
+#[derive(Deserialize)]
+struct AdifExport {
+    adif: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -130,6 +189,15 @@ impl WavelogClient {
         request: reqwest::RequestBuilder,
         token: &str,
     ) -> std::result::Result<T, WavelogError> {
+        self.fetch::<Envelope<T>>(request, token).await.map(|e| e.data)
+    }
+
+    /// Sends a request and reads the whole response body.
+    async fn fetch<B: DeserializeOwned>(
+        &self,
+        request: reqwest::RequestBuilder,
+        token: &str,
+    ) -> std::result::Result<B, WavelogError> {
         let response = request.bearer_auth(token).send().await?;
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
@@ -143,9 +211,7 @@ impl WavelogClient {
                 status => WavelogError::Rejected { status, message },
             });
         }
-        serde_json::from_str::<Envelope<T>>(&body)
-            .map(|e| e.data)
-            .map_err(|e| WavelogError::Unexpected(format!("{e}: {}", truncate(&body))))
+        serde_json::from_str::<B>(&body).map_err(|e| WavelogError::Unexpected(format!("{e}: {}", truncate(&body))))
     }
 
     /// Lists the station locations of the token's owner.
@@ -163,6 +229,39 @@ impl WavelogClient {
             .send(self.http.post(conn.endpoint("qso")).json(qso), &conn.token)
             .await?;
         Ok(created.id)
+    }
+
+    /// Counts the QSOs with a callsign (an exact match) and finds the latest ones.
+    ///
+    /// The JSON listing has no QSL fields, so the QSOs are read as ADIF.
+    pub async fn callsign_history(
+        &self,
+        conn: &WavelogConnection,
+        callsign: &str,
+    ) -> std::result::Result<CallsignHistory, WavelogError> {
+        let mut history = CallsignHistory::default();
+        let per_page = QSO_PAGE_SIZE.to_string();
+        for page in 1u32.. {
+            let page = page.to_string();
+            let url = conn.endpoint_with_query(
+                "qso",
+                &[
+                    ("callsign", callsign),
+                    ("format", "adif"),
+                    ("per_page", &per_page),
+                    ("page", &page),
+                ],
+            )?;
+            let listing: Listing<AdifExport> = self.fetch(self.http.get(url), &conn.token).await?;
+            history.qsos = listing.meta.total;
+            for record in adif::read_records(listing.data.adif.as_deref().unwrap_or_default()) {
+                history.add(&record);
+            }
+            if !listing.meta.has_more {
+                break;
+            }
+        }
+        Ok(history)
     }
 }
 
@@ -265,6 +364,19 @@ mod tests {
         assert_eq!(station.city, "");
         assert_eq!(station.power, Some(50));
         assert!(!station.active);
+    }
+
+    #[test]
+    fn keeps_the_latest_qso_and_the_latest_one_with_a_card_sent() {
+        let mut history = CallsignHistory::default();
+        let text = "<EOH>            <QSO_DATE:8>20250401 <TIME_ON:6>123456 <QSL_SENT:1>Y <QSLSDATE:8>20260101 <EOR>            <QSO_DATE:8>20240101 <TIME_ON:4>0910 <QSL_SENT:1>Y <EOR>            <QSO_DATE:8>20261003 <TIME_ON:6>040506 <QSL_SENT:1>R <EOR>            <QSO_DATE:8>2026 <EOR>";
+        for record in adif::read_records(text) {
+            history.add(&record);
+        }
+        let at = |s: &str| Some(s.parse::<DateTime<Utc>>().unwrap());
+        assert_eq!(history.last_qso, at("2026-10-03T04:05:06Z"));
+        assert_eq!(history.last_qsl_sent, at("2025-04-01T12:34:56Z"));
+        assert_eq!(history.qsos, 0, "the count comes from Wavelog's total");
     }
 
     #[test]
