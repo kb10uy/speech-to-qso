@@ -51,11 +51,20 @@
 
 	const refresh = () => run(async () => app.setStations(await app.api.refreshStations()));
 
-	const makeDefault = (station: Station) =>
+	const setDefault = (e: Event) =>
 		run(async () => {
-			await app.api.setDefaultStation(station.id);
-			await app.loadStations();
+			const id = (e.currentTarget as HTMLSelectElement).value;
+			// Reload even on failure, so the select goes back to what the server has.
+			try {
+				await app.api.setDefaultStation(id === '' ? null : id);
+			} finally {
+				await app.loadStations();
+			}
 		});
+
+	// Wavelog can have many station locations; only the ones entered by hand need a row (to edit).
+	const handEntered = $derived(app.stations.stations.filter((s) => s.wavelog_id === null));
+	const fromWavelog = $derived(app.stations.stations.length - handEntered.length);
 
 	const save = () =>
 		run(async () => {
@@ -123,17 +132,29 @@
 	<h2>Stations</h2>
 	<p class="hint">
 		A station provides the session defaults (station callsign, location, POTA reference, own
-		JCC/JCG). Each device picks its station in the Session tab; ★ is used until it does.
+		JCC/JCG). Each device picks its station in the Session tab; the default is used until it does.
 	</p>
+	{#if app.stations.stations.length > 0}
+		<label class="field">
+			<span>Default station</span>
+			<select value={app.stations.default_station_id ?? ''} onchange={setDefault} disabled={busy}>
+				<option value="">None</option>
+				{#each app.stations.stations as station (station.id)}
+					<option value={station.id}>{stationLabel(station)}</option>
+				{/each}
+			</select>
+			{#if fromWavelog > 0}
+				<span class="hint">
+					{fromWavelog} from Wavelog; edit them in Wavelog and Refresh stations.
+				</span>
+			{/if}
+		</label>
+	{/if}
 	<ul class="list">
-		{#each app.stations.stations as station (station.id)}
+		{#each handEntered as station (station.id)}
 			<li>
 				<div>
-					<strong
-						>{station.id === app.stations.default_station_id ? '★ ' : ''}{stationLabel(
-							station
-						)}</strong
-					>
+					<strong>{stationLabel(station)}</strong>
 					<div class="hint">
 						{[station.city, station.cnty, station.pota, station.gridsquare]
 							.filter((s) => s !== '')
@@ -141,19 +162,14 @@
 					</div>
 				</div>
 				<span class="actions">
-					{#if station.id !== app.stations.default_station_id}
-						<button onclick={() => makeDefault(station)} disabled={busy} title="Make default"
-							>★</button
-						>
-					{/if}
-					{#if station.wavelog_id === null}
-						<button onclick={() => edit(station)} disabled={busy}>Edit</button>
-						<button onclick={() => remove(station)} disabled={busy}>Delete</button>
-					{/if}
+					<button onclick={() => edit(station)} disabled={busy}>Edit</button>
+					<button onclick={() => remove(station)} disabled={busy}>Delete</button>
 				</span>
 			</li>
 		{:else}
-			<li class="hint">No stations yet. Connect Wavelog or add one.</li>
+			{#if app.stations.stations.length === 0}
+				<li class="hint">No stations yet. Connect Wavelog or add one.</li>
+			{/if}
 		{/each}
 	</ul>
 

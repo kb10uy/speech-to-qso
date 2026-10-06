@@ -136,10 +136,10 @@ Settings → Wavelog takes the Wavelog URL and an API v2 token (Wavelog 3.1.0 or
 stations** fetches them again. Users without Wavelog add stations by hand instead (their QSOs are only stored on the
 server).
 
-Each device picks its station in the Session tab; until it does, the user's default station (★, initially the active
-Wavelog station) is used. Picking a station fills in the session: station callsign, location (`city`), POTA reference
-(`pota`) and own JCC/JCG (`cnty`), which can still be edited. QSOs are forwarded with the station's Wavelog id as
-`station_profile_id`.
+Each device picks its station in the Session tab; until it does, the user's default station (chosen in Settings,
+initially the active Wavelog station) is used. Picking a station fills in the session: station callsign, location
+(`city`), POTA reference (`pota`) and own JCC/JCG (`cnty`), which can still be edited. QSOs are forwarded with the
+station's Wavelog id as `station_profile_id`.
 
 ### ADIF mapping
 

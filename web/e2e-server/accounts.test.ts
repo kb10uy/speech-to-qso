@@ -53,7 +53,8 @@ test('registers a passkey from a bootstrap link, logs and syncs a QSO, signs in 
 	await page.getByLabel('Location (city)').fill('Minato');
 	await page.getByLabel('POTA reference').fill('jp-0001');
 	await page.getByRole('button', { name: 'Save station' }).click();
-	await expect(page.getByLabel('Stations')).toContainText('★ Park · JJ1ABC/1');
+	await expect(page.getByLabel('Default station')).toHaveValue(/.+/);
+	await expect(page.getByLabel('Stations')).toContainText('Park · JJ1ABC/1');
 
 	await page.getByRole('button', { name: 'Session', exact: true }).click();
 	await expect(page.getByRole('combobox', { name: /^Station/ })).toHaveValue(/.+/);
