@@ -441,6 +441,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn forwarding_retries_use_the_saved_payload_and_station() {
+        let wavelog = fake_wavelog().await;
+        let h = harness(None).await;
+        let (_, list) = h
+            .put("/api/wavelog", json!({"url": wavelog.url, "token": "wl2_token"}))
+            .await;
+        let home = list["stations"][0]["id"].clone();
+        let park = list["stations"][1]["id"].clone();
+        wavelog.fail.store(true, Ordering::SeqCst);
+        assert_eq!(h.post("/api/qso", qso_body()).await.0, StatusCode::BAD_GATEWAY);
+        h.put("/api/stations/default", json!({"station_id": park})).await;
+        let mut changed = qso_body();
+        changed["call"] = json!("JA1ABC");
+        changed["station_id"] = park;
+        wavelog.fail.store(false, Ordering::SeqCst);
+        assert_eq!(h.post("/api/qso", changed.clone()).await.0, StatusCode::OK);
+        let uploads = wavelog.uploads.lock().unwrap().clone();
+        assert_eq!(uploads.len(), 2);
+        assert_eq!(uploads[1]["station_profile_id"], 1);
+        assert_eq!(uploads[1]["call"], "JL1HIS");
+        assert_eq!(
+            logbook::list(&h.db, h.user.id).await.unwrap()[0].station_id.as_deref(),
+            home.as_str()
+        );
+        // A successful retry stays successful even after its original station is removed.
+        crate::stations::replace_wavelog_stations(&h.db, h.user.id, vec![])
+            .await
+            .unwrap();
+        assert_eq!(h.post("/api/qso", changed).await.0, StatusCode::OK);
+        assert_eq!(wavelog.uploads.lock().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
     async fn rejects_invalid_payloads() {
         let h = harness(None).await;
         let mut bad = qso_body();

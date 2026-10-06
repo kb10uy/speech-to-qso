@@ -41,6 +41,17 @@ pub async fn get(db: &Db, user_id: Uuid, id: &str) -> Result<Option<Entry>> {
     Ok(forwarded.map(|forwarded| Entry { forwarded }))
 }
 
+/// Retries use the original payload, including the station resolved on first receipt.
+pub async fn payload(db: &Db, user_id: Uuid, id: &str) -> Result<Option<QsoPayload>> {
+    let json: Option<String> = sqlx::query_scalar("SELECT payload FROM qsos WHERE user_id = ? AND id = ?")
+        .bind(user_id.to_string())
+        .bind(id)
+        .fetch_optional(db)
+        .await?;
+    json.map(|json| serde_json::from_str(&json).map_err(|e| Error::Internal(format!("bad stored QSO: {e}"))))
+        .transpose()
+}
+
 pub async fn record_forwarded(db: &Db, user_id: Uuid, id: &str, wavelog_qso_id: Option<i64>) -> Result<()> {
     sqlx::query(
         "UPDATE qsos SET forwarded_at = ?, wavelog_qso_id = ?, forward_error = NULL WHERE user_id = ? AND id = ?",

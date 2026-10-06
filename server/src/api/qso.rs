@@ -35,40 +35,53 @@ pub async fn post_qso(
             return Ok((rejection.status(), body).into_response());
         }
     };
-    qso.validate().map_err(|e| Error::Unprocessable(e.to_string()))?;
-
-    let station = stations::resolve(&state.db, user.id, qso.station_id.as_deref()).await?;
-    // Remember which station the default was, so the log keeps it when the default changes.
-    if let Some(station) = &station {
-        qso.station_id = Some(station.id.clone());
-    }
-    let connection = wavelog::load_connection(&state.db, user.id).await?;
-    let target = match (connection, station.and_then(|s| s.wavelog_id)) {
-        (Some(connection), Some(station_profile_id)) => {
-            let body = qso
-                .to_wavelog(station_profile_id)
-                .map_err(|e| Error::Unprocessable(e.to_string()))?;
-            Some((connection, body))
-        }
-        _ => None,
-    };
-
     let _forwarding = state.forward_lock.lock().await;
-    let existing = logbook::insert(&state.db, user.id, &qso).await?;
+    let existing = logbook::get(&state.db, user.id, &qso.id).await?;
+    if existing.is_some() {
+        qso = logbook::payload(&state.db, user.id, &qso.id)
+            .await?
+            .ok_or_else(|| Error::Internal("lost a stored QSO".into()))?;
+    } else {
+        qso.validate().map_err(|e| Error::Unprocessable(e.to_string()))?;
+    }
     let mut forwarded = existing.is_some_and(|e| e.forwarded);
-    if let Some((connection, body)) = target
-        && !forwarded
-    {
-        match state.wavelog.create_qso(&connection, &body).await {
-            Ok(wavelog_id) => {
-                logbook::record_forwarded(&state.db, user.id, &qso.id, wavelog_id).await?;
-                forwarded = true;
+    if !forwarded {
+        // A stored QSO without a station was deliberately logged without one.
+        let station = if existing.is_some() && qso.station_id.is_none() {
+            None
+        } else {
+            stations::resolve(&state.db, user.id, qso.station_id.as_deref()).await?
+        };
+        // Remember which station the default was, so the log keeps it when the default changes.
+        if let Some(station) = &station {
+            qso.station_id = Some(station.id.clone());
+        }
+        let connection = wavelog::load_connection(&state.db, user.id).await?;
+        let target = match (connection, station.and_then(|s| s.wavelog_id)) {
+            (Some(connection), Some(station_profile_id)) => {
+                let body = qso
+                    .to_wavelog(station_profile_id)
+                    .map_err(|e| Error::Unprocessable(e.to_string()))?;
+                Some((connection, body))
             }
-            Err(e) => {
-                tracing::warn!("Wavelog upload of {} for {} failed: {e}", qso.id, user.callsign);
-                logbook::record_forward_error(&state.db, user.id, &qso.id, &e.to_string()).await?;
-                // Stored already; the client retries and only the upload is attempted again.
-                return Err(Error::BadGateway(e.to_string()));
+            _ => None,
+        };
+
+        if existing.is_none() {
+            logbook::insert(&state.db, user.id, &qso).await?;
+        }
+        if let Some((connection, body)) = target {
+            match state.wavelog.create_qso(&connection, &body).await {
+                Ok(wavelog_id) => {
+                    logbook::record_forwarded(&state.db, user.id, &qso.id, wavelog_id).await?;
+                    forwarded = true;
+                }
+                Err(e) => {
+                    tracing::warn!("Wavelog upload of {} for {} failed: {e}", qso.id, user.callsign);
+                    logbook::record_forward_error(&state.db, user.id, &qso.id, &e.to_string()).await?;
+                    // Stored already; the client retries and only the upload is attempted again.
+                    return Err(Error::BadGateway(e.to_string()));
+                }
             }
         }
     }
