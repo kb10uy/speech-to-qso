@@ -90,7 +90,7 @@ test('registers a passkey from a bootstrap link, logs and syncs a QSO, signs in 
 	await page.getByRole('menuitem', { name: 'Sign in' }).click();
 	await expect(page.getByRole('button', { name: 'JJ1ABC' })).toBeVisible();
 
-	// The link only registers the first passkey.
+	// The link is used up once it has registered the first passkey.
 	await page.goto(link);
-	await expect(page.getByRole('alert')).toContainText('already has a passkey');
+	await expect(page.getByRole('alert')).toContainText('invalid or has expired');
 });
