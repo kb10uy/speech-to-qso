@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     db::{self, Db},
-    error::Result,
+    error::{Error, Result},
     users::{self, User},
 };
 
@@ -133,9 +133,78 @@ pub async fn delete_bootstrap_tokens(db: &Db, user_id: Uuid) -> Result<()> {
     Ok(())
 }
 
+/// The first statement in the registration transaction must take SQLite's write lock.
+/// A read followed by a delete would let concurrent ceremonies both pass the check.
+pub async fn consume_bootstrap_token<'e, E: sqlx::SqliteExecutor<'e>>(
+    executor: E,
+    user_id: Uuid,
+    token: &str,
+) -> Result<()> {
+    let result = sqlx::query(
+        "DELETE FROM bootstrap_tokens WHERE token_hash = ? AND user_id = ? AND expires_at > ? \
+         AND NOT EXISTS (SELECT 1 FROM passkeys WHERE user_id = ?)",
+    )
+    .bind(hash_token(token))
+    .bind(user_id.to_string())
+    .bind(db::now())
+    .bind(user_id.to_string())
+    .execute(executor)
+    .await?;
+    if result.rows_affected() != 1 {
+        return Err(Error::Forbidden(
+            "this setup link is invalid or has expired; ask for a new one".into(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn bootstrap_consumption_is_atomic_and_rolls_back_with_registration() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = db::open(&dir.path().join("race.db")).await.unwrap();
+        let user = users::create(&db, "JJ1ABC").await.unwrap();
+        let token = issue_bootstrap_token(&db, user.id, TimeDelta::minutes(10))
+            .await
+            .unwrap();
+        let mut tx = db.begin().await.unwrap();
+        consume_bootstrap_token(&mut *tx, user.id, &token).await.unwrap();
+        tx.rollback().await.unwrap();
+        assert!(bootstrap_user(&db, &token).await.unwrap().is_some());
+
+        let mut attempts = Vec::new();
+        for _ in 0..12 {
+            let db = db.clone();
+            let token = token.clone();
+            attempts.push(tokio::spawn(async move {
+                let mut tx = db.begin().await.unwrap();
+                if consume_bootstrap_token(&mut *tx, user.id, &token).await.is_err() {
+                    return false;
+                }
+                sqlx::query(
+                    "INSERT INTO passkeys (id, user_id, credential_id, passkey, name, created_at) \
+                    VALUES ('first', ?, x'01', '{}', 'First', ?)",
+                )
+                .bind(user.id.to_string())
+                .bind(db::now())
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+                tx.commit().await.unwrap();
+                true
+            }));
+        }
+        let mut successes = 0;
+        for attempt in attempts {
+            successes += usize::from(attempt.await.unwrap());
+        }
+        assert_eq!(successes, 1);
+        assert_eq!(crate::passkeys::count(&db, user.id).await.unwrap(), 1);
+        assert!(bootstrap_user(&db, &token).await.unwrap().is_none());
+    }
 
     #[tokio::test]
     async fn sessions_authenticate_until_deleted() {

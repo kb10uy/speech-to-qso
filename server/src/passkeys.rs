@@ -68,6 +68,24 @@ pub async fn credentials(db: &Db, user_id: Uuid) -> Result<Vec<Passkey>> {
 }
 
 pub async fn insert(db: &Db, user_id: Uuid, passkey: &Passkey, name: &str) -> Result<PasskeyInfo> {
+    insert_with(db, user_id, passkey, name).await
+}
+
+/// Consumes the setup link and inserts its first credential as one write transaction.
+pub async fn insert_first(db: &Db, user_id: Uuid, token: &str, passkey: &Passkey, name: &str) -> Result<PasskeyInfo> {
+    let mut tx = db.begin().await?;
+    crate::sessions::consume_bootstrap_token(&mut *tx, user_id, token).await?;
+    let info = insert_with(&mut *tx, user_id, passkey, name).await?;
+    tx.commit().await?;
+    Ok(info)
+}
+
+async fn insert_with<'e, E: sqlx::SqliteExecutor<'e>>(
+    executor: E,
+    user_id: Uuid,
+    passkey: &Passkey,
+    name: &str,
+) -> Result<PasskeyInfo> {
     let info = PasskeyInfo {
         id: Uuid::new_v4().to_string(),
         name: normalize_name(name),
@@ -83,7 +101,7 @@ pub async fn insert(db: &Db, user_id: Uuid, passkey: &Passkey, name: &str) -> Re
     .bind(encode(passkey)?)
     .bind(&info.name)
     .bind(&info.created_at)
-    .execute(db)
+    .execute(executor)
     .await
     .map_err(|e| match e {
         sqlx::Error::Database(d) if d.is_unique_violation() => {

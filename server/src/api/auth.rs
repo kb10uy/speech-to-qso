@@ -288,8 +288,7 @@ pub async fn bootstrap_finish(
         .webauthn
         .finish_passkey_registration(&req.credential, &registration)
         .map_err(registration_failed)?;
-    passkeys::insert(&state.db, user.id, &passkey, &req.name).await?;
-    sessions::delete_bootstrap_tokens(&state.db, user.id).await?;
+    passkeys::insert_first(&state.db, user.id, &token, &passkey, &req.name).await?;
 
     let token = sessions::create(&state.db, user.id).await?;
     tracing::info!("{} registered their first passkey", user.callsign);
