@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import type { QsoApp } from '../app/app.svelte';
 	import { describeError, type WavelogSettings } from '../account/api';
 	import { emptyStationInput, stationLabel, type Station, type StationInput } from '../qso';
 
 	let { app }: { app: QsoApp } = $props();
+	const userId = untrack(() => app.user?.id ?? null);
 
 	let busy = $state(false);
 	let error = $state<string | null>(null);
@@ -36,7 +37,7 @@
 
 	const connect = () =>
 		run(async () => {
-			await app.setStations(await app.api.connectWavelog(wavelogUrl, wavelogToken));
+			await app.setStations(await app.api.connectWavelog(wavelogUrl, wavelogToken), userId);
 			wavelogToken = '';
 			wavelog = await app.api.wavelog();
 			wavelogUrl = wavelog.url ?? '';
@@ -49,7 +50,7 @@
 			wavelog = { configured: false, url: null };
 		});
 
-	const refresh = () => run(async () => app.setStations(await app.api.refreshStations()));
+	const refresh = () => run(async () => app.setStations(await app.api.refreshStations(), userId));
 
 	const setDefault = (e: Event) =>
 		run(async () => {

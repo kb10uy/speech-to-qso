@@ -73,16 +73,20 @@
 		{#key app.bootstrapToken}
 			<BootstrapView {app} token={app.bootstrapToken} />
 		{/key}
-	{:else if tab === 'qso'}
-		<QsoView {app} onOpenSession={() => (tab = 'session')} />
-	{:else if tab === 'session'}
-		<SessionView {app} onDone={() => (tab = 'qso')} />
-	{:else if tab === 'log'}
-		<LogView {app} />
-	{:else if tab === 'settings'}
-		<SettingsView {app} />
 	{:else}
-		<HelpView />
+		{#key app.user?.id}
+			{#if tab === 'qso'}
+				<QsoView {app} onOpenSession={() => (tab = 'session')} />
+			{:else if tab === 'session'}
+				<SessionView {app} onDone={() => (tab = 'qso')} />
+			{:else if tab === 'log'}
+				<LogView {app} />
+			{:else if tab === 'settings'}
+				<SettingsView {app} />
+			{:else}
+				<HelpView />
+			{/if}
+		{/key}
 	{/if}
 </main>
 

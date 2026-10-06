@@ -46,7 +46,9 @@
 			const unsynced = app.unsyncedCount;
 			if (
 				unsynced > 0 &&
-				!confirm(`${unsynced} QSO(s) are not synced yet. They will be sent after the next sign-in.`)
+				!confirm(
+					`${unsynced} QSO(s) are not synced yet. They stay in this account until you sign in to it again.`
+				)
 			)
 				return;
 			await app.signOut();

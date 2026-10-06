@@ -1,6 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import type { QsoApp } from '../src/lib/app/app.svelte';
+
+declare global {
+	interface Window {
+		__qso: QsoApp;
+	}
+}
 
 /** Runs an admin command of the server against the test database. */
 function admin(...args: string[]): string {
@@ -8,7 +15,9 @@ function admin(...args: string[]): string {
 }
 
 /** A platform authenticator with discoverable credentials, as on a phone. */
+const authenticators = new WeakSet<Page>();
 async function addAuthenticator(page: Page) {
+	if (authenticators.has(page)) return;
 	const cdp = await page.context().newCDPSession(page);
 	await cdp.send('WebAuthn.enable');
 	await cdp.send('WebAuthn.addVirtualAuthenticator', {
@@ -21,6 +30,7 @@ async function addAuthenticator(page: Page) {
 			automaticPresenceSimulation: true
 		}
 	});
+	authenticators.add(page);
 }
 
 async function type(page: Page, command: string) {
@@ -29,6 +39,143 @@ async function type(page: Page, command: string) {
 	await input.fill(command);
 	await input.press('Enter');
 }
+
+async function registerUser(page: Page, callsign: string) {
+	admin('user', 'create', callsign);
+	const link = admin('passkey', 'bootstrap', callsign).match(/^http\S+#bootstrap=\S+$/m)![0];
+	await addAuthenticator(page);
+	await page.goto(link);
+	await expect(page.getByLabel('Set up a passkey')).toContainText(callsign);
+	await page.getByRole('button', { name: 'Create passkey' }).click();
+	await expect(page.getByRole('button', { name: callsign, exact: true })).toBeVisible();
+	await page.waitForFunction(() => window.__qso.ready && !window.__qso.syncing);
+}
+
+test('keeps local and account logs separate, rejects a changed cookie and clears a deleted station', async ({
+	page,
+	context
+}) => {
+	await page.goto('./');
+	await page.waitForFunction(() => window.__qso.ready && window.__qso.account === 'signedOut');
+	await type(page, 'jl1his freq 432.94');
+	await page.getByRole('button', { name: 'LOG QSO' }).click();
+	await registerUser(page, 'JJ2AAA');
+	expect(await page.evaluate(() => window.__qso.log.length)).toBe(0);
+	expect(await page.evaluate(() => window.__qso.localQsoCount)).toBe(1);
+
+	await page.getByRole('button', { name: /^Log/ }).click();
+	page.once('dialog', (dialog) => dialog.accept());
+	await page.getByRole('button', { name: 'Import local QSOs' }).click();
+	await expect(page.locator('li', { hasText: 'JL1HIS' })).toContainText('synced');
+	// Keep another valid A session: signing out revokes the current cookie's token.
+	const originalCookieA = await context.cookies();
+	await page.evaluate(() => window.__qso.api.signIn());
+	const cookieA = await context.cookies();
+	await context.addCookies(originalCookieA);
+	await page.route('**/api/qso', (route) =>
+		route.fulfill({ status: 502, json: { error: 'offline' } })
+	);
+	await page.evaluate(async () => {
+		const app = window.__qso;
+		await app.saveSession({ ...app.session, operatorCall: 'JJ2AAA', location: 'A location' });
+		app.handleText('ja1abc freq 432.94', 'typed');
+		await app.logQso();
+	});
+	await page.waitForFunction(() => !window.__qso.syncing && window.__qso.unsyncedCount === 1);
+	await page.evaluate(() => window.__qso.signOut());
+	await page.unroute('**/api/qso');
+	await registerUser(page, 'JJ2BBB');
+	expect(await page.evaluate(() => window.__qso.log.length)).toBe(0);
+	expect(await page.evaluate(() => window.__qso.session.location)).toBe('');
+	expect(await page.evaluate(async () => await (await fetch('/api/qso.adi')).text())).not.toContain(
+		'<EOR>'
+	);
+
+	await context.addCookies(cookieA);
+	await page.evaluate(() => window.__qso.refreshAccount());
+	await page.waitForFunction(() => !window.__qso.syncing);
+	expect(await page.evaluate(() => window.__qso.user?.callsign)).toBe('JJ2AAA');
+	expect(await page.evaluate(() => window.__qso.session.location)).toBe('A location');
+	expect(await page.evaluate(() => window.__qso.log.length)).toBe(2);
+
+	const other = await context.newPage();
+	await registerUser(other, 'JJ2CCC');
+	// This tab still remembers A, while its shared cookie now belongs to C.
+	expect(await page.evaluate(() => window.__qso.user?.callsign)).toBe('JJ2AAA');
+	await page.evaluate(async () => {
+		window.__qso.handleText('ja1xyz freq 432.94', 'typed');
+		await window.__qso.logQso();
+	});
+	await page.waitForFunction(
+		() => window.__qso.user?.callsign === 'JJ2CCC' && !window.__qso.syncing
+	);
+	expect(await page.evaluate(() => window.__qso.log.length)).toBe(0);
+	expect(await page.evaluate(async () => await (await fetch('/api/qso.adi')).text())).not.toContain(
+		'<EOR>'
+	);
+	await other.close();
+	await context.addCookies(cookieA);
+	await page.evaluate(() => window.__qso.refreshAccount());
+	await page.waitForFunction(() => !window.__qso.syncing);
+	expect(await page.evaluate(() => window.__qso.log.length)).toBe(3);
+	expect(await page.evaluate(() => window.__qso.unsyncedCount)).toBe(0);
+
+	await page.evaluate(async () => {
+		const app = window.__qso;
+		const station = await app.api.createStation({ name: 'Park', callsign: 'JJ2AAA' } as Parameters<
+			typeof app.api.createStation
+		>[0]);
+		await app.loadStations();
+		await app.api.deleteStation(station.id);
+		await app.loadStations();
+	});
+	expect(await page.evaluate(() => window.__qso.session.stationId)).toBeUndefined();
+	await page.evaluate(async () => {
+		window.__qso.handleText('ja1def freq 432.94', 'typed');
+		await window.__qso.logQso();
+	});
+	await page.waitForFunction(() => !window.__qso.syncing);
+	expect(await page.evaluate(() => window.__qso.unsyncedCount)).toBe(0);
+});
+
+test('allows only one concurrent completion of a bootstrap link', async ({ page }) => {
+	admin('user', 'create', 'JJ3AAA');
+	const link = admin('passkey', 'bootstrap', 'JJ3AAA').match(/^http\S+#bootstrap=\S+$/m)![0];
+	const token = new URL(link).hash.slice('#bootstrap='.length);
+	await addAuthenticator(page);
+	await page.goto('./');
+	await page.waitForFunction(() => window.__qso.ready);
+	const results = await page.evaluate(async (token) => {
+		const registrations = [];
+		for (let i = 0; i < 8; i++) {
+			const started = await window.__qso.api.startBootstrap(token);
+			const options = JSON.parse(
+				JSON.stringify(started.options, (_, v) => (v === null ? undefined : v))
+			);
+			const credential = (await navigator.credentials.create({
+				publicKey: PublicKeyCredential.parseCreationOptionsFromJSON(options.publicKey)
+			})) as PublicKeyCredential;
+			registrations.push({
+				ceremony: started.ceremony,
+				credential: credential.toJSON(),
+				name: `Key ${i}`
+			});
+		}
+		return Promise.all(
+			registrations.map(async (body) => {
+				const response = await fetch('/api/auth/bootstrap/finish', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(body)
+				});
+				return response.status;
+			})
+		);
+	}, token);
+	expect(results.filter((status) => status === 200)).toHaveLength(1);
+	expect(results.filter((status) => status === 403)).toHaveLength(7);
+	expect(await page.evaluate(async () => (await window.__qso.api.passkeys()).length)).toBe(1);
+});
 
 test('registers a passkey from a bootstrap link, logs and syncs a QSO, signs in again', async ({
 	page

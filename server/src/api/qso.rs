@@ -5,7 +5,7 @@ use std::sync::Arc;
 use axum::{
     Json,
     extract::{State, rejection::JsonRejection},
-    http::{StatusCode, header},
+    http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
 use serde_json::json;
@@ -26,8 +26,12 @@ use crate::{
 pub async fn post_qso(
     State(state): State<Arc<AppState>>,
     CurrentUser(user): CurrentUser,
+    headers: HeaderMap,
     payload: std::result::Result<Json<QsoPayload>, JsonRejection>,
 ) -> Result<Response> {
+    if !headers.contains_key("x-qso-user") {
+        return Err(Error::BadRequest("X-QSO-User: the intended user id is required".into()));
+    }
     let Json(mut qso) = match payload {
         Ok(payload) => payload,
         Err(rejection) => {

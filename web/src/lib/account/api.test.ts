@@ -9,6 +9,16 @@ function json(status: number, body: unknown) {
 }
 
 describe('ServerApi.request', () => {
+	it('binds authenticated requests to the intended user but permits a new sign-in', async () => {
+		const fetchMock = vi.fn(async () => json(200, []));
+		const api = new ServerApi(fetchMock).forUser('user-a');
+		await api.stations();
+		await api.startBootstrap('setup-token');
+		const first = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+		const second = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+		expect(first[1].headers).toMatchObject({ 'X-QSO-User': 'user-a' });
+		expect(second[1].headers).not.toHaveProperty('X-QSO-User');
+	});
 	it('sends JSON to the same origin with the session cookie', async () => {
 		const fetchMock = vi.fn(async () => json(200, { id: 'u', callsign: 'JJ1ABC' }));
 		const api = new ServerApi(fetchMock);

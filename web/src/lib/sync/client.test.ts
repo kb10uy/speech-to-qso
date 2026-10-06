@@ -94,4 +94,16 @@ describe('syncAll', () => {
 		expect(report).toEqual({ synced: 0, failed: 0, unauthorized: true });
 		expect(target.records.get('1')).toEqual(record('1'));
 	});
+
+	it('stops between records when the account changes during an upload', async () => {
+		const target = new MemoryTarget([record('1'), record('2')]);
+		let sameAccount = true;
+		const s = sender(() => {
+			sameAccount = false;
+		});
+		const report = await syncAll(target, s, now, () => sameAccount);
+		expect(report.synced).toBe(1);
+		expect(s.postQso).toHaveBeenCalledOnce();
+		expect(target.records.get('2')).toEqual(record('2'));
+	});
 });

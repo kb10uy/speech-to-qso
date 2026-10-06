@@ -80,6 +80,11 @@ The Log tab shows the state of each QSO (`local` / `waiting` / `synced` / `faile
 automatically on startup and when the device comes back online. Without signing in, the app still works and
 **Export ADIF** in the Log tab writes an `.adi` file of the QSOs on the device.
 
+Each account has its own local log, draft, session and cached stations. Signing out keeps that account's data for
+its next sign-in. QSOs logged while signed out, and the old shared local log from earlier versions, stay separate:
+after signing in, use **Import local QSOs** in the Log tab to explicitly move them into that account and sync them.
+Importing clears old station ids and preserves cached station values as overrides.
+
 The server (`server/`) serves the built app and its API on one origin. Users sign in with passkeys only; QSOs are
 stored per user in SQLite and forwarded to the user's Wavelog. Wavelog API tokens stay on the server.
 
@@ -103,6 +108,8 @@ cargo run --release -- serve
   CSRF tokens to go stale while QSOs wait offline.
 - `POST /api/qso` de-duplicates by the client-generated UUID (per user), so retries never create duplicates.
   If forwarding to Wavelog fails it returns 502, and only the forwarding is retried when the client resends.
+  It requires `X-QSO-User` with the intended user's UUID; a different session user is rejected with 401, protecting
+  pending uploads when another tab changes the shared login cookie. Retries use the original saved payload and station.
 - `GET /api/qso.adi` downloads the user's whole log as ADIF ("Download the server log" in the Log tab).
 
 ### Users and passkeys

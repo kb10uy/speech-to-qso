@@ -108,10 +108,18 @@ impl FromRequestParts<Arc<AppState>> for CurrentUser {
     async fn from_request_parts(parts: &mut Parts, state: &Arc<AppState>) -> Result<Self> {
         let jar = CookieJar::from_headers(&parts.headers);
         let token = jar.get(SESSION_COOKIE).ok_or(Error::Unauthorized)?.value();
-        sessions::authenticate(&state.db, token)
+        let user = sessions::authenticate(&state.db, token)
             .await?
-            .map(CurrentUser)
-            .ok_or(Error::Unauthorized)
+            .ok_or(Error::Unauthorized)?;
+        // Tabs share cookies, but their pending QSOs and other state belong to one user.
+        if parts
+            .headers
+            .get("x-qso-user")
+            .is_some_and(|id| id.as_bytes() != user.id.to_string().as_bytes())
+        {
+            return Err(Error::Unauthorized);
+        }
+        Ok(CurrentUser(user))
     }
 }
 

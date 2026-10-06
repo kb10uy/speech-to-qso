@@ -17,7 +17,8 @@ import {
 	type StationList
 } from '../qso';
 import { AudioCapture, VoskRecognizer, type SpeechRecognizer } from '../speech';
-import { KeyValueStore, QsoStore, openDatabase } from '../storage/db';
+import { DeviceStorage } from '../storage/accounts';
+import type { KeyValueStore, QsoStore } from '../storage/db';
 import { syncAll, type SyncReport } from '../sync/client';
 import { sleep, withTimeout } from '../util/timeout';
 import { DEFAULT_MODEL_PATHS, mergeSettings, type AppSettings } from './settings';
@@ -82,16 +83,20 @@ export class QsoApp {
 	lastSync = $state<SyncReport | null>(null);
 	ready = $state(false);
 
-	readonly api = new ServerApi();
+	api = new ServerApi();
 	account = $state<AccountState>('unknown');
 	/** The signed-in user; kept on the device so that the app works offline. */
 	user = $state<Me | null>(null);
 	stations = $state<StationList>({ default_station_id: null, stations: [] });
 	/** Token of a passkey bootstrap link (`#bootstrap=…`) the app was opened with. */
 	bootstrapToken = $state<string | null>(null);
+	localQsoCount = $state(0);
 
 	#qsos: QsoStore | null = null;
 	#kv: KeyValueStore | null = null;
+	#storage: DeviceStorage | null = null;
+	#accountVersion = 0;
+	#accountBusy = false;
 	#capture = new AudioCapture();
 	#recognizer: SpeechRecognizer | null = null;
 	#releaseRequested = false;
@@ -116,20 +121,11 @@ export class QsoApp {
 	}
 
 	async init() {
-		const db = await openDatabase();
-		this.#qsos = new QsoStore(db);
-		this.#kv = new KeyValueStore(db);
-		// `stationProfileId` was the Wavelog station before stations came from the server.
-		const { stationProfileId: _, ...session } =
-			(await this.#kv.get<OperatingSession & { stationProfileId?: string }>('session')) ?? {};
-		this.session = { ...defaultSession(), ...session };
-		this.settings = mergeSettings(await this.#kv.get<Partial<AppSettings>>('settings'));
-		this.user = (await this.#kv.get<Me>('user')) ?? null;
-		this.stations = (await this.#kv.get<StationList>('stations')) ?? this.stations;
+		this.#storage = await DeviceStorage.open();
+		const globals = this.#storage.globals;
+		this.settings = mergeSettings(await globals.get<Partial<AppSettings>>('settings'));
+		await this.#useAccount((await globals.get<Me>('user')) ?? null, this.#accountVersion);
 		this.bootstrapToken = bootstrapTokenIn(location.hash);
-		this.draft =
-			(await this.#kv.get<DraftQso>('draft')) ?? newDraft({ mode: this.session.defaultMode });
-		this.log = await this.#qsos.list();
 		this.online = navigator.onLine;
 
 		this.#capture.onAudio = (samples) => this.#recognizer?.pushAudio(samples);
@@ -137,7 +133,7 @@ export class QsoApp {
 
 		window.addEventListener('online', () => {
 			this.online = true;
-			void this.sync();
+			void this.refreshAccount();
 		});
 		window.addEventListener('offline', () => (this.online = false));
 		// A setup link opened in a tab that already shows the app only changes the hash.
@@ -156,11 +152,17 @@ export class QsoApp {
 
 	/** Asks the server who is signed in, then syncs. Offline, the remembered user is kept. */
 	async refreshAccount() {
+		if (this.#accountBusy) return;
+		const version = this.#accountVersion;
 		try {
-			await this.#signedIn(await this.api.me());
+			// /me identifies the cookie independently of this tab's remembered account.
+			const user = await new ServerApi().me();
+			if (version !== this.#accountVersion) return;
+			await this.#signedIn(user, user.id === this.user?.id ? version : ++this.#accountVersion);
 		} catch (e) {
+			if (version !== this.#accountVersion) return;
 			if (e instanceof ApiError && e.unauthorized) {
-				await this.#signedOut();
+				await this.#signedOut(++this.#accountVersion);
 			} else {
 				this.account = this.user === null ? 'unavailable' : 'signedIn';
 			}
@@ -168,13 +170,24 @@ export class QsoApp {
 	}
 
 	async signIn() {
-		await this.#signedIn(await this.api.signIn());
+		const version = ++this.#accountVersion;
+		this.#accountBusy = true;
+		try {
+			await this.#signedIn(await this.api.signIn(), version);
+		} finally {
+			this.#accountBusy = false;
+			if (version === this.#accountVersion) {
+				this.ready = this.#qsos !== null;
+				void this.sync();
+			}
+		}
 	}
 
 	/** Registers the first passkey through a bootstrap link and signs in. */
 	async completeBootstrap(user: Me) {
+		const version = ++this.#accountVersion;
 		await this.cancelBootstrap();
-		await this.#signedIn(user);
+		await this.#signedIn(user, version);
 	}
 
 	/** Leaves the setup screen, and drops the used token from the address bar and history. */
@@ -184,34 +197,92 @@ export class QsoApp {
 	}
 
 	async signOut() {
-		await this.api.logout();
-		await this.#signedOut();
+		const version = ++this.#accountVersion;
+		this.#accountBusy = true;
+		try {
+			await this.api.logout();
+			await this.#signedOut(version);
+		} finally {
+			this.#accountBusy = false;
+			if (version === this.#accountVersion) this.ready = this.#qsos !== null;
+		}
 	}
 
-	async #signedIn(user: Me) {
+	async #useAccount(user: Me | null, version: number): Promise<boolean> {
+		const { qsos, kv } = await this.#storage!.forUser(user?.id ?? null);
+		const [storedSession, draft, stations, log, local] = await Promise.all([
+			kv.get<OperatingSession & { stationProfileId?: string }>('session'),
+			kv.get<DraftQso>('draft'),
+			kv.get<StationList>('stations'),
+			qsos.list(),
+			this.#storage!.local.qsos.list()
+		]);
+		if (version !== this.#accountVersion) return false;
+		const { stationProfileId: _, ...session } = storedSession ?? {};
+		this.#qsos = qsos;
+		this.#kv = kv;
+		this.user = user;
+		this.api = user === null ? new ServerApi() : new ServerApi().forUser(user.id);
+		this.session = { ...defaultSession(), ...session };
+		this.draft = draft ?? newDraft({ mode: this.session.defaultMode });
+		this.stations = stations ?? { default_station_id: null, stations: [] };
+		this.log = log;
+		this.localQsoCount = local.length;
+		this.feedback = null;
+		this.utterances = [];
+		this.lastSync = null;
+		return true;
+	}
+
+	async #signedIn(user: Me, version: number) {
+		if (version !== this.#accountVersion) return;
+		if (user.id !== this.user?.id) {
+			this.ready = false;
+			if (!(await this.#useAccount(user, version))) return;
+		}
+		this.ready = true;
 		this.user = user;
 		this.account = 'signedIn';
-		await this.#kv?.set('user', user);
+		await this.#storage!.globals.set('user', user);
 		await this.loadStations().catch(() => {});
-		void this.sync();
+		if (version === this.#accountVersion) void this.sync();
 	}
 
-	async #signedOut() {
-		this.user = null;
+	async #signedOut(version: number) {
+		if (version !== this.#accountVersion) return;
+		if (this.user !== null) {
+			this.ready = false;
+			if (!(await this.#useAccount(null, version))) return;
+		}
 		this.account = 'signedOut';
-		this.stations = { default_station_id: null, stations: [] };
-		await this.#kv?.set('user', null);
-		await this.#kv?.set('stations', this.stations);
+		this.ready = true;
+		await this.#storage!.globals.set('user', null);
 	}
 
 	/** Fetches the user's stations; the session switches to the default if it has none. */
 	async loadStations() {
-		await this.setStations(await this.api.stations());
+		const version = this.#accountVersion;
+		const list = await this.api.stations();
+		if (version === this.#accountVersion) await this.setStations(list, this.user?.id ?? null);
 	}
 
-	async setStations(list: StationList) {
+	async importLocalQsos() {
+		const user = this.user;
+		if (user === null || this.#storage === null) return;
+		const version = this.#accountVersion;
+		await this.#storage.importLocal(user.id);
+		if (version !== this.#accountVersion) return;
+		this.localQsoCount = (await this.#storage.local.qsos.list()).length;
+		this.log = await this.#qsos!.list();
+		void this.sync();
+	}
+
+	async setStations(list: StationList, userId: string | null = this.user?.id ?? null) {
+		if (userId !== (this.user?.id ?? null)) return;
+		const version = this.#accountVersion;
 		this.stations = list;
 		await this.#kv?.set('stations', list);
+		if (version !== this.#accountVersion) return;
 		const station = stationToApply(this.session, list);
 		if (station !== undefined) await this.saveSession(applyStation(this.session, station));
 	}
@@ -405,16 +476,22 @@ export class QsoApp {
 	}
 
 	async logQso(): Promise<boolean> {
+		if (!this.ready || this.#accountBusy) return false;
+		const version = this.#accountVersion;
+		const qsos = this.#qsos!;
 		const result = finalizeDraft(this.draft, this.session, crypto.randomUUID());
 		if (!result.ok) {
 			this.feedback = { kind: 'error', message: result.problems.join(' / ') };
 			vibrate([60, 60, 60]);
 			return false;
 		}
-		await this.#qsos!.put(result.record);
+		await qsos.put(result.record);
+		if (version !== this.#accountVersion) return true;
 		this.log = [result.record, ...this.log];
+		if (this.user === null) this.localQsoCount = this.log.length;
 		this.draft = newDraft({ frequencyHz: result.record.frequencyHz, mode: result.record.mode });
 		await this.#saveDraft();
+		if (version !== this.#accountVersion) return true;
 		this.feedback = {
 			kind: 'ok',
 			message: `${result.record.callsign} logged locally${this.syncConfigured ? ', waiting for sync' : ''}`
@@ -425,12 +502,15 @@ export class QsoApp {
 	}
 
 	async deleteQso(id: string) {
+		const version = this.#accountVersion;
 		await this.#qsos!.delete(id);
+		if (version !== this.#accountVersion) return;
 		this.log = this.log.filter((r) => r.id !== id);
+		if (this.user === null) this.localQsoCount = this.log.length;
 	}
 
 	async sync(): Promise<void> {
-		if (this.#qsos === null || !this.syncConfigured) return;
+		if (this.#qsos === null || this.account !== 'signedIn' || !this.online || !this.ready) return;
 		// A QSO logged while a sync is running would otherwise wait for the next trigger.
 		this.#syncRequested = true;
 		if (this.syncing) return;
@@ -438,9 +518,21 @@ export class QsoApp {
 		try {
 			while (this.#syncRequested) {
 				this.#syncRequested = false;
-				this.lastSync = await syncAll(this.#qsos, this.api);
-				this.log = await this.#qsos.list();
-				if (this.lastSync.unauthorized) await this.#signedOut();
+				if (this.user === null || this.#accountBusy) break;
+				const version = this.#accountVersion;
+				const qsos = this.#qsos;
+				const report = await syncAll(
+					qsos,
+					this.api,
+					() => new Date(),
+					() => version === this.#accountVersion && !this.#accountBusy
+				);
+				if (version !== this.#accountVersion) continue;
+				this.lastSync = report;
+				const log = await qsos.list();
+				if (version !== this.#accountVersion) continue;
+				this.log = log;
+				if (report.unauthorized) await this.refreshAccount();
 			}
 		} finally {
 			this.syncing = false;
@@ -454,9 +546,11 @@ export class QsoApp {
 	// ---------------------------------------------------------------- persistence
 
 	async saveSession(session: OperatingSession) {
+		const version = this.#accountVersion;
 		const modeChanged = session.defaultMode !== this.session.defaultMode;
 		this.session = session;
 		await this.#kv!.set('session', session);
+		if (version !== this.#accountVersion) return;
 		if (modeChanged && isPristine(this.draft)) {
 			this.setDraft({ ...this.draft, mode: session.defaultMode });
 		}
@@ -470,7 +564,7 @@ export class QsoApp {
 	}
 
 	async #saveSettings() {
-		await this.#kv?.set('settings', this.settings);
+		await this.#storage?.globals.set('settings', this.settings);
 	}
 
 	async #saveDraft() {
@@ -497,7 +591,7 @@ export class QsoApp {
 			void this.pttCancel();
 			void this.#capture.close();
 		} else {
-			void this.sync();
+			void this.refreshAccount();
 			void this.#reopenMicrophone();
 		}
 	}

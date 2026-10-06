@@ -24,11 +24,13 @@ export interface SyncReport {
 export async function syncAll(
 	store: SyncTarget,
 	sender: QsoSender,
-	now: () => Date = () => new Date()
+	now: () => Date = () => new Date(),
+	shouldContinue: () => boolean = () => true
 ): Promise<SyncReport> {
 	const report: SyncReport = { synced: 0, failed: 0, unauthorized: false };
 
 	for (const record of await store.unsynced()) {
+		if (!shouldContinue()) break;
 		try {
 			await sender.postQso(toApiPayload(record));
 			await store.put({

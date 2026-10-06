@@ -221,7 +221,9 @@ mod tests {
                 .uri(uri)
                 .header(header::ORIGIN, ORIGIN);
             if signed_in {
-                req = req.header(header::COOKIE, &self.cookie);
+                req = req
+                    .header(header::COOKIE, &self.cookie)
+                    .header("x-qso-user", self.user.id.to_string());
             }
             let body = match body {
                 Some(body) => {
@@ -438,6 +440,33 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(json["status"], "duplicate");
         assert_eq!(logbook::list(&h.db, h.user.id).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn qso_writes_require_the_intended_cookie_user() {
+        let h = harness(None).await;
+        let other = users::create(&h.db, "JL1HIS").await.unwrap();
+        for (id, expected) in [
+            (None, StatusCode::BAD_REQUEST),
+            (Some(other.id), StatusCode::UNAUTHORIZED),
+        ] {
+            let mut req = Request::post("/api/qso")
+                .header(header::ORIGIN, ORIGIN)
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &h.cookie);
+            if let Some(id) = id {
+                req = req.header("x-qso-user", id.to_string());
+            }
+            let response = h
+                .app
+                .clone()
+                .oneshot(req.body(Body::from(qso_body().to_string())).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), expected);
+        }
+        assert!(logbook::list(&h.db, h.user.id).await.unwrap().is_empty());
+        assert!(logbook::list(&h.db, other.id).await.unwrap().is_empty());
     }
 
     #[tokio::test]

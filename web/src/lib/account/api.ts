@@ -55,15 +55,28 @@ export interface BootstrapInfo extends Ceremony {
 
 /** The speech-to-qso server, on the same origin as the app (session cookie). */
 export class ServerApi {
-	constructor(private readonly fetchImpl: typeof fetch = (...args) => fetch(...args)) {}
+	constructor(
+		private readonly fetchImpl: typeof fetch = (...args) => fetch(...args),
+		private readonly userId?: string
+	) {}
+
+	forUser(userId: string): ServerApi {
+		return new ServerApi(this.fetchImpl, userId);
+	}
 
 	async request<T>(method: string, path: string, body?: unknown): Promise<T> {
 		let response: Response;
+		const headers: Record<string, string> = {};
+		if (body !== undefined) headers['Content-Type'] = 'application/json';
+		// Sign-in and setup may intentionally replace the cookie with another user's session.
+		if (this.userId !== undefined && !path.startsWith('/api/auth/')) {
+			headers['X-QSO-User'] = this.userId;
+		}
 		try {
 			response = await this.fetchImpl(path, {
 				method,
 				credentials: 'same-origin',
-				headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+				headers,
 				body: body === undefined ? undefined : JSON.stringify(body)
 			});
 		} catch (e) {
