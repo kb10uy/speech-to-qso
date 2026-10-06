@@ -2,7 +2,10 @@ import { isCallsign } from '../dsl';
 
 /** Information about the whole operating session (shared by every QSO in it). */
 export interface OperatingSession {
+	/** Empty to leave the operator to Wavelog, which fills in the token owner's callsign. */
 	operatorCall: string;
+	// The fields below override the chosen station's values; empty ones are left to the station
+	// (and, in Wavelog, to its station location).
 	/** Free-form operating location (the portable operation site). */
 	location: string;
 	/** Partially spoken frequencies snap to the candidate nearest to this. */
@@ -12,8 +15,10 @@ export interface OperatingSession {
 	potaReference?: string;
 	/** Own JCC/JCG code at the operating location. */
 	myJcx?: string;
-	/** Wavelog station location (station profile) id; the backend default is used if empty. */
-	stationProfileId?: string;
+	/** The station (`Station.id`) chosen on this device; the server's default is used if unset. */
+	stationId?: string;
+	/** Callsign of the station (e.g. a club station or a portable suffix). */
+	stationCallsign?: string;
 }
 
 export function defaultSession(): OperatingSession {
@@ -25,11 +30,11 @@ export function defaultSession(): OperatingSession {
 	};
 }
 
-/** Why the operator callsign cannot be used, or `undefined` if it is fine. */
+/** Why the operator callsign cannot be used, or `undefined` if it is fine (or empty). */
 export function operatorCallProblem(operatorCall: string): string | undefined {
 	const call = operatorCall.trim();
-	if (call === '') return 'Operator callsign is not set';
-	if (!isCallsign(call.toUpperCase())) return `"${call}" is not a valid operator callsign`;
+	if (call !== '' && !isCallsign(call.toUpperCase()))
+		return `"${call}" is not a valid operator callsign`;
 	return undefined;
 }
 

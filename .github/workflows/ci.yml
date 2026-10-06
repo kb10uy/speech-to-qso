@@ -31,7 +31,7 @@ jobs:
     defaults:
       run:
         working-directory: web
-    # Keep in sync with .github/workflows/pages.yml.
+    # Keep in sync with web/scripts/fetch-models.sh.
     env:
       VOSK_MODEL_EN: vosk-model-small-en-us-0.15
       VOSK_MODEL_JA: vosk-model-small-ja-0.22
@@ -65,6 +65,27 @@ jobs:
         env:
           VOSK_WORDS_EN: ${{ runner.temp }}/vosk-words/${{ env.VOSK_MODEL_EN }}
           VOSK_WORDS_JA: ${{ runner.temp }}/vosk-words/${{ env.VOSK_MODEL_JA }}
+
+  # The built app served by the real server: passkey sign-in (virtual authenticator) and sync.
+  integration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:server
 
   server:
     runs-on: ubuntu-latest

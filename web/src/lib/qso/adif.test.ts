@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { adifFile, adifFrequency, adifRecord } from './adif';
 import { bandForFrequency } from './band';
 import type { QsoRecord } from './record';
+import { emptyStationInput, type Station } from './station';
 
 const record: QsoRecord = {
 	id: 'uuid-1',
@@ -38,6 +39,40 @@ describe('adifRecord', () => {
 		);
 	});
 
+	it('uses the station callsign when given', () => {
+		// Identical to the expectation in server/src/adif.rs.
+		expect(adifRecord({ ...record, stationCallsign: 'JJ1ABC/1' })).toContain(
+			'<OPERATOR:6>JJ1ABC <STATION_CALLSIGN:8>JJ1ABC/1 '
+		);
+	});
+
+	it('leaves the operator out when Wavelog fills it in', () => {
+		// Identical to the expectation in server/src/adif.rs.
+		expect(
+			adifRecord({ ...record, operatorCall: undefined, stationCallsign: 'JJ1ABC/1' })
+		).toContain('<APP_SPEECHTOQSO_JCX:6>100101 <STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>');
+	});
+
+	it('fills in what the QSO left to its station', () => {
+		const station: Station = {
+			...emptyStationInput('JJ1ABC/1'),
+			id: 'park',
+			wavelog_id: 1,
+			city: 'Minato',
+			cnty: '100101',
+			pota: 'JP-0001',
+			active: true
+		};
+		const bare = { ...record, operatorCall: undefined, location: '', potaReference: undefined };
+		// Identical to the expectation in server/src/adif.rs.
+		expect(adifRecord(bare, station)).toContain(
+			'<STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>Minato <APP_SPEECHTOQSO_MY_JCX:6>100101 ' +
+				'<MY_SIG:4>POTA <MY_SIG_INFO:7>JP-0001 <MY_POTA_REF:7>JP-0001 <EOR>'
+		);
+		// The QSO's own values win.
+		expect(adifRecord({ ...bare, location: 'Shiba' }, station)).toContain('<MY_CITY:5>Shiba ');
+	});
+
 	it('omits empty optional fields', () => {
 		const minimal = {
 			...record,
@@ -56,8 +91,20 @@ describe('adifRecord', () => {
 });
 
 describe('adifFile', () => {
+	it('uses the default station for QSOs logged without one', () => {
+		const station: Station = {
+			...emptyStationInput('JJ1ABC'),
+			id: 'home',
+			wavelog_id: null,
+			city: 'Minato',
+			active: false
+		};
+		const list = { default_station_id: 'home', stations: [station] };
+		expect(adifFile([{ ...record, location: '' }], list)).toContain('<MY_CITY:6>Minato ');
+	});
+
 	it('adds a header', () => {
-		const file = adifFile([record], new Date('2026-10-03T05:00:00Z'));
+		const file = adifFile([record], undefined, new Date('2026-10-03T05:00:00Z'));
 		expect(file).toMatch(/^Exported by speech-to-qso\n<ADIF_VER:5>3\.1\.4 /);
 		expect(file).toContain('<CREATED_TIMESTAMP:15>20261003 050000 <EOH>\n');
 		expect(file.trimEnd().endsWith('<EOR>')).toBe(true);

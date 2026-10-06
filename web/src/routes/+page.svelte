@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { QsoApp } from '../lib/app/app.svelte';
+	import AccountMenu from '../lib/components/AccountMenu.svelte';
+	import BootstrapView from '../lib/components/BootstrapView.svelte';
+	import HelpView from '../lib/components/HelpView.svelte';
 	import LogView from '../lib/components/LogView.svelte';
 	import QsoView from '../lib/components/QsoView.svelte';
 	import SessionView from '../lib/components/SessionView.svelte';
 	import SettingsView from '../lib/components/SettingsView.svelte';
 
-	type Tab = 'qso' | 'session' | 'log' | 'settings';
+	type Tab = 'qso' | 'session' | 'log' | 'settings' | 'help';
 
 	const app = new QsoApp();
 	let tab = $state<Tab>('qso');
@@ -50,11 +53,14 @@
 					>{app.unsyncedCount}</span
 				>{/if}
 		</button>
-		<button class:current={tab === 'settings'} onclick={() => (tab = 'settings')}>⚙</button>
 	</nav>
 	<div class="status">
-		<span class="mono">{app.session.operatorCall || '—'}</span>
 		{#if !app.online}<span class="offline">offline</span>{/if}
+		<AccountMenu
+			{app}
+			current={tab === 'settings' || tab === 'help' ? tab : null}
+			onOpen={(page) => (tab = page)}
+		/>
 	</div>
 </header>
 
@@ -63,14 +69,24 @@
 		<p class="error">Failed to start: {initError}</p>
 	{:else if !app.ready}
 		<p class="hint">Loading…</p>
-	{:else if tab === 'qso'}
-		<QsoView {app} onOpenSession={() => (tab = 'session')} />
-	{:else if tab === 'session'}
-		<SessionView {app} onDone={() => (tab = 'qso')} />
-	{:else if tab === 'log'}
-		<LogView {app} />
+	{:else if app.bootstrapToken !== null}
+		{#key app.bootstrapToken}
+			<BootstrapView {app} token={app.bootstrapToken} />
+		{/key}
 	{:else}
-		<SettingsView {app} />
+		{#key app.user?.id}
+			{#if tab === 'qso'}
+				<QsoView {app} onOpenSession={() => (tab = 'session')} />
+			{:else if tab === 'session'}
+				<SessionView {app} onDone={() => (tab = 'qso')} />
+			{:else if tab === 'log'}
+				<LogView {app} />
+			{:else if tab === 'settings'}
+				<SettingsView {app} />
+			{:else}
+				<HelpView />
+			{/if}
+		{/key}
 	{/if}
 </main>
 
@@ -83,7 +99,9 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.5rem;
-		padding: calc(env(safe-area-inset-top) + 0.4rem) 0.6rem 0.4rem;
+		/* The bar spans the window, but its contents line up with main's on wide screens. */
+		padding: calc(env(safe-area-inset-top) + 0.4rem) max(0.6rem, calc((100% - 32rem) / 2 + 0.8rem))
+			0.4rem;
 		background: var(--bg);
 		border-bottom: 1px solid var(--border);
 	}

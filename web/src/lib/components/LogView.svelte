@@ -3,6 +3,8 @@
 	import { formatMhz, type QsoRecord } from '../qso';
 
 	let { app }: { app: QsoApp } = $props();
+	let importing = $state(false);
+	let importError = $state<string | null>(null);
 
 	const syncConfigured = $derived(app.syncConfigured);
 
@@ -31,6 +33,24 @@
 			await app.deleteQso(record.id);
 		}
 	}
+
+	async function importLocal() {
+		if (
+			!confirm(
+				`Move ${app.localQsoCount} local QSO(s) into ${app.user?.callsign}'s account and sync them?`
+			)
+		)
+			return;
+		importing = true;
+		importError = null;
+		try {
+			await app.importLocalQsos();
+		} catch (e) {
+			importError = e instanceof Error ? e.message : String(e);
+		} finally {
+			importing = false;
+		}
+	}
 </script>
 
 <div class="toolbar">
@@ -44,6 +64,20 @@
 		<button onclick={download} disabled={app.log.length === 0}>Export ADIF</button>
 	</span>
 </div>
+{#if app.user !== null}
+	{#if app.localQsoCount > 0}
+		<p class="hint">
+			{app.localQsoCount} local QSO(s) are kept separately from this account.
+			<button onclick={() => void importLocal()} disabled={importing}>Import local QSOs</button>
+		</p>
+		{#if importError}<p class="err" role="alert">{importError}</p>{/if}
+	{/if}
+	<p class="hint">
+		Export ADIF saves the QSOs on this device. <a href="/api/qso.adi" download
+			>Download the server log</a
+		> for every QSO synced from any device.
+	</p>
+{/if}
 
 {#if !app.online}
 	<p class="hint">Offline — QSOs are kept on this device and synced when back online.</p>
@@ -75,6 +109,9 @@
 </ul>
 
 <style>
+	a {
+		color: var(--info);
+	}
 	.toolbar {
 		display: flex;
 		justify-content: space-between;

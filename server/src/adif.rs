@@ -3,7 +3,33 @@
 use crate::{
     band::band_for_frequency,
     qso::{Qsl, QsoPayload},
+    stations::Station,
 };
+
+/// The values a station provides wherever a QSO leaves them empty.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct StationDefaults {
+    station_callsign: Option<String>,
+    location: Option<String>,
+    pota_ref: Option<String>,
+    my_jcx: Option<String>,
+}
+
+impl StationDefaults {
+    /// Keep in sync with `stationDefaults` in `web/src/lib/qso/station.ts`.
+    fn of(station: Option<&Station>) -> Self {
+        let Some(s) = station else {
+            return Self::default();
+        };
+        let present = |v: &str| Some(v.trim()).filter(|v| !v.is_empty()).map(str::to_string);
+        Self {
+            station_callsign: present(&s.callsign).map(|c| c.to_uppercase()),
+            location: present(&s.city),
+            pota_ref: present(&s.pota).map(|p| p.to_uppercase()),
+            my_jcx: present(&s.cnty),
+        }
+    }
+}
 
 fn field(out: &mut String, name: &str, value: Option<&str>) {
     if let Some(value) = value.filter(|v| !v.is_empty()) {
@@ -17,14 +43,19 @@ pub fn frequency(hz: u64) -> String {
     s.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
-/// Renders one QSO as an ADI record terminated by `<EOR>`.
-pub fn record(qso: &QsoPayload) -> String {
+/// Renders one QSO as an ADI record terminated by `<EOR>`; the station fills in what the QSO left
+/// to it.
+pub fn record(qso: &QsoPayload, station: Option<&Station>) -> String {
+    let defaults = StationDefaults::of(station);
     let mut out = String::new();
     let date = qso.time_on.format("%Y%m%d").to_string();
     let time = qso.time_on.format("%H%M%S").to_string();
     let freq = frequency(qso.frequency);
     let comment = qso.jcx.as_ref().map(|jcx| format!("JCX {jcx}"));
-    let pota = qso.pota_ref.as_deref();
+    let pota = qso.pota_ref.as_deref().or(defaults.pota_ref.as_deref());
+    let location = Some(qso.location.as_str())
+        .filter(|l| !l.is_empty())
+        .or(defaults.location.as_deref());
 
     field(&mut out, "CALL", Some(&qso.call));
     field(&mut out, "QSO_DATE", Some(&date));
@@ -44,10 +75,21 @@ pub fn record(qso: &QsoPayload) -> String {
     field(&mut out, "QSL_RCVD", qsl_rcvd);
     field(&mut out, "COMMENT", comment.as_deref());
     field(&mut out, "APP_SPEECHTOQSO_JCX", qso.jcx.as_deref());
-    field(&mut out, "OPERATOR", Some(&qso.operator));
-    field(&mut out, "STATION_CALLSIGN", Some(&qso.operator));
-    field(&mut out, "MY_CITY", Some(&qso.location));
-    field(&mut out, "APP_SPEECHTOQSO_MY_JCX", qso.my_jcx.as_deref());
+    field(&mut out, "OPERATOR", qso.operator.as_deref());
+    field(
+        &mut out,
+        "STATION_CALLSIGN",
+        qso.station_callsign
+            .as_deref()
+            .or(defaults.station_callsign.as_deref())
+            .or(qso.operator.as_deref()),
+    );
+    field(&mut out, "MY_CITY", location);
+    field(
+        &mut out,
+        "APP_SPEECHTOQSO_MY_JCX",
+        qso.my_jcx.as_deref().or(defaults.my_jcx.as_deref()),
+    );
     field(&mut out, "MY_SIG", pota.map(|_| "POTA"));
     field(&mut out, "MY_SIG_INFO", pota);
     field(&mut out, "MY_POTA_REF", pota);
@@ -73,7 +115,7 @@ mod tests {
     fn renders_the_same_record_as_the_web_client() {
         // Identical to the expectation in web/src/lib/qso/adif.test.ts.
         assert_eq!(
-            record(&sample()),
+            record(&sample(), None),
             "<CALL:6>JL1HIS <QSO_DATE:8>20261003 <TIME_ON:6>040506 <FREQ:6>432.94 <BAND:4>70cm \
              <MODE:2>FM <RST_SENT:2>59 <RST_RCVD:2>57 <QSL_SENT:1>R <COMMENT:10>JCX 100101 \
              <APP_SPEECHTOQSO_JCX:6>100101 <OPERATOR:6>JJ1ABC <STATION_CALLSIGN:6>JJ1ABC \
@@ -86,7 +128,58 @@ mod tests {
         let mut qso = sample();
         qso.qsl = Qsl::OneWay;
         // Identical to the expectation in web/src/lib/qso/adif.test.ts.
-        assert!(record(&qso).contains("<RST_RCVD:2>57 <QSL_SENT:1>N <QSL_RCVD:1>R <COMMENT:10>JCX 100101 "));
+        assert!(record(&qso, None).contains("<RST_RCVD:2>57 <QSL_SENT:1>N <QSL_RCVD:1>R <COMMENT:10>JCX 100101 "));
+    }
+
+    #[test]
+    fn uses_the_station_callsign_when_given() {
+        let mut qso = sample();
+        qso.station_callsign = Some("JJ1ABC/1".into());
+        // Identical to the expectation in web/src/lib/qso/adif.test.ts.
+        assert!(record(&qso, None).contains("<OPERATOR:6>JJ1ABC <STATION_CALLSIGN:8>JJ1ABC/1 "));
+    }
+
+    #[test]
+    fn leaves_the_operator_out_when_wavelog_fills_it_in() {
+        let mut qso = sample();
+        qso.operator = None;
+        qso.station_callsign = Some("JJ1ABC/1".into());
+        // Identical to the expectation in web/src/lib/qso/adif.test.ts.
+        assert!(record(&qso, None).contains("<APP_SPEECHTOQSO_JCX:6>100101 <STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>"));
+    }
+
+    #[test]
+    fn fills_in_what_the_qso_left_to_its_station() {
+        let station = Station {
+            id: "park".into(),
+            wavelog_id: Some(1),
+            name: "Park".into(),
+            callsign: "JJ1ABC/1".into(),
+            gridsquare: String::new(),
+            city: "Minato".into(),
+            state: String::new(),
+            cnty: "100101".into(),
+            pota: "JP-0001".into(),
+            sota: String::new(),
+            wwff: String::new(),
+            iota: String::new(),
+            sig: String::new(),
+            sig_info: String::new(),
+            power: None,
+            active: true,
+        };
+        let mut qso = sample();
+        qso.operator = None;
+        qso.location = String::new();
+        qso.pota_ref = None;
+        // Identical to the expectation in web/src/lib/qso/adif.test.ts.
+        assert!(record(&qso, Some(&station)).contains(
+            "<STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>Minato <APP_SPEECHTOQSO_MY_JCX:6>100101 \
+             <MY_SIG:4>POTA <MY_SIG_INFO:7>JP-0001 <MY_POTA_REF:7>JP-0001 <EOR>"
+        ));
+        // The QSO's own values win.
+        qso.location = "Shiba".into();
+        assert!(record(&qso, Some(&station)).contains("<MY_CITY:5>Shiba "));
     }
 
     #[test]
@@ -96,7 +189,7 @@ mod tests {
         qso.qsl = Qsl::None;
         qso.pota_ref = None;
         qso.location = "東京都港区".into();
-        let adif = record(&qso);
+        let adif = record(&qso, None);
         assert!(!adif.contains("QSL_"));
         assert!(!adif.contains("JCX"));
         assert!(!adif.contains("MY_SIG"));

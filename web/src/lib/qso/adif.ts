@@ -1,5 +1,6 @@
 import { bandForFrequency } from './band';
 import type { QsoRecord } from './record';
+import { stationDefaults, type Station, type StationList } from './station';
 
 const PROGRAM_ID = 'speech-to-qso';
 
@@ -13,8 +14,14 @@ export function adifFrequency(hz: number): string {
 	return (hz / 1_000_000).toFixed(6).replace(/\.?0+$/, '');
 }
 
-/** Renders one QSO as an ADIF (ADI) record. Keep in sync with `server/src/adif.rs`. */
-export function adifRecord(record: QsoRecord): string {
+/**
+ * Renders one QSO as an ADIF (ADI) record; the station fills in what the QSO left to it. Keep in
+ * sync with `server/src/adif.rs`.
+ */
+export function adifRecord(record: QsoRecord, station?: Station): string {
+	const defaults = stationDefaults(station);
+	const location = record.location || defaults.location;
+	const pota = record.potaReference ?? defaults.potaReference;
 	const time = new Date(record.timeOn);
 	const iso = time.toISOString();
 	const date = iso.slice(0, 10).replaceAll('-', '');
@@ -37,18 +44,32 @@ export function adifRecord(record: QsoRecord): string {
 			field('COMMENT', comment),
 			field('APP_SPEECHTOQSO_JCX', record.jcx),
 			field('OPERATOR', record.operatorCall),
-			field('STATION_CALLSIGN', record.operatorCall),
-			field('MY_CITY', record.location),
-			field('APP_SPEECHTOQSO_MY_JCX', record.myJcx),
-			field('MY_SIG', record.potaReference === undefined ? undefined : 'POTA'),
-			field('MY_SIG_INFO', record.potaReference),
-			field('MY_POTA_REF', record.potaReference)
+			field(
+				'STATION_CALLSIGN',
+				record.stationCallsign ?? defaults.stationCallsign ?? record.operatorCall
+			),
+			field('MY_CITY', location),
+			field('APP_SPEECHTOQSO_MY_JCX', record.myJcx ?? defaults.myJcx),
+			field('MY_SIG', pota === undefined ? undefined : 'POTA'),
+			field('MY_SIG_INFO', pota),
+			field('MY_POTA_REF', pota)
 		].join('') + '<EOR>'
 	);
 }
 
-/** Renders a complete ADIF file. */
-export function adifFile(records: readonly QsoRecord[], now: Date = new Date()): string {
+/**
+ * Renders a complete ADIF file. A QSO logged without a station uses the default one, as the
+ * server does.
+ */
+export function adifFile(
+	records: readonly QsoRecord[],
+	stations: StationList = { default_station_id: null, stations: [] },
+	now: Date = new Date()
+): string {
+	const station = (record: QsoRecord) => {
+		const id = record.stationId ?? stations.default_station_id;
+		return stations.stations.find((s) => s.id === id);
+	};
 	const created = now.toISOString().replace(/[-:]/g, '').slice(0, 15).replace('T', ' ');
 	const header =
 		`Exported by ${PROGRAM_ID}\n` +
@@ -56,5 +77,5 @@ export function adifFile(records: readonly QsoRecord[], now: Date = new Date()):
 		field('PROGRAMID', PROGRAM_ID) +
 		field('CREATED_TIMESTAMP', created) +
 		'<EOH>\n';
-	return header + records.map((r) => adifRecord(r) + '\n').join('');
+	return header + records.map((r) => adifRecord(r, station(r)) + '\n').join('');
 }

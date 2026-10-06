@@ -9,13 +9,19 @@ describe('mergeSettings', () => {
 	});
 
 	it('keeps stored values and fills in missing ones', () => {
-		const merged = mergeSettings({
-			releaseTailMs: 500,
-			sync: { endpoint: 'https://x', token: '' }
-		});
+		const merged = mergeSettings({ releaseTailMs: 500 });
 		expect(merged.releaseTailMs).toBe(500);
-		expect(merged.sync.endpoint).toBe('https://x');
 		expect(merged.keepScreenOn).toBe(true);
+	});
+
+	it('drops the backend settings of older versions', () => {
+		const stored = { releaseTailMs: 500, sync: { endpoint: 'https://x', token: 'secret' } };
+		expect(mergeSettings(stored as never)).not.toHaveProperty('sync');
+	});
+
+	it('drops the custom model URL of older versions', () => {
+		const stored = { voskModelUrl: 'https://example.com/model.tar.gz' };
+		expect(mergeSettings(stored as never)).not.toHaveProperty('voskModelUrl');
 	});
 
 	it('keeps a stored model language over the browser language', () => {

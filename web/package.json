@@ -14,7 +14,8 @@
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
-		"test:e2e": "playwright test"
+		"test:e2e": "playwright test",
+		"test:e2e:server": "playwright test --config playwright.server.config.ts"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.56.1",

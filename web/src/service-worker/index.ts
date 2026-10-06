@@ -39,6 +39,8 @@ self.addEventListener('fetch', (event) => {
 	if (request.method !== 'GET') return;
 	const url = new URL(request.url);
 	if (url.origin !== location.origin || !url.href.startsWith(scope().href)) return;
+	// The API is never cached; offline requests fail and the app keeps QSOs locally.
+	if (url.pathname.startsWith('/api/')) return;
 
 	event.respondWith(
 		(async () => {

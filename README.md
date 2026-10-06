@@ -7,10 +7,11 @@ QSO are filled in. **LOG QSO** saves it locally (IndexedDB) and then syncs it to
 There is no natural language understanding. An off-the-shelf ASR is used as a **lexer**, and a hand-written parser
 interprets a **QSO-specific DSL** with a deliberately small vocabulary and grammar.
 
-- Web client: a SvelteKit + TypeScript PWA, served from GitHub Pages and usable offline
+- Web client: a SvelteKit + TypeScript PWA, usable offline
 - Speech recognition: [Vosk](https://alphacephei.com/vosk/) WASM ([vosk-browser](https://github.com/ccoreilly/vosk-browser))
   running in the browser, restricted to the DSL vocabulary by a grammar
-- Backend: a thin Rust + axum API that appends QSOs to local logs and forwards them to Wavelog
+- Server: Rust + axum. Serves the app and its API on one origin, signs users in with passkeys, keeps each user's
+  QSOs in SQLite and forwards them to their Wavelog
 
 ```
 Hold PTT → getUserMedia → AudioWorklet (16 kHz mono) → Vosk WASM (Worker)
@@ -20,8 +21,11 @@ Hold PTT → getUserMedia → AudioWorklet (16 kHz mono) → Vosk WASM (Worker)
 
 ## Usage
 
-1. Open https://kb10uy.github.io/speech-to-qso/ (add it to your home screen to install it as a PWA)
-2. In the **Session** tab, save your operator callsign, operating location, frequency anchor and so on
+1. Open your server's URL (add it to your home screen to install it as a PWA). The first time, open the setup link
+   you were given (see [Users and passkeys](#users-and-passkeys)) to create your passkey
+2. Sign in from the menu at the top right (your callsign; it also leads to **Settings** and the voice command
+   **Help**). In **Settings**, connect Wavelog or add a station by hand. In the **Session** tab, pick the station (its
+   callsign, location, POTA reference and own JCC/JCG apply unless overridden), then set the frequency anchor and so on
 3. In the **QSO** tab, press "Load speech engine" to load the speech model (about 40 MB, first time only)
 4. Speak only while holding **HOLD TO TALK**; releasing it runs recognition → parsing → draft update
 5. Check the result and press **LOG QSO**
@@ -69,85 +73,147 @@ anchor = 433.000 MHz
 The anchor (set in the Session tab) is not the current frequency. Even if the rig is on 430.200 MHz, with an anchor of
 433.000 `point nine four` resolves to 432.940. The implementation is a pure function in `web/src/lib/dsl/frequency.ts`.
 
-## Sync and backend
+## Sync and the server
 
 LOG QSO **always saves to IndexedDB first**; syncing is a separate step, so a network failure never means a lost QSO.
 The Log tab shows the state of each QSO (`local` / `waiting` / `synced` / `failed`), and unsynced QSOs are retried
-automatically on startup and when the device comes back online. Without a backend you can still write an `.adi` file
-with **Export ADIF** in the Log tab.
+automatically on startup and when the device comes back online. Without signing in, the app still works and
+**Export ADIF** in the Log tab writes an `.adi` file of the QSOs on the device.
 
-The backend (`server/`) is a thin API whose main job is keeping the Wavelog API key out of the browser.
+Each account has its own local log, draft, session and cached stations. Signing out keeps that account's data for
+its next sign-in. QSOs logged while signed out, and the old shared local log from earlier versions, stay separate:
+after signing in, use **Import local QSOs** in the Log tab to explicitly move them into that account and sync them.
+Importing clears old station ids and preserves cached station values as overrides.
+
+The server (`server/`) serves the built app and its API on one origin. Users sign in with passkeys only; QSOs are
+stored per user in SQLite and forwarded to the user's Wavelog. Wavelog API tokens stay on the server.
 
 ```sh
 cd server
-cp .env.example .env   # edit, then export the variables
-cargo run --release
+cp .env.example .env   # edit; it is read from the working directory (or a parent)
+cargo run --release -- serve
 ```
 
-| Environment variable | Description                                                                            |
-| -------------------- | -------------------------------------------------------------------------------------- |
-| `LISTEN`             | Listen address (default `127.0.0.1:8080`)                                              |
-| `API_TOKEN`          | Bearer token sent by the client (Settings → API token). Unset disables authentication  |
-| `ALLOWED_ORIGINS`    | Comma-separated CORS origins, e.g. `https://kb10uy.github.io`. Empty allows any origin |
-| `DATA_DIR`           | Where `qsos.jsonl` (event log) and `log.adi` (ADIF) are written (default `data`)       |
-| `WAVELOG_URL`        | Base URL of your Wavelog, e.g. `https://log.example.com`                               |
-| `WAVELOG_API_KEY`    | Wavelog API key (read/write)                                                           |
-| `WAVELOG_STATION_ID` | Default station location id (can be overridden per session in the Session tab)         |
+| Environment variable | Description                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| `PUBLIC_ORIGIN`      | URL the app is reached at, e.g. `https://qso.example.com`. Passkeys are bound to its host |
+| `LISTEN`             | Listen address (default `127.0.0.1:8080`)                                                 |
+| `WEB_DIR`            | The built app (`web/build`, see [Deployment](#deployment)). Without it only the API runs  |
+| `DATABASE_PATH`      | SQLite database (default `data/speech-to-qso.db`)                                         |
 
-- GitHub Pages is served over HTTPS, so **the backend must be reachable over HTTPS too** (a reverse proxy such as
-  Caddy or nginx is recommended).
-- `POST /api/qso` de-duplicates by the client-generated UUID, so retries never create duplicates.
+- Passkeys need HTTPS (or `http://localhost`); put a TLS-terminating reverse proxy such as Caddy or nginx in front.
+- **Do not change `PUBLIC_ORIGIN` once passkeys exist**: they only work on the host they were created for.
+- The session is a `__Host-` cookie (`HttpOnly`, `Secure`, `SameSite=Lax`, 60 days, extended while used).
+  State-changing requests from other origins are rejected by checking `Origin` / `Sec-Fetch-Site`, so there are no
+  CSRF tokens to go stale while QSOs wait offline.
+- `POST /api/qso` de-duplicates by the client-generated UUID (per user), so retries never create duplicates.
   If forwarding to Wavelog fails it returns 502, and only the forwarding is retried when the client resends.
-- `GET /api/health` can be used to check connectivity.
+  It requires `X-QSO-User` with the intended user's UUID; a different session user is rejected with 401, protecting
+  pending uploads when another tab changes the shared login cookie. Retries use the original saved payload and station.
+- `GET /api/qso.adi` downloads the user's whole log as ADIF ("Download the server log" in the Log tab).
+
+### Users and passkeys
+
+There is no password and no sign-up page. Users are created on the server, and their first passkey is registered
+through a one-time link:
+
+```sh
+speech-to-qso-server user create JJ1ABC
+speech-to-qso-server passkey bootstrap JJ1ABC            # prints https://qso.example.com/#bootstrap=...
+speech-to-qso-server passkey bootstrap JJ1ABC --expires 1h
+```
+
+The link works once, expires (10 minutes by default) and is refused as soon as the user has a passkey. More passkeys
+(one per device or password manager) are added from Settings while signed in. The app shows users by callsign;
+internally they are UUIDs, which are also the passkeys' user handle, so `user rename JJ1ABC JJ1ABC/1` keeps every
+passkey working.
+
+Lost every device? Revoke the passkeys (this also ends the user's sessions) and issue a new link:
+
+```sh
+speech-to-qso-server passkey list JJ1ABC
+speech-to-qso-server passkey revoke JJ1ABC <id>
+speech-to-qso-server passkey revoke JJ1ABC --all
+speech-to-qso-server passkey bootstrap JJ1ABC
+```
+
+### Wavelog and stations
+
+Settings → Wavelog takes the Wavelog URL and an API v2 token (Wavelog 3.1.0 or later) with the `station:read` and
+`qso:write` scopes. The server checks it by fetching the station locations and keeps a copy of them; **Refresh
+stations** fetches them again. Users without Wavelog add stations by hand instead (their QSOs are only stored on the
+server).
+
+Each device picks its station in the Session tab; until it does, the user's default station (chosen in Settings,
+initially the active Wavelog station) is used. The station provides the session's station callsign, location (`city`),
+POTA reference (`pota`) and own JCC/JCG (`cnty`); the Session tab shows them as placeholders, and only what is typed
+there overrides them. QSOs are forwarded with the station's Wavelog id as `station_profile_id` and only carry the
+overrides, so Wavelog takes the rest from its station location. ADIF exports fill them in from the station. The operator callsign may be left empty: Wavelog then fills in the token
+owner's callsign, and the app's own ADIF records leave `OPERATOR` out.
 
 ### ADIF mapping
 
-| QSO field          | ADIF                                              |
-| ------------------ | ------------------------------------------------- |
-| Callsign           | `CALL`                                            |
-| Frequency          | `FREQ` (MHz), `BAND`                              |
-| RST sent / rcvd    | `RST_SENT` / `RST_RCVD`                           |
-| QSL requested      | `QSL_SENT:R` (the other station requested a card) |
-| QSL one way        | `QSL_SENT:N`, `QSL_RCVD:R` (their card is coming) |
-| JCX                | `COMMENT` (`JCX 100101`), `APP_SPEECHTOQSO_JCX`   |
-| Operator callsign  | `OPERATOR`, `STATION_CALLSIGN`                    |
-| Operating location | `MY_CITY`                                         |
-| Own JCC/JCG        | `APP_SPEECHTOQSO_MY_JCX`                          |
-| POTA reference     | `MY_SIG=POTA`, `MY_SIG_INFO`, `MY_POTA_REF`       |
+| QSO field          | ADIF                                                    |
+| ------------------ | ------------------------------------------------------- |
+| Callsign           | `CALL`                                                  |
+| Frequency          | `FREQ` (MHz), `BAND`                                    |
+| RST sent / rcvd    | `RST_SENT` / `RST_RCVD`                                 |
+| QSL requested      | `QSL_SENT:R` (the other station requested a card)       |
+| QSL one way        | `QSL_SENT:N`, `QSL_RCVD:R` (their card is coming)       |
+| JCX                | `COMMENT` (`JCX 100101`), `APP_SPEECHTOQSO_JCX`         |
+| Operator callsign  | `OPERATOR` (left out if empty)                          |
+| Station callsign   | `STATION_CALLSIGN` (the station's, else the operator's) |
+| Operating location | `MY_CITY`                                               |
+| Own JCC/JCG        | `APP_SPEECHTOQSO_MY_JCX`                                |
+| POTA reference     | `MY_SIG=POTA`, `MY_SIG_INFO`, `MY_POTA_REF`             |
 
-## Deployment (GitHub Pages)
+## Deployment
 
-Pushing to `main` builds and deploys the site with `.github/workflows/pages.yml` (it can also be run manually).
+Build the app with the speech models, then the server, and run it with `WEB_DIR` pointing at the app:
 
-One-time repository setup:
+```sh
+cd web
+npm ci
+scripts/fetch-models.sh   # the small English and Japanese Vosk models → static/models
+npm run build             # → web/build
+cd ../server
+cargo build --release     # → server/target/release/speech-to-qso-server
+```
 
-- **Settings → Pages → Build and deployment → Source**: **GitHub Actions**
-- **Settings → Environments → `github-pages` → Deployment branches and tags**: allow `main`
-
-The build downloads the small English and Japanese Vosk models (`vosk-model-small-en-us-0.15`,
-`vosk-model-small-ja-0.22`), repacks each as a `.tar.gz` with a single top-level directory (the layout vosk-browser
-expects) and ships them under `models/`. Settings → "Vosk model" picks one; only the selected model is downloaded.
-vosk-browser stores it in IndexedDB on first load, so it keeps working offline afterwards. To use a different model,
-set its `.tar.gz` URL under "Vosk model URL" in Settings and pick its language above (the host must allow CORS).
+`fetch-models.sh` repacks each model (`vosk-model-small-en-us-0.15`, `vosk-model-small-ja-0.22`) as a `.tar.gz` with a
+single top-level directory (the layout vosk-browser expects); they are served under `models/`. Settings → "Vosk
+model" picks one; only the selected model is downloaded. vosk-browser stores it in IndexedDB on first load, so it keeps
+working offline afterwards.
 
 ## Development
 
 ```sh
 cd web
 npm install
-npm run dev          # dev server (the microphone works over plain HTTP on localhost)
-npm test             # unit tests (vitest)
-npm run test:e2e     # e2e tests (Playwright / Chromium with a fake microphone)
-npm run check        # svelte-check (type checking)
-npm run lint         # prettier
+npm run dev               # dev server; /api is forwarded to the server at API_SERVER (http://127.0.0.1:8080)
+npm test                  # unit tests (vitest)
+npm run test:e2e          # e2e tests of the app alone (Playwright / Chromium with a fake microphone)
+npm run test:e2e:server   # e2e tests with the real server (passkeys through a virtual authenticator)
+npm run check             # svelte-check (type checking)
+npm run lint              # prettier
 
 cd ../server
 cargo test
 cargo clippy --all-targets -- -D warnings
 ```
 
-To try Vosk locally, put the models at `web/static/models/vosk-model-small-en-us-0.15.tar.gz` and
-`web/static/models/vosk-model-small-ja-0.22.tar.gz` (same steps as "Fetch Vosk models" in `pages.yml`).
+To sign in during development, run the server for the Vite origin (passkeys are bound to it) and open the link it
+prints:
+
+```sh
+cd server
+export PUBLIC_ORIGIN=http://localhost:5173
+cargo run -- user create JJ1ABC
+cargo run -- passkey bootstrap JJ1ABC
+cargo run -- serve
+```
+
+To try Vosk locally, run `web/scripts/fetch-models.sh`.
 
 ### Layout
 
@@ -157,12 +223,14 @@ web/                      SvelteKit PWA
   src/lib/qso/            Draft QSO, OperatingSession, QsoRecord, ADIF, band table
   src/lib/speech/         AudioWorklet, microphone capture, SpeechRecognizer (Vosk)
   src/lib/storage/        IndexedDB (QSO log, key-value store)
-  src/lib/sync/           Backend sync client
+  src/lib/account/        Server API client, passkey (WebAuthn) helpers
+  src/lib/sync/           QSO sync
   src/lib/app/            App state and the PTT → ASR → parser → draft pipeline
-  src/lib/components/     Screens (QSO / Session / Log / Settings)
+  src/lib/components/     Screens (QSO / Session / Log / Settings / Help) and the header menu
   src/service-worker/     Service worker for offline use
-  e2e/                    Playwright tests
-server/                   Rust + axum backend
+  e2e/                    Playwright tests of the app alone
+  e2e-server/             Playwright tests with the real server
+server/                   Rust + axum server: API, passkeys, SQLite (migrations/), Wavelog, admin CLI
 ```
 
 ## About the ASR

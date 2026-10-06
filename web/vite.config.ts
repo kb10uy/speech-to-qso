@@ -2,8 +2,9 @@ import { defineConfig } from 'vitest/config';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 
-// GitHub Pages serves project sites from `/<repo>`; the deploy workflow sets BASE_PATH.
-const base = (process.env.BASE_PATH ?? '') as '' | `/${string}`;
+// The server (see server/) serves the built app and its API on one origin. In development,
+// Vite forwards the API to it; run it with PUBLIC_ORIGIN=http://localhost:5173.
+const apiServer = process.env.API_SERVER ?? 'http://127.0.0.1:8080';
 
 export default defineConfig({
 	plugins: [
@@ -13,10 +14,12 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter({ fallback: '404.html' }),
-			paths: { base }
+			adapter: adapter()
 		})
 	],
+	server: {
+		proxy: { '/api': apiServer }
+	},
 	build: {
 		// vosk-browser bundles the WASM recogniser into one lazily loaded chunk.
 		chunkSizeWarningLimit: 6000

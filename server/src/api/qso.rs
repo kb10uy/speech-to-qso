@@ -1,0 +1,128 @@
+//! Logging QSOs and exporting the log.
+
+use std::sync::Arc;
+
+use axum::{
+    Json,
+    extract::{State, rejection::JsonRejection},
+    http::{HeaderMap, StatusCode, header},
+    response::{IntoResponse, Response},
+};
+use serde_json::json;
+
+use super::{AppState, auth::CurrentUser};
+use crate::{
+    adif,
+    error::{Error, Result},
+    logbook,
+    qso::QsoPayload,
+    stations, wavelog,
+};
+
+/// Stores a QSO and forwards it to Wavelog when its station is a Wavelog station.
+///
+/// Retries are safe: QSOs are de-duplicated by their client id, and one that was stored but
+/// not forwarded is forwarded again.
+pub async fn post_qso(
+    State(state): State<Arc<AppState>>,
+    CurrentUser(user): CurrentUser,
+    headers: HeaderMap,
+    payload: std::result::Result<Json<QsoPayload>, JsonRejection>,
+) -> Result<Response> {
+    if !headers.contains_key("x-qso-user") {
+        return Err(Error::BadRequest("X-QSO-User: the intended user id is required".into()));
+    }
+    let Json(mut qso) = match payload {
+        Ok(payload) => payload,
+        Err(rejection) => {
+            let body = Json(json!({ "status": "error", "error": rejection.body_text() }));
+            return Ok((rejection.status(), body).into_response());
+        }
+    };
+    let _forwarding = state.forward_lock.lock().await;
+    let existing = logbook::get(&state.db, user.id, &qso.id).await?;
+    if existing.is_some() {
+        qso = logbook::payload(&state.db, user.id, &qso.id)
+            .await?
+            .ok_or_else(|| Error::Internal("lost a stored QSO".into()))?;
+    } else {
+        qso.validate().map_err(|e| Error::Unprocessable(e.to_string()))?;
+    }
+    let mut forwarded = existing.is_some_and(|e| e.forwarded);
+    if !forwarded {
+        // A stored QSO without a station was deliberately logged without one.
+        let station = if existing.is_some() && qso.station_id.is_none() {
+            None
+        } else {
+            stations::resolve(&state.db, user.id, qso.station_id.as_deref()).await?
+        };
+        // Remember which station the default was, so the log keeps it when the default changes.
+        if let Some(station) = &station {
+            qso.station_id = Some(station.id.clone());
+        }
+        let connection = wavelog::load_connection(&state.db, user.id).await?;
+        let target = match (connection, station.and_then(|s| s.wavelog_id)) {
+            (Some(connection), Some(station_profile_id)) => {
+                let body = qso
+                    .to_wavelog(station_profile_id)
+                    .map_err(|e| Error::Unprocessable(e.to_string()))?;
+                Some((connection, body))
+            }
+            _ => None,
+        };
+
+        if existing.is_none() {
+            logbook::insert(&state.db, user.id, &qso).await?;
+        }
+        if let Some((connection, body)) = target {
+            match state.wavelog.create_qso(&connection, &body).await {
+                Ok(wavelog_id) => {
+                    logbook::record_forwarded(&state.db, user.id, &qso.id, wavelog_id).await?;
+                    forwarded = true;
+                }
+                Err(e) => {
+                    tracing::warn!("Wavelog upload of {} for {} failed: {e}", qso.id, user.callsign);
+                    logbook::record_forward_error(&state.db, user.id, &qso.id, &e.to_string()).await?;
+                    // Stored already; the client retries and only the upload is attempted again.
+                    return Err(Error::BadGateway(e.to_string()));
+                }
+            }
+        }
+    }
+
+    let (status, label) = match existing {
+        None => (StatusCode::CREATED, "created"),
+        Some(_) => (StatusCode::OK, "duplicate"),
+    };
+    tracing::info!("{} logged {} {} ({label})", user.callsign, qso.call, qso.id);
+    Ok((
+        status,
+        Json(json!({ "status": label, "id": qso.id, "forwarded": forwarded })),
+    )
+        .into_response())
+}
+
+/// Every QSO of the user as an ADIF file, with the values their stations provide filled in.
+pub async fn export_adif(State(state): State<Arc<AppState>>, CurrentUser(user): CurrentUser) -> Result<Response> {
+    let stations = stations::list(&state.db, user.id).await?;
+    let mut text = adif::header();
+    for qso in logbook::list(&state.db, user.id).await? {
+        // QSOs logged before stations were recorded with them use the default, like new ones.
+        let id = qso.station_id.as_ref().or(stations.default_station_id.as_ref());
+        let station = stations.stations.iter().find(|s| Some(&s.id) == id);
+        text.push_str(&adif::record(&qso, station));
+        text.push('\n');
+    }
+    let filename = format!("{}.adi", user.callsign.replace('/', "_"));
+    Ok((
+        [
+            (header::CONTENT_TYPE, "text/plain; charset=utf-8".to_string()),
+            (
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{filename}\""),
+            ),
+        ],
+        text,
+    )
+        .into_response())
+}

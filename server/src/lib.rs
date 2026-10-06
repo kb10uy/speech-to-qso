@@ -1,13 +1,21 @@
-//! Thin backend for speech-to-qso.
+//! Backend for speech-to-qso.
 //!
-//! Receives QSOs logged by the web client, keeps them in an append-only local log (JSON lines
-//! and ADIF) and forwards them to Wavelog. Secrets such as the Wavelog API key stay here and
-//! never reach the browser.
+//! Serves the web app and its API on one origin. Users sign in with passkeys only; their first
+//! passkey is registered through a one-time link issued on the server. QSOs are stored in SQLite
+//! and forwarded to each user's Wavelog. Secrets such as Wavelog API tokens stay here and never
+//! reach the browser.
 
 pub mod adif;
+pub mod admin;
 pub mod api;
 pub mod band;
 pub mod config;
+pub mod db;
+pub mod error;
+pub mod logbook;
+pub mod passkeys;
 pub mod qso;
-pub mod store;
+pub mod sessions;
+pub mod stations;
+pub mod users;
 pub mod wavelog;
