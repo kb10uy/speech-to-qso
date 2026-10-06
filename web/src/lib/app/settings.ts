@@ -3,8 +3,6 @@ import type { SpeechLanguage } from '../dsl';
 export interface AppSettings {
 	/** Language of the Vosk model; picks the bundled model and how the grammar is spelled. */
 	voskLanguage: SpeechLanguage;
-	/** Vosk model archive URL. Empty means the model deployed with the app for `voskLanguage`. */
-	voskModelUrl: string;
 	/** Load the speech engine on startup (set after the first successful load). */
 	autoLoadAsr: boolean;
 	/** Keep capturing for this long after PTT release, so the last word is not clipped. */
@@ -27,7 +25,6 @@ export function speechLanguageFor(browserLanguage: string | undefined): SpeechLa
 export function defaultSettings(): AppSettings {
 	return {
 		voskLanguage: speechLanguageFor(globalThis.navigator?.language),
-		voskModelUrl: '',
 		autoLoadAsr: false,
 		releaseTailMs: 300,
 		keepScreenOn: true
@@ -36,9 +33,14 @@ export function defaultSettings(): AppSettings {
 
 /**
  * Fills in fields added in newer versions when loading stored settings, and drops removed ones
- * (`sync`: the backend URL and token from before the app was served by the backend).
+ * (`sync`: the backend URL and token from before the app was served by the backend;
+ * `voskModelUrl`: a custom model, now always the one deployed with the app).
  */
 export function mergeSettings(stored: Partial<AppSettings> | undefined): AppSettings {
-	const { sync: _, ...rest } = (stored ?? {}) as Partial<AppSettings> & { sync?: unknown };
+	const {
+		sync: _sync,
+		voskModelUrl: _voskModelUrl,
+		...rest
+	} = (stored ?? {}) as Partial<AppSettings> & { sync?: unknown; voskModelUrl?: unknown };
 	return { ...defaultSettings(), ...rest };
 }

@@ -39,18 +39,6 @@
 		</span>
 	</label>
 	<label class="field">
-		<span>Vosk model URL</span>
-		<input
-			type="url"
-			bind:value={form.voskModelUrl}
-			placeholder={app.defaultModelUrl(form.voskLanguage)}
-		/>
-		<span class="hint"
-			>.tar.gz with a single top-level directory, in the language selected above. Empty uses the
-			bundled model.</span
-		>
-	</label>
-	<label class="field">
 		<span>Release tail (ms)</span>
 		<input type="number" min="0" max="2000" step="50" bind:value={form.releaseTailMs} />
 		<span class="hint">Keeps listening briefly after the button is released.</span>

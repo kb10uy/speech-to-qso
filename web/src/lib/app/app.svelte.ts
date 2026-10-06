@@ -109,7 +109,7 @@ export class QsoApp {
 		return this.user !== null;
 	}
 
-	defaultModelUrl(language: SpeechLanguage): string {
+	#modelUrl(language: SpeechLanguage): string {
 		// The model is fetched at deploy time, so it is not part of the typed static assets.
 		const path = asset(DEFAULT_MODEL_PATHS[language] as Parameters<typeof asset>[0]);
 		return new URL(path, location.href).href;
@@ -246,10 +246,7 @@ export class QsoApp {
 		this.asrError = null;
 		try {
 			const recognizer: SpeechRecognizer = new VoskRecognizer({
-				modelUrl:
-					this.settings.voskModelUrl.trim() !== ''
-						? new URL(this.settings.voskModelUrl.trim(), location.href).href
-						: this.defaultModelUrl(this.settings.voskLanguage),
+				modelUrl: this.#modelUrl(this.settings.voskLanguage),
 				language: this.settings.voskLanguage
 			});
 			recognizer.onPartial = (text) => (this.partial = formatSpeech(text));
@@ -466,9 +463,7 @@ export class QsoApp {
 	}
 
 	async saveSettings(settings: AppSettings) {
-		const engineChanged =
-			settings.voskLanguage !== this.settings.voskLanguage ||
-			settings.voskModelUrl !== this.settings.voskModelUrl;
+		const engineChanged = settings.voskLanguage !== this.settings.voskLanguage;
 		this.settings = settings;
 		await this.#saveSettings();
 		if (engineChanged && this.asr !== 'unloaded') await this.loadAsr();

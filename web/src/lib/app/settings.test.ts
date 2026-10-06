@@ -19,6 +19,11 @@ describe('mergeSettings', () => {
 		expect(mergeSettings(stored as never)).not.toHaveProperty('sync');
 	});
 
+	it('drops the custom model URL of older versions', () => {
+		const stored = { voskModelUrl: 'https://example.com/model.tar.gz' };
+		expect(mergeSettings(stored as never)).not.toHaveProperty('voskModelUrl');
+	});
+
 	it('keeps a stored model language over the browser language', () => {
 		vi.stubGlobal('navigator', { language: 'ja-JP' });
 		expect(mergeSettings(undefined).voskLanguage).toBe('ja');

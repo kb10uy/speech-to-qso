@@ -99,10 +99,6 @@ test('switches to the bundled Japanese model and takes Japanese commands', async
 
 	await page.getByRole('button', { name: 'JJ1ABC' }).click();
 	await page.getByRole('combobox', { name: /^Vosk model/ }).selectOption('ja');
-	await expect(page.getByLabel('Vosk model URL')).toHaveAttribute(
-		'placeholder',
-		/models\/vosk-model-small-ja-0\.22\.tar\.gz$/
-	);
 	await page.getByRole('button', { name: 'Save' }).click();
 	// Saving is asynchronous (IndexedDB); reloading before it finishes would lose the change.
 	await expect(page.getByRole('button', { name: 'Saved ✓' })).toBeVisible();

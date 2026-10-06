@@ -174,8 +174,7 @@ cargo build --release     # → server/target/release/speech-to-qso-server
 `fetch-models.sh` repacks each model (`vosk-model-small-en-us-0.15`, `vosk-model-small-ja-0.22`) as a `.tar.gz` with a
 single top-level directory (the layout vosk-browser expects); they are served under `models/`. Settings → "Vosk
 model" picks one; only the selected model is downloaded. vosk-browser stores it in IndexedDB on first load, so it keeps
-working offline afterwards. To use a different model, set its `.tar.gz` URL under "Vosk model URL" in Settings and
-pick its language above (the host must allow CORS).
+working offline afterwards.
 
 ## Development
 
