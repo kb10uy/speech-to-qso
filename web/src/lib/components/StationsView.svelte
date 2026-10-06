@@ -96,8 +96,8 @@
 	<h2>Wavelog</h2>
 	<p class="hint">
 		QSOs logged with a Wavelog station are forwarded to your Wavelog (3.1 or later). Create an API
-		token with the <span class="mono">station:read</span> and <span class="mono">qso:write</span>
-		scopes in Wavelog; it is stored on the server only.
+		token with the <span class="mono">station:read</span>, <span class="mono">qso:read</span> and
+		<span class="mono">qso:write</span> scopes in Wavelog; it is stored on the server only.
 	</p>
 	<form
 		onsubmit={(e) => {

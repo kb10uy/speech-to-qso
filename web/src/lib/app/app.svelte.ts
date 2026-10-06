@@ -1,6 +1,6 @@
 import { goto } from '$app/navigation';
 import { asset } from '$app/paths';
-import { ApiError, ServerApi, type Me } from '../account/api';
+import { ApiError, ServerApi, type CallsignHistory, type Me } from '../account/api';
 import { formatSpeech, formatTokens, parseSpeech, type SpeechLanguage } from '../dsl';
 import {
 	adifFile,
@@ -34,6 +34,12 @@ export interface Feedback {
 	heard?: string;
 	message: string;
 }
+
+export type HistoryLookup = { callsign: string } & (
+	| { status: 'loading' }
+	| { status: 'ready'; history: CallsignHistory }
+	| { status: 'error'; message: string }
+);
 
 export interface Utterance {
 	at: string;
@@ -91,6 +97,8 @@ export class QsoApp {
 	/** Token of a passkey bootstrap link (`#bootstrap=…`) the app was opened with. */
 	bootstrapToken = $state<string | null>(null);
 	localQsoCount = $state(0);
+	/** Wavelog's past QSOs with the latest callsign looked up; null without Wavelog. */
+	history = $state<HistoryLookup | null>(null);
 
 	#qsos: QsoStore | null = null;
 	#kv: KeyValueStore | null = null;
@@ -104,6 +112,7 @@ export class QsoApp {
 	#microphoneUsed = false;
 	#syncRequested = false;
 	#wakeLock: WakeLockSentinel | null = null;
+	#historyRequest = 0;
 
 	get unsyncedCount(): number {
 		return this.log.filter((r) => r.syncState !== 'synced').length;
@@ -231,6 +240,8 @@ export class QsoApp {
 		this.feedback = null;
 		this.utterances = [];
 		this.lastSync = null;
+		this.history = null;
+		this.#historyRequest += 1;
 		return true;
 	}
 
@@ -459,6 +470,21 @@ export class QsoApp {
 			{ at: new Date().toISOString(), source, text: raw, heard, ok: parsed.ok, message },
 			...this.utterances
 		].slice(0, MAX_UTTERANCES);
+	}
+
+	/** Looks up a callsign in Wavelog, unless that is already done or under way. */
+	async lookUpHistory(callsign: string) {
+		if (this.history?.callsign === callsign && this.history.status !== 'error') return;
+		const request = ++this.#historyRequest;
+		this.history = { callsign, status: 'loading' };
+		try {
+			const history = await this.api.callsignHistory(callsign);
+			if (request === this.#historyRequest) this.history = { callsign, status: 'ready', history };
+		} catch (e) {
+			if (request !== this.#historyRequest) return;
+			const noWavelog = e instanceof ApiError && e.status === 409;
+			this.history = noWavelog ? null : { callsign, status: 'error', message: errorMessage(e) };
+		}
 	}
 
 	// ---------------------------------------------------------------- QSO log

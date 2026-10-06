@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { QsoApp } from '../app/app.svelte';
-	import { formatMhz, sessionProblems } from '../qso';
+	import { formatMhz, formatUtcMinute, sessionProblems } from '../qso';
 	import PttButton from './PttButton.svelte';
 
 	let { app, onOpenSession }: { app: QsoApp; onOpenSession: () => void } = $props();
@@ -11,6 +12,19 @@
 
 	const draft = $derived(app.draft);
 	const problems = $derived(sessionProblems(app.session));
+	const history = $derived(app.history?.callsign === draft.callsign ? app.history : null);
+	const found = $derived(history?.status === 'ready' ? history.history : null);
+	const blank = $derived(history?.status === 'loading' ? '…' : '—');
+
+	function time(iso: string | null): string {
+		return iso === null ? '—' : formatUtcMinute(iso);
+	}
+
+	$effect(() => {
+		const callsign = draft.callsign;
+		if (callsign === undefined || app.account !== 'signedIn' || !app.online) return;
+		untrack(() => void app.lookUpHistory(callsign));
+	});
 
 	function submitCommand(e: SubmitEvent) {
 		e.preventDefault();
@@ -34,19 +48,6 @@
 {/if}
 
 <section class="draft" aria-label="Draft QSO">
-	<button class="cell callsign mono" class:empty={!draft.callsign} onclick={() => edit('')}>
-		{draft.callsign ?? 'CALLSIGN'}
-	</button>
-
-	<div class="row">
-		<button class="cell rst" onclick={() => edit('sent')}>
-			<span class="key">S</span><span class="mono">{draft.rstSent}</span>
-		</button>
-		<button class="cell rst" onclick={() => edit('received')}>
-			<span class="key">R</span><span class="mono">{draft.rstReceived}</span>
-		</button>
-	</div>
-
 	<div class="row">
 		<button
 			class="cell freq"
@@ -61,6 +62,35 @@
 		<button class="cell mode mono" onclick={() => edit('mode')}>
 			{draft.mode ?? app.session.defaultMode}
 		</button>
+	</div>
+
+	<button class="cell callsign mono" class:empty={!draft.callsign} onclick={() => edit('')}>
+		{draft.callsign ?? 'CALLSIGN'}
+	</button>
+
+	<div class="row">
+		<button class="cell rst" onclick={() => edit('sent')}>
+			<span class="key">S</span><span class="mono">{draft.rstSent}</span>
+		</button>
+		<button class="cell rst" onclick={() => edit('received')}>
+			<span class="key">R</span><span class="mono">{draft.rstReceived}</span>
+		</button>
+	</div>
+
+	<div class="history {history?.status ?? 'none'}" aria-label="Wavelog history" aria-live="polite">
+		{#if history?.status === 'error'}
+			<span class="note">Wavelog lookup failed: {history.message}</span>
+		{:else}
+			<div><span class="key">QSOs</span><span class="mono">{found?.qsos ?? blank}</span></div>
+			<div>
+				<span class="key">Last QSO</span>
+				<span class="mono">{found ? time(found.last_qso) : blank}</span>
+			</div>
+			<div>
+				<span class="key">Last QSL sent</span>
+				<span class="mono">{found ? time(found.last_qsl_sent) : blank}</span>
+			</div>
+		{/if}
 	</div>
 
 	<div class="row">
@@ -209,6 +239,40 @@
 	}
 	.row:has(.freq) {
 		grid-template-columns: 2fr 1fr;
+	}
+	.history {
+		display: grid;
+		grid-template-columns: auto 1fr 1fr;
+		gap: 0.8rem;
+		align-items: start;
+		min-height: 3.6rem;
+		box-sizing: border-box;
+		padding: 0.3rem 0.8rem;
+		border-left: 4px solid var(--info);
+		border-radius: var(--radius);
+		background: var(--surface);
+	}
+	.history > div {
+		display: grid;
+	}
+	.history .key {
+		font-size: 0.75rem;
+	}
+	.history .mono {
+		font-size: 0.95rem;
+		line-height: 1.2;
+	}
+	.history .note {
+		grid-column: 1 / -1;
+		align-self: center;
+		font-size: 0.9rem;
+		color: var(--muted);
+	}
+	.history.error {
+		border-left-color: var(--error);
+	}
+	.history.error .note {
+		color: var(--error);
 	}
 	.qsl {
 		color: var(--accent);
