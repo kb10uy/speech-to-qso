@@ -137,10 +137,19 @@ pub fn router(state: Arc<AppState>, web_dir: Option<&Path>) -> Router {
                     HeaderValue::from_static("public, max-age=31536000, immutable"),
                 ))
                 .service(immutable);
+            // Everything else keeps its name across deploys, so browsers must revalidate it (an ETag
+            // check). Without this they cache heuristically, and an app shell or a model answered
+            // once with the wrong content sticks around.
+            let revalidate =
+                || SetResponseHeaderLayer::overriding(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
             // A missing model must be a 404: Vosk would try to unpack the app's HTML.
-            let models = ServeDir::new(dir.join("models"));
+            let models = tower::ServiceBuilder::new()
+                .layer(revalidate())
+                .service(ServeDir::new(dir.join("models")));
             // Every other path is the single-page app.
-            let files = ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html")));
+            let files = tower::ServiceBuilder::new()
+                .layer(revalidate())
+                .service(ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html"))));
             api.nest_service("/_app/immutable", immutable)
                 .nest_service("/models", models)
                 .fallback_service(files)
@@ -593,6 +602,7 @@ mod tests {
         let response = get("/").await;
         assert_eq!(response.status(), StatusCode::OK);
         let response = get("/some/route").await;
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-cache");
         let body = response.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(&body[..], b"<!doctype html>app");
 
@@ -606,6 +616,7 @@ mod tests {
 
         let response = get("/models/ja.tar.gz").await;
         assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-cache");
         let body = response.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(&body[..], b"model");
         assert_eq!(get("/models/en.tar.gz").await.status(), StatusCode::NOT_FOUND);
