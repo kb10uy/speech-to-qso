@@ -137,9 +137,13 @@ pub fn router(state: Arc<AppState>, web_dir: Option<&Path>) -> Router {
                     HeaderValue::from_static("public, max-age=31536000, immutable"),
                 ))
                 .service(immutable);
+            // A missing model must be a 404: Vosk would try to unpack the app's HTML.
+            let models = ServeDir::new(dir.join("models"));
             // Every other path is the single-page app.
             let files = ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html")));
-            api.nest_service("/_app/immutable", immutable).fallback_service(files)
+            api.nest_service("/_app/immutable", immutable)
+                .nest_service("/models", models)
+                .fallback_service(files)
         }
         None => api,
     };
@@ -577,6 +581,8 @@ mod tests {
         std::fs::write(dir.path().join("index.html"), "<!doctype html>app").unwrap();
         std::fs::create_dir_all(dir.path().join("_app/immutable")).unwrap();
         std::fs::write(dir.path().join("_app/immutable/a.js"), "js").unwrap();
+        std::fs::create_dir_all(dir.path().join("models")).unwrap();
+        std::fs::write(dir.path().join("models/ja.tar.gz"), "model").unwrap();
         let h = harness(Some(dir.path())).await;
 
         let get = |uri: &str| {
@@ -597,6 +603,12 @@ mod tests {
                 .unwrap()
                 .contains("immutable")
         );
+
+        let response = get("/models/ja.tar.gz").await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(&body[..], b"model");
+        assert_eq!(get("/models/en.tar.gz").await.status(), StatusCode::NOT_FOUND);
 
         let (status, json) = h.get("/api/nope").await;
         assert_eq!(status, StatusCode::NOT_FOUND);
