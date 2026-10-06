@@ -1,0 +1,11 @@
+.git
+.github
+**/.env
+web/node_modules
+web/build
+web/.svelte-kit
+web/static/models
+web/test-results
+web/playwright-report
+server/target
+server/data
