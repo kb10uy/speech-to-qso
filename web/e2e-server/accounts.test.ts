@@ -56,7 +56,7 @@ test('keeps local and account logs separate, rejects a changed cookie and clears
 	context
 }) => {
 	await page.goto('./');
-	await page.waitForFunction(() => window.__qso.ready && window.__qso.account === 'signedOut');
+	await page.waitForFunction(() => window.__qso?.ready && window.__qso.account === 'signedOut');
 	await type(page, 'jl1his freq 432.94');
 	await page.getByRole('button', { name: 'LOG QSO' }).click();
 	await registerUser(page, 'JJ2AAA');
@@ -144,7 +144,7 @@ test('allows only one concurrent completion of a bootstrap link', async ({ page 
 	const token = new URL(link).hash.slice('#bootstrap='.length);
 	await addAuthenticator(page);
 	await page.goto('./');
-	await page.waitForFunction(() => window.__qso.ready);
+	await page.waitForFunction(() => window.__qso?.ready);
 	const results = await page.evaluate(async (token) => {
 		const registrations = [];
 		for (let i = 0; i < 8; i++) {
