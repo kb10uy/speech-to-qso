@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import type { QsoApp } from '../app/app.svelte';
 	import { formatMhz, formatUtcMinute, sessionProblems } from '../qso';
+	import { flash } from './flash';
 	import PttButton from './PttButton.svelte';
 
 	let { app, onOpenSession }: { app: QsoApp; onOpenSession: () => void } = $props();
@@ -9,6 +10,7 @@
 	let command = $state('');
 	let commandInput = $state<HTMLInputElement | null>(null);
 	let commandOpen = $state(false);
+	let draftSection = $state<HTMLElement | null>(null);
 
 	const draft = $derived(app.draft);
 	const problems = $derived(sessionProblems(app.session));
@@ -25,6 +27,15 @@
 		if (callsign === undefined || app.account !== 'signedIn' || !app.online) return;
 		untrack(() => void app.lookUpHistory(callsign));
 	});
+
+	$effect(() =>
+		app.onUtterance(({ source, ok, fields }) => {
+			if (!ok && source === 'typed') void flash(() => commandInput, 'flash-error');
+			for (const field of fields) {
+				void flash(() => draftSection?.querySelector(`[data-field="${field}"]`), 'flash');
+			}
+		})
+	);
 
 	function submitCommand(e: SubmitEvent) {
 		e.preventDefault();
@@ -47,10 +58,11 @@
 	</button>
 {/if}
 
-<section class="draft" aria-label="Draft QSO">
+<section class="draft" aria-label="Draft QSO" bind:this={draftSection}>
 	<div class="row">
 		<button
 			class="cell freq"
+			data-field="frequency"
 			class:empty={draft.frequencyHz === undefined}
 			onclick={() => edit('frequency')}
 		>
@@ -59,20 +71,25 @@
 			>
 			<span class="unit">MHz</span>
 		</button>
-		<button class="cell mode mono" onclick={() => edit('mode')}>
+		<button class="cell mode mono" data-field="mode" onclick={() => edit('mode')}>
 			{draft.mode ?? app.session.defaultMode}
 		</button>
 	</div>
 
-	<button class="cell callsign mono" class:empty={!draft.callsign} onclick={() => edit('')}>
+	<button
+		class="cell callsign mono"
+		data-field="callsign"
+		class:empty={!draft.callsign}
+		onclick={() => edit('')}
+	>
 		{draft.callsign ?? 'CALLSIGN'}
 	</button>
 
 	<div class="row">
-		<button class="cell rst" onclick={() => edit('sent')}>
+		<button class="cell rst" data-field="rstSent" onclick={() => edit('sent')}>
 			<span class="key">S</span><span class="mono">{draft.rstSent}</span>
 		</button>
-		<button class="cell rst" onclick={() => edit('received')}>
+		<button class="cell rst" data-field="rstReceived" onclick={() => edit('received')}>
 			<span class="key">R</span><span class="mono">{draft.rstReceived}</span>
 		</button>
 	</div>
@@ -94,10 +111,15 @@
 	</div>
 
 	<div class="row">
-		<button class="cell" class:empty={!draft.jcx} onclick={() => edit('jcx')}>
+		<button class="cell" data-field="jcx" class:empty={!draft.jcx} onclick={() => edit('jcx')}>
 			<span class="key">JCC/JCG</span><span class="mono">{draft.jcx ?? '—'}</span>
 		</button>
-		<button class="cell" class:qsl={draft.qsl !== 'none'} onclick={() => edit('card')}>
+		<button
+			class="cell"
+			data-field="qsl"
+			class:qsl={draft.qsl !== 'none'}
+			onclick={() => edit('card')}
+		>
 			{{ none: 'No QSL', requested: 'QSL Requested', oneWay: 'QSL One Way' }[draft.qsl]}
 		</button>
 	</div>
@@ -107,15 +129,13 @@
 	</div>
 </section>
 
-<div class="feedback {app.feedback?.kind ?? 'none'}" role="status" aria-live="polite">
-	{#if app.feedback}
-		{#if app.feedback.heard !== undefined}
-			<div class="heard">“{app.feedback.heard}”</div>
-		{/if}
-		<div>{app.feedback.message}</div>
-	{:else}
-		<div class="hint">Hold the button and speak, e.g. “received five seven”.</div>
-	{/if}
+<div
+	class="toast {app.feedback?.kind ?? ''}"
+	class:shown={app.feedback !== null}
+	role="status"
+	aria-live="polite"
+>
+	{app.feedback?.message ?? ''}
 </div>
 
 {#if app.asr === 'ready'}
@@ -183,6 +203,7 @@
 	.draft {
 		display: grid;
 		gap: 0.5rem;
+		margin-bottom: 0.8rem;
 	}
 	.row {
 		display: grid;
@@ -286,32 +307,35 @@
 		color: var(--muted);
 		padding: 0 0.3rem;
 	}
-	.feedback {
-		margin: 0.8rem 0;
-		min-height: 3.2rem;
-		padding: 0.5rem 0.8rem;
+	.toast {
+		position: fixed;
+		top: 0.5rem;
+		left: 50%;
+		z-index: 10;
+		width: max-content;
+		max-width: calc(100vw - 2rem);
+		padding: 0.6rem 0.9rem;
 		border-radius: 10px;
-		border-left: 4px solid var(--border);
-		background: var(--surface);
+		border-left: 4px solid var(--info);
+		background: var(--surface-2);
+		box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
 		font-size: 0.95rem;
+		pointer-events: none;
+		opacity: 0;
+		transform: translate(-50%, -0.5rem);
 	}
-	.feedback.ok {
+	.toast.shown {
+		opacity: 1;
+		transform: translate(-50%, 0);
+		transition:
+			opacity 150ms,
+			transform 150ms;
+	}
+	.toast.ok {
 		border-left-color: var(--ok);
 	}
-	.feedback.error {
+	.toast.error {
 		border-left-color: var(--error);
-	}
-	.feedback.info {
-		border-left-color: var(--info);
-	}
-	.feedback.error > div:last-child {
-		color: var(--error);
-	}
-	.heard {
-		font-family: var(--mono);
-		color: var(--muted);
-		font-size: 0.85rem;
-		word-break: break-word;
 	}
 	.asr {
 		min-height: 9rem;

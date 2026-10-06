@@ -30,8 +30,9 @@ Hold PTT → getUserMedia → AudioWorklet (16 kHz mono) → Vosk WASM (Worker)
 4. Speak only while holding **HOLD TO TALK**; releasing it runs recognition → parsing → draft update
 5. Check the result and press **LOG QSO**
 
-What was heard and what changed are shown in the feedback line above the button
-(`“received five seven” → RST received → 57`). If the ASR struggles, the same DSL can be typed under
+The fields an utterance sets flash briefly; a rejected utterance flashes the button (or the command box) red instead.
+What was heard and what changed are listed under "Recent utterances" (`J L 1 H I S` → `Callsign → JL1HIS`). Other
+messages, such as LOG QSO problems and microphone errors, appear for a few seconds at the top. If the ASR struggles, the same DSL can be typed under
 "Type a command" (shorthands such as `jl1his`, `received 57` and `freq .94` also work).
 On a desktop, the Space key works as PTT.
 
