@@ -56,7 +56,7 @@ cargo test
   the user has a passkey); later ones are added from a signed-in session. Users are UUIDs internally (also the WebAuthn
   user handle) and shown as their callsign.
 - **No CSRF tokens.** The session is a `__Host-` `SameSite=Lax` cookie, and state-changing requests must come from
-  `PUBLIC_ORIGIN` (`same_origin_only` in `server/src/api/mod.rs`). Keep it that way: tokens would go stale while
+  `PUBLIC_ORIGIN` (`same_origin_only` in `server/src/api.rs`). Keep it that way: tokens would go stale while
   QSOs wait offline.
 - **Schema changes are migrations.** Add a file to `server/migrations/`; never edit an applied one.
 - **Keep both ADIF writers in sync.** `web/src/lib/qso/adif.ts` and `server/src/adif.rs` render identical records; their
@@ -76,6 +76,7 @@ cargo test
 ## Style
 
 - Match the surrounding code; comments explain _why_, not _what_.
+- Rust modules with submodules are `foo.rs` next to `foo/`, not `foo/mod.rs`.
 - Code comments, docs and UI text are in English (the DSL is English, too). Japanese is fine in test data,
   e.g. to exercise multi-byte ADIF field lengths.
 - Commit in small, focused commits with descriptive messages.
