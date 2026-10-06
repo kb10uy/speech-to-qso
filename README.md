@@ -84,7 +84,7 @@ stored per user in SQLite and forwarded to the user's Wavelog. Wavelog API token
 
 ```sh
 cd server
-cp .env.example .env   # edit, then export the variables
+cp .env.example .env   # edit; it is read from the working directory (or a parent)
 cargo run --release -- serve
 ```
 
