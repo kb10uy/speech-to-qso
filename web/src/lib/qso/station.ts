@@ -72,10 +72,10 @@ export function stationDefaults(station: Station | undefined): StationDefaults {
  * Switches the session to a station. The session only keeps what overrides the station, so
  * overrides made for the previous station are dropped.
  */
-export function applyStation(session: OperatingSession, station: Station): OperatingSession {
+export function applyStation(session: OperatingSession, station: Station | null): OperatingSession {
 	return {
 		...session,
-		stationId: station.id,
+		stationId: station?.id,
 		stationCallsign: undefined,
 		location: '',
 		potaReference: undefined,
@@ -85,11 +85,17 @@ export function applyStation(session: OperatingSession, station: Station): Opera
 
 /**
  * The station the session should use: the one chosen on this device if it still exists,
- * otherwise the user's default. `undefined` when the session needs no change.
+ * otherwise the user's default. `null` clears a deleted selection; `undefined` keeps it.
  */
-export function stationToApply(session: OperatingSession, list: StationList): Station | undefined {
+export function stationToApply(
+	session: OperatingSession,
+	list: StationList
+): Station | null | undefined {
 	if (list.stations.some((s) => s.id === session.stationId)) return undefined;
-	return list.stations.find((s) => s.id === list.default_station_id);
+	return (
+		list.stations.find((s) => s.id === list.default_station_id) ??
+		(session.stationId === undefined ? undefined : null)
+	);
 }
 
 export function stationLabel(station: Station): string {

@@ -59,4 +59,12 @@ describe('stationToApply', () => {
 		expect(stationToApply({ ...defaultSession(), stationId: 'gone' }, list)?.id).toBe('b');
 		expect(stationToApply(defaultSession(), { ...list, default_station_id: null })).toBeUndefined();
 	});
+
+	it('clears a deleted selection when no default exists, without changing an empty session', () => {
+		const session = { ...defaultSession(), stationId: 'gone', location: 'Old' };
+		const empty = { default_station_id: null, stations: [] };
+		expect(stationToApply(session, empty)).toBeNull();
+		expect(applyStation(session, null)).toMatchObject({ stationId: undefined, location: '' });
+		expect(stationToApply(defaultSession(), empty)).toBeUndefined();
+	});
 });
