@@ -10,6 +10,11 @@ async function setUpSession(page: Page) {
 	await expect(page.locator('header')).toContainText('JJ1ABC');
 }
 
+async function openMenu(page: Page, item: string) {
+	await page.getByRole('button', { name: 'JJ1ABC' }).click();
+	await page.getByRole('menuitem', { name: item }).click();
+}
+
 async function type(page: Page, command: string) {
 	const input = page.getByPlaceholder(/e\.g\. jl1his/);
 	if (!(await input.isVisible())) await page.getByText('Type a command').click();
@@ -97,13 +102,13 @@ test('streams 16 kHz PCM from the microphone while PTT is held', async ({ page }
 test('switches to the bundled Japanese model and takes Japanese commands', async ({ page }) => {
 	await setUpSession(page);
 
-	await page.getByRole('button', { name: 'JJ1ABC' }).click();
+	await openMenu(page, 'Settings');
 	await page.getByRole('combobox', { name: /^Vosk model/ }).selectOption('ja');
 	await page.getByRole('button', { name: 'Save' }).click();
 	// Saving is asynchronous (IndexedDB); reloading before it finishes would lose the change.
 	await expect(page.getByRole('button', { name: 'Saved ✓' })).toBeVisible();
 	await page.reload();
-	await page.getByRole('button', { name: 'JJ1ABC' }).click();
+	await openMenu(page, 'Settings');
 	await expect(page.getByRole('combobox', { name: /^Vosk model/ })).toHaveValue('ja');
 
 	await page.getByRole('button', { name: 'QSO' }).click();

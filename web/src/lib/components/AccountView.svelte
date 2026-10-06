@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import type { QsoApp } from '../app/app.svelte';
 	import { describeError, type PasskeyInfo } from '../account/api';
 	import { isWebAuthnSupported } from '../account/webauthn';
@@ -27,27 +26,12 @@
 		passkeys = await app.api.passkeys();
 	}
 
-	onMount(() => {
-		if (app.user !== null) void run(loadPasskeys);
+	// Signing in and out happens in the header menu, possibly while this is open.
+	const userId = $derived(app.user?.id ?? null);
+	$effect(() => {
+		if (userId === null) passkeys = [];
+		else void run(loadPasskeys);
 	});
-
-	const signIn = () =>
-		run(async () => {
-			await app.signIn();
-			await loadPasskeys();
-		});
-
-	const signOut = () =>
-		run(async () => {
-			const unsynced = app.unsyncedCount;
-			if (
-				unsynced > 0 &&
-				!confirm(`${unsynced} QSO(s) are not synced yet. They will be sent after the next sign-in.`)
-			)
-				return;
-			await app.signOut();
-			passkeys = [];
-		});
 
 	const addPasskey = () =>
 		run(async () => {
@@ -79,22 +63,17 @@
 	<h2>Account</h2>
 	{#if app.user === null}
 		<p class="hint">
-			Sign in to sync QSOs to the server (and on to Wavelog). Without signing in, QSOs stay on this
-			device.
+			Sign in from the menu at the top right to sync QSOs to the server (and on to Wavelog). Without
+			signing in, QSOs stay on this device.
 		</p>
 		{#if !isWebAuthnSupported()}
 			<p class="error">This browser does not support passkeys.</p>
-		{:else}
-			<button class="primary" onclick={signIn} disabled={busy}>Sign in with a passkey</button>
 		{/if}
 		{#if app.account === 'unavailable'}
 			<p class="hint">The server cannot be reached right now.</p>
 		{/if}
 	{:else}
-		<div class="signed-in">
-			<span>Signed in as <strong class="mono">{app.user.callsign}</strong></span>
-			<button onclick={signOut} disabled={busy}>Sign out</button>
-		</div>
+		<p>Signed in as <strong class="mono">{app.user.callsign}</strong></p>
 
 		<h3>Passkeys</h3>
 		<ul class="list">
@@ -146,12 +125,6 @@
 		margin: 1rem 0 0.5rem;
 		font-size: 1rem;
 	}
-	.signed-in {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 0.5rem;
-	}
 	.list {
 		list-style: none;
 		margin: 0 0 0.6rem;
@@ -183,14 +156,6 @@
 	}
 	.add button {
 		white-space: nowrap;
-	}
-	.primary {
-		width: 100%;
-		background: var(--accent);
-		color: var(--accent-text);
-		border: none;
-		font-weight: 700;
-		padding: 0.9rem;
 	}
 	.error {
 		color: var(--error);

@@ -46,6 +46,7 @@ test('registers a passkey from a bootstrap link, logs and syncs a QSO, signs in 
 
 	// A station entered by hand becomes the default and fills in the session.
 	await page.getByRole('button', { name: 'JJ1ABC' }).click();
+	await page.getByRole('menuitem', { name: 'Settings' }).click();
 	await expect(page.getByLabel('Account')).toContainText('Test phone');
 	await page.getByRole('button', { name: 'Add a station' }).click();
 	await page.getByLabel('Name', { exact: true }).fill('Park');
@@ -83,9 +84,10 @@ test('registers a passkey from a bootstrap link, logs and syncs a QSO, signs in 
 
 	// Signing in again needs no callsign: the passkey identifies the user.
 	await page.getByRole('button', { name: 'JJ1ABC' }).click();
-	await page.getByRole('button', { name: 'Sign out' }).click();
-	await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toBeVisible();
-	await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
+	await page.getByRole('menuitem', { name: 'Sign out' }).click();
+	// The operator is left to Wavelog, so nothing names the user any more.
+	await page.getByRole('button', { name: 'Menu' }).click();
+	await page.getByRole('menuitem', { name: 'Sign in' }).click();
 	await expect(page.getByRole('button', { name: 'JJ1ABC' })).toBeVisible();
 
 	// The link only registers the first passkey.

@@ -1,18 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { QsoApp } from '../lib/app/app.svelte';
+	import AccountMenu from '../lib/components/AccountMenu.svelte';
 	import BootstrapView from '../lib/components/BootstrapView.svelte';
+	import HelpView from '../lib/components/HelpView.svelte';
 	import LogView from '../lib/components/LogView.svelte';
 	import QsoView from '../lib/components/QsoView.svelte';
 	import SessionView from '../lib/components/SessionView.svelte';
 	import SettingsView from '../lib/components/SettingsView.svelte';
 
-	type Tab = 'qso' | 'session' | 'log' | 'settings';
+	type Tab = 'qso' | 'session' | 'log' | 'settings' | 'help';
 
 	const app = new QsoApp();
 	let tab = $state<Tab>('qso');
 	let initError = $state<string | null>(null);
-	const callsign = $derived(app.session.operatorCall || app.user?.callsign || '');
 
 	onMount(() => {
 		// Handy for debugging on a phone (remote devtools) and used by the e2e tests.
@@ -55,22 +56,11 @@
 	</nav>
 	<div class="status">
 		{#if !app.online}<span class="offline">offline</span>{/if}
-		<!-- The callsign doubles as the way into the settings. -->
-		{#if callsign !== ''}
-			<button
-				class="settings mono"
-				class:current={tab === 'settings'}
-				title="Settings"
-				onclick={() => (tab = 'settings')}>{callsign}</button
-			>
-		{:else if app.account !== 'signedOut'}
-			<button class="settings" class:current={tab === 'settings'} onclick={() => (tab = 'settings')}
-				>Settings</button
-			>
-		{/if}
-		{#if app.account === 'signedOut'}
-			<button class="sign-in" onclick={() => (tab = 'settings')}>Sign in</button>
-		{/if}
+		<AccountMenu
+			{app}
+			current={tab === 'settings' || tab === 'help' ? tab : null}
+			onOpen={(page) => (tab = page)}
+		/>
 	</div>
 </header>
 
@@ -89,8 +79,10 @@
 		<SessionView {app} onDone={() => (tab = 'qso')} />
 	{:else if tab === 'log'}
 		<LogView {app} />
-	{:else}
+	{:else if tab === 'settings'}
 		<SettingsView {app} />
+	{:else}
+		<HelpView />
 	{/if}
 </main>
 
@@ -142,23 +134,6 @@
 	}
 	.offline {
 		color: var(--error);
-	}
-	.settings {
-		padding: 0.25rem 0.5rem;
-		background: transparent;
-		border-color: transparent;
-		color: var(--text);
-		text-decoration: underline;
-		text-underline-offset: 0.2em;
-	}
-	.settings.current {
-		background: var(--surface-2);
-		border-color: var(--border);
-		text-decoration: none;
-	}
-	.sign-in {
-		padding: 0.25rem 0.6rem;
-		font-size: 0.85rem;
 	}
 	main {
 		max-width: 32rem;

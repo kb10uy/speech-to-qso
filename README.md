@@ -23,8 +23,9 @@ Hold PTT → getUserMedia → AudioWorklet (16 kHz mono) → Vosk WASM (Worker)
 
 1. Open your server's URL (add it to your home screen to install it as a PWA). The first time, open the setup link
    you were given (see [Users and passkeys](#users-and-passkeys)) to create your passkey
-2. In **Settings**, connect Wavelog or add a station by hand. In the **Session** tab, pick the station (its callsign,
-   location, POTA reference and own JCC/JCG become the defaults), then set the frequency anchor and so on
+2. Sign in from the menu at the top right (your callsign; it also leads to **Settings** and the voice command
+   **Help**). In **Settings**, connect Wavelog or add a station by hand. In the **Session** tab, pick the station (its
+   callsign, location, POTA reference and own JCC/JCG apply unless overridden), then set the frequency anchor and so on
 3. In the **QSO** tab, press "Load speech engine" to load the speech model (about 40 MB, first time only)
 4. Speak only while holding **HOLD TO TALK**; releasing it runs recognition → parsing → draft update
 5. Check the result and press **LOG QSO**
@@ -218,7 +219,7 @@ web/                      SvelteKit PWA
   src/lib/account/        Server API client, passkey (WebAuthn) helpers
   src/lib/sync/           QSO sync
   src/lib/app/            App state and the PTT → ASR → parser → draft pipeline
-  src/lib/components/     Screens (QSO / Session / Log / Settings)
+  src/lib/components/     Screens (QSO / Session / Log / Settings / Help) and the header menu
   src/service-worker/     Service worker for offline use
   e2e/                    Playwright tests of the app alone
   e2e-server/             Playwright tests with the real server
