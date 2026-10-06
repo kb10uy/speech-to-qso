@@ -95,7 +95,9 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.5rem;
-		padding: calc(env(safe-area-inset-top) + 0.4rem) 0.6rem 0.4rem;
+		/* The bar spans the window, but its contents line up with main's on wide screens. */
+		padding: calc(env(safe-area-inset-top) + 0.4rem) max(0.6rem, calc((100% - 32rem) / 2 + 0.8rem))
+			0.4rem;
 		background: var(--bg);
 		border-bottom: 1px solid var(--border);
 	}
