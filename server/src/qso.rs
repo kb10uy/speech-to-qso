@@ -50,7 +50,9 @@ pub struct QsoPayload {
     #[serde(default, alias = "qsl_requested", deserialize_with = "deserialize_qsl")]
     pub qsl: Qsl,
     pub time_on: DateTime<Utc>,
-    pub operator: String,
+    /// Missing when the user leaves it to Wavelog, which fills in the token owner's callsign.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operator: Option<String>,
     #[serde(default)]
     pub location: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -101,11 +103,10 @@ impl QsoPayload {
         if !is_callsign(&self.call) {
             return Err(invalid("call", format!("{:?} is not a valid callsign", self.call)));
         }
-        if !is_callsign(&self.operator) {
-            return Err(invalid(
-                "operator",
-                format!("{:?} is not a valid callsign", self.operator),
-            ));
+        if let Some(operator) = &self.operator
+            && !is_callsign(operator)
+        {
+            return Err(invalid("operator", format!("{operator:?} is not a valid callsign")));
         }
         if self.frequency == 0 {
             return Err(invalid("frequency", "must be positive"));
@@ -163,7 +164,9 @@ impl QsoPayload {
         if let Some(jcx) = &self.jcx {
             set("comment", format!("JCX {jcx}").into());
         }
-        set("operator", self.operator.clone().into());
+        if let Some(operator) = &self.operator {
+            set("operator", operator.clone().into());
+        }
         if !self.location.is_empty() {
             set("my_city", self.location.clone().into());
         }
@@ -212,12 +215,12 @@ pub(crate) mod tests {
     fn optional_fields_default() {
         let qso: QsoPayload = serde_json::from_value(serde_json::json!({
             "id": "x", "call": "JL1HIS", "frequency": 7000000, "mode": "CW",
-            "rst_sent": "599", "rst_rcvd": "579", "time_on": "2026-10-03T04:05:06Z",
-            "operator": "JJ1ABC"
+            "rst_sent": "599", "rst_rcvd": "579", "time_on": "2026-10-03T04:05:06Z"
         }))
         .unwrap();
         assert_eq!(qso.validate(), Ok(()));
         assert_eq!(qso.qsl, Qsl::None);
+        assert_eq!(qso.operator, None);
         assert_eq!(qso.location, "");
     }
 
@@ -268,6 +271,11 @@ pub(crate) mod tests {
             })
         );
 
+        // Wavelog fills in the operator itself.
+        let mut qso = sample();
+        qso.operator = None;
+        assert!(qso.to_wavelog(3).unwrap().get("operator").is_none());
+
         let mut qso = sample();
         qso.frequency = 100_000_000;
         assert_eq!(qso.to_wavelog(3).unwrap_err().field, "frequency");
@@ -282,7 +290,7 @@ pub(crate) mod tests {
             ("call", Box::new(|q| q.call = "<EOR>".into())),
             ("call", Box::new(|q| q.call = "JL1HIS/".into())),
             ("call", Box::new(|q| q.call = "JL1//P".into())),
-            ("operator", Box::new(|q| q.operator = "".into())),
+            ("operator", Box::new(|q| q.operator = Some("".into()))),
             ("frequency", Box::new(|q| q.frequency = 0)),
             ("mode", Box::new(|q| q.mode = "F M".into())),
             ("rst_sent", Box::new(|q| q.rst_sent = "69".into())),

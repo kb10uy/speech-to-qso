@@ -70,8 +70,8 @@
 			type="text"
 			bind:value={form.operatorCall}
 			autocapitalize="characters"
-			required
 		/>
+		<span class="hint">Leave empty to let Wavelog fill in your callsign.</span>
 	</label>
 	<label class="field">
 		<span>Station callsign (if not the operator's)</span>

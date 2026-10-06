@@ -44,11 +44,11 @@ pub fn record(qso: &QsoPayload) -> String {
     field(&mut out, "QSL_RCVD", qsl_rcvd);
     field(&mut out, "COMMENT", comment.as_deref());
     field(&mut out, "APP_SPEECHTOQSO_JCX", qso.jcx.as_deref());
-    field(&mut out, "OPERATOR", Some(&qso.operator));
+    field(&mut out, "OPERATOR", qso.operator.as_deref());
     field(
         &mut out,
         "STATION_CALLSIGN",
-        Some(qso.station_callsign.as_deref().unwrap_or(&qso.operator)),
+        qso.station_callsign.as_deref().or(qso.operator.as_deref()),
     );
     field(&mut out, "MY_CITY", Some(&qso.location));
     field(&mut out, "APP_SPEECHTOQSO_MY_JCX", qso.my_jcx.as_deref());
@@ -99,6 +99,15 @@ mod tests {
         qso.station_callsign = Some("JJ1ABC/1".into());
         // Identical to the expectation in web/src/lib/qso/adif.test.ts.
         assert!(record(&qso).contains("<OPERATOR:6>JJ1ABC <STATION_CALLSIGN:8>JJ1ABC/1 "));
+    }
+
+    #[test]
+    fn leaves_the_operator_out_when_wavelog_fills_it_in() {
+        let mut qso = sample();
+        qso.operator = None;
+        qso.station_callsign = Some("JJ1ABC/1".into());
+        // Identical to the expectation in web/src/lib/qso/adif.test.ts.
+        assert!(record(&qso).contains("<APP_SPEECHTOQSO_JCX:6>100101 <STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>"));
     }
 
     #[test]

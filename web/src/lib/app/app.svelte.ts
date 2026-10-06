@@ -192,9 +192,6 @@ export class QsoApp {
 		this.user = user;
 		this.account = 'signedIn';
 		await this.#kv?.set('user', user);
-		if (this.session.operatorCall.trim() === '') {
-			await this.saveSession({ ...this.session, operatorCall: user.callsign });
-		}
 		await this.loadStations().catch(() => {});
 		void this.sync();
 	}

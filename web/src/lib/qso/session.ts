@@ -2,6 +2,7 @@ import { isCallsign } from '../dsl';
 
 /** Information about the whole operating session (shared by every QSO in it). */
 export interface OperatingSession {
+	/** Empty to leave the operator to Wavelog, which fills in the token owner's callsign. */
 	operatorCall: string;
 	/** Free-form operating location (the portable operation site). */
 	location: string;
@@ -27,11 +28,11 @@ export function defaultSession(): OperatingSession {
 	};
 }
 
-/** Why the operator callsign cannot be used, or `undefined` if it is fine. */
+/** Why the operator callsign cannot be used, or `undefined` if it is fine (or empty). */
 export function operatorCallProblem(operatorCall: string): string | undefined {
 	const call = operatorCall.trim();
-	if (call === '') return 'Operator callsign is not set';
-	if (!isCallsign(call.toUpperCase())) return `"${call}" is not a valid operator callsign`;
+	if (call !== '' && !isCallsign(call.toUpperCase()))
+		return `"${call}" is not a valid operator callsign`;
 	return undefined;
 }
 

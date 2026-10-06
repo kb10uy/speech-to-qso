@@ -18,7 +18,8 @@ export interface QsoRecord {
 	/** When the QSO was logged (ISO 8601, UTC). */
 	timeOn: string;
 
-	operatorCall: string;
+	/** Missing when the session left it to Wavelog. */
+	operatorCall?: string;
 	location: string;
 	potaReference?: string;
 	myJcx?: string;
@@ -65,7 +66,7 @@ export function finalizeDraft(
 			jcx: draft.jcx,
 			qsl: draft.qsl,
 			timeOn: now.toISOString(),
-			operatorCall: session.operatorCall.trim().toUpperCase(),
+			operatorCall: blankToUndefined(session.operatorCall)?.toUpperCase(),
 			location: session.location.trim(),
 			potaReference: blankToUndefined(session.potaReference)?.toUpperCase(),
 			myJcx: blankToUndefined(session.myJcx),
@@ -89,7 +90,7 @@ export interface QsoApiPayload {
 	jcx?: string;
 	qsl: QslStatus;
 	time_on: string;
-	operator: string;
+	operator?: string;
 	location: string;
 	pota_ref?: string;
 	my_jcx?: string;

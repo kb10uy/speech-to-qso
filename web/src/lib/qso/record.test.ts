@@ -18,12 +18,17 @@ describe('finalizeDraft', () => {
 		const result = finalizeDraft(newDraft(), { ...session, operatorCall: '' }, 'id', now);
 		expect(result).toEqual({
 			ok: false,
-			problems: [
-				'Callsign is missing',
-				'Frequency is missing',
-				'Operator callsign is not set (Session)'
-			]
+			problems: ['Callsign is missing', 'Frequency is missing']
 		});
+	});
+
+	it('leaves an empty operator callsign to Wavelog', () => {
+		const draft = { ...newDraft({ frequencyHz: 432_940_000 }), callsign: 'JL1HIS' };
+		const result = finalizeDraft(draft, { ...session, operatorCall: ' ' }, 'id', now);
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.record.operatorCall).toBeUndefined();
+		expect(toApiPayload(result.record).operator).toBeUndefined();
 	});
 
 	it('rejects an operator callsign the server would refuse', () => {

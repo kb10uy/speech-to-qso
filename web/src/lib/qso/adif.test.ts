@@ -45,6 +45,13 @@ describe('adifRecord', () => {
 		);
 	});
 
+	it('leaves the operator out when Wavelog fills it in', () => {
+		// Identical to the expectation in server/src/adif.rs.
+		expect(
+			adifRecord({ ...record, operatorCall: undefined, stationCallsign: 'JJ1ABC/1' })
+		).toContain('<APP_SPEECHTOQSO_JCX:6>100101 <STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>');
+	});
+
 	it('omits empty optional fields', () => {
 		const minimal = {
 			...record,
