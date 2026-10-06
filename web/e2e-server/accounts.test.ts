@@ -41,11 +41,11 @@ test('registers a passkey from a bootstrap link, logs and syncs a QSO, signs in 
 	await expect(page.getByLabel('Set up a passkey')).toContainText('JJ1ABC');
 	await page.getByLabel('Passkey name').fill('Test phone');
 	await page.getByRole('button', { name: 'Create passkey' }).click();
-	await expect(page.getByTitle('Signed in')).toHaveText('JJ1ABC');
+	await expect(page.getByRole('button', { name: 'JJ1ABC' })).toBeVisible();
 	expect(new URL(page.url()).hash).toBe('');
 
 	// A station entered by hand becomes the default and fills in the session.
-	await page.getByRole('button', { name: '⚙' }).click();
+	await page.getByRole('button', { name: 'JJ1ABC' }).click();
 	await expect(page.getByLabel('Account')).toContainText('Test phone');
 	await page.getByRole('button', { name: 'Add a station' }).click();
 	await page.getByLabel('Name', { exact: true }).fill('Park');
@@ -79,11 +79,11 @@ test('registers a passkey from a bootstrap link, logs and syncs a QSO, signs in 
 	expect(adif).toContain('<MY_POTA_REF:7>JP-0001');
 
 	// Signing in again needs no callsign: the passkey identifies the user.
-	await page.getByRole('button', { name: '⚙' }).click();
+	await page.getByRole('button', { name: 'JJ1ABC' }).click();
 	await page.getByRole('button', { name: 'Sign out' }).click();
 	await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toBeVisible();
 	await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
-	await expect(page.getByTitle('Signed in')).toHaveText('JJ1ABC');
+	await expect(page.getByRole('button', { name: 'JJ1ABC' })).toBeVisible();
 
 	// The link only registers the first passkey.
 	await page.goto(link);

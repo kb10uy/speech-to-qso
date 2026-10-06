@@ -12,6 +12,7 @@
 	const app = new QsoApp();
 	let tab = $state<Tab>('qso');
 	let initError = $state<string | null>(null);
+	const callsign = $derived(app.session.operatorCall || app.user?.callsign || '');
 
 	onMount(() => {
 		// Handy for debugging on a phone (remote devtools) and used by the e2e tests.
@@ -51,18 +52,25 @@
 					>{app.unsyncedCount}</span
 				>{/if}
 		</button>
-		<button class:current={tab === 'settings'} onclick={() => (tab = 'settings')}>⚙</button>
 	</nav>
 	<div class="status">
-		{#if app.user !== null}
-			<span class="mono" title="Signed in">{app.session.operatorCall || app.user.callsign}</span>
-		{:else}
-			<span class="mono">{app.session.operatorCall || '—'}</span>
-			{#if app.account === 'signedOut'}
-				<button class="sign-in" onclick={() => (tab = 'settings')}>Sign in</button>
-			{/if}
-		{/if}
 		{#if !app.online}<span class="offline">offline</span>{/if}
+		<!-- The callsign doubles as the way into the settings. -->
+		{#if callsign !== ''}
+			<button
+				class="settings mono"
+				class:current={tab === 'settings'}
+				title="Settings"
+				onclick={() => (tab = 'settings')}>{callsign}</button
+			>
+		{:else if app.account !== 'signedOut'}
+			<button class="settings" class:current={tab === 'settings'} onclick={() => (tab = 'settings')}
+				>Settings</button
+			>
+		{/if}
+		{#if app.account === 'signedOut'}
+			<button class="sign-in" onclick={() => (tab = 'settings')}>Sign in</button>
+		{/if}
 	</div>
 </header>
 
@@ -134,6 +142,19 @@
 	}
 	.offline {
 		color: var(--error);
+	}
+	.settings {
+		padding: 0.25rem 0.5rem;
+		background: transparent;
+		border-color: transparent;
+		color: var(--text);
+		text-decoration: underline;
+		text-underline-offset: 0.2em;
+	}
+	.settings.current {
+		background: var(--surface-2);
+		border-color: var(--border);
+		text-decoration: none;
 	}
 	.sign-in {
 		padding: 0.25rem 0.6rem;
