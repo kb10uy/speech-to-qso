@@ -28,7 +28,7 @@ pub async fn post_qso(
     CurrentUser(user): CurrentUser,
     payload: std::result::Result<Json<QsoPayload>, JsonRejection>,
 ) -> Result<Response> {
-    let Json(qso) = match payload {
+    let Json(mut qso) = match payload {
         Ok(payload) => payload,
         Err(rejection) => {
             let body = Json(json!({ "status": "error", "error": rejection.body_text() }));
@@ -38,6 +38,10 @@ pub async fn post_qso(
     qso.validate().map_err(|e| Error::Unprocessable(e.to_string()))?;
 
     let station = stations::resolve(&state.db, user.id, qso.station_id.as_deref()).await?;
+    // Remember which station the default was, so the log keeps it when the default changes.
+    if let Some(station) = &station {
+        qso.station_id = Some(station.id.clone());
+    }
     let connection = wavelog::load_connection(&state.db, user.id).await?;
     let target = match (connection, station.and_then(|s| s.wavelog_id)) {
         (Some(connection), Some(station_profile_id)) => {
@@ -81,11 +85,15 @@ pub async fn post_qso(
         .into_response())
 }
 
-/// Every QSO of the user as an ADIF file.
+/// Every QSO of the user as an ADIF file, with the values their stations provide filled in.
 pub async fn export_adif(State(state): State<Arc<AppState>>, CurrentUser(user): CurrentUser) -> Result<Response> {
+    let stations = stations::list(&state.db, user.id).await?;
     let mut text = adif::header();
     for qso in logbook::list(&state.db, user.id).await? {
-        text.push_str(&adif::record(&qso));
+        // QSOs logged before stations were recorded with them use the default, like new ones.
+        let id = qso.station_id.as_ref().or(stations.default_station_id.as_ref());
+        let station = stations.stations.iter().find(|s| Some(&s.id) == id);
+        text.push_str(&adif::record(&qso, station));
         text.push('\n');
     }
     let filename = format!("{}.adi", user.callsign.replace('/', "_"));

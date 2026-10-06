@@ -448,7 +448,7 @@ export class QsoApp {
 	}
 
 	exportAdif(): Blob {
-		return new Blob([adifFile([...this.log].reverse())], { type: 'text/plain' });
+		return new Blob([adifFile([...this.log].reverse(), this.stations)], { type: 'text/plain' });
 	}
 
 	// ---------------------------------------------------------------- persistence

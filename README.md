@@ -137,26 +137,27 @@ stations** fetches them again. Users without Wavelog add stations by hand instea
 server).
 
 Each device picks its station in the Session tab; until it does, the user's default station (chosen in Settings,
-initially the active Wavelog station) is used. Picking a station fills in the session: station callsign, location
-(`city`), POTA reference (`pota`) and own JCC/JCG (`cnty`), which can still be edited. QSOs are forwarded with the
-station's Wavelog id as `station_profile_id`. The operator callsign may be left empty: Wavelog then fills in the token
+initially the active Wavelog station) is used. The station provides the session's station callsign, location (`city`),
+POTA reference (`pota`) and own JCC/JCG (`cnty`); the Session tab shows them as placeholders, and only what is typed
+there overrides them. QSOs are forwarded with the station's Wavelog id as `station_profile_id` and only carry the
+overrides, so Wavelog takes the rest from its station location. ADIF exports fill them in from the station. The operator callsign may be left empty: Wavelog then fills in the token
 owner's callsign, and the app's own ADIF records leave `OPERATOR` out.
 
 ### ADIF mapping
 
-| QSO field          | ADIF                                              |
-| ------------------ | ------------------------------------------------- |
-| Callsign           | `CALL`                                            |
-| Frequency          | `FREQ` (MHz), `BAND`                              |
-| RST sent / rcvd    | `RST_SENT` / `RST_RCVD`                           |
-| QSL requested      | `QSL_SENT:R` (the other station requested a card) |
-| QSL one way        | `QSL_SENT:N`, `QSL_RCVD:R` (their card is coming) |
-| JCX                | `COMMENT` (`JCX 100101`), `APP_SPEECHTOQSO_JCX`   |
-| Operator callsign  | `OPERATOR` (left out if empty)                    |
-| Station callsign   | `STATION_CALLSIGN` (the operator's if not set)    |
-| Operating location | `MY_CITY`                                         |
-| Own JCC/JCG        | `APP_SPEECHTOQSO_MY_JCX`                          |
-| POTA reference     | `MY_SIG=POTA`, `MY_SIG_INFO`, `MY_POTA_REF`       |
+| QSO field          | ADIF                                                    |
+| ------------------ | ------------------------------------------------------- |
+| Callsign           | `CALL`                                                  |
+| Frequency          | `FREQ` (MHz), `BAND`                                    |
+| RST sent / rcvd    | `RST_SENT` / `RST_RCVD`                                 |
+| QSL requested      | `QSL_SENT:R` (the other station requested a card)       |
+| QSL one way        | `QSL_SENT:N`, `QSL_RCVD:R` (their card is coming)       |
+| JCX                | `COMMENT` (`JCX 100101`), `APP_SPEECHTOQSO_JCX`         |
+| Operator callsign  | `OPERATOR` (left out if empty)                          |
+| Station callsign   | `STATION_CALLSIGN` (the station's, else the operator's) |
+| Operating location | `MY_CITY`                                               |
+| Own JCC/JCG        | `APP_SPEECHTOQSO_MY_JCX`                                |
+| POTA reference     | `MY_SIG=POTA`, `MY_SIG_INFO`, `MY_POTA_REF`             |
 
 ## Deployment
 

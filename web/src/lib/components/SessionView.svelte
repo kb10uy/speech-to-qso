@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import type { QsoApp } from '../app/app.svelte';
-	import { applyStation, formatMhz, parseMhz, stationLabel } from '../qso';
+	import { applyStation, formatMhz, parseMhz, stationDefaults, stationLabel } from '../qso';
 
 	let { app, onDone }: { app: QsoApp; onDone: () => void } = $props();
 
@@ -16,21 +16,25 @@
 		}))
 	);
 	const anchorHz = $derived(parseMhz(form.anchor));
+	// Shown as placeholders: an empty field uses the station's value.
+	const defaults = $derived(
+		stationDefaults(app.stations.stations.find((s) => s.id === form.stationId))
+	);
 
-	/** Picking a station fills in its defaults; they can still be edited before saving. */
+	/** Picking another station drops the overrides made for the previous one. */
 	function pickStation(e: Event) {
 		const station = app.stations.stations.find(
 			(s) => s.id === (e.currentTarget as HTMLSelectElement).value
 		);
 		if (station === undefined) return;
-		const applied = applyStation({ ...app.session, operatorCall: form.operatorCall }, station);
+		const applied = applyStation(app.session, station);
 		form = {
 			...form,
 			stationId: applied.stationId,
-			stationCallsign: applied.stationCallsign ?? '',
+			stationCallsign: '',
 			location: applied.location,
-			potaReference: applied.potaReference ?? '',
-			myJcx: applied.myJcx ?? ''
+			potaReference: '',
+			myJcx: ''
 		};
 	}
 
@@ -42,6 +46,8 @@
 			...rest,
 			operatorCall: rest.operatorCall.trim().toUpperCase(),
 			stationCallsign: rest.stationCallsign.trim().toUpperCase() || undefined,
+			potaReference: rest.potaReference.trim() || undefined,
+			myJcx: rest.myJcx.trim() || undefined,
 			defaultMode: rest.defaultMode.trim().toUpperCase() || 'FM',
 			frequencyAnchorHz: anchorHz
 		});
@@ -60,7 +66,10 @@
 					<option value={station.id}>{stationLabel(station)}</option>
 				{/each}
 			</select>
-			<span class="hint">Fills in the fields below. Manage stations in Settings.</span>
+			<span class="hint"
+				>Empty fields below use the station's values (shown greyed out). Manage stations in
+				Settings.</span
+			>
 		</label>
 	{/if}
 	<label class="field">
@@ -70,25 +79,27 @@
 			type="text"
 			bind:value={form.operatorCall}
 			autocapitalize="characters"
+			placeholder={app.user?.callsign}
 		/>
 		<span class="hint">Leave empty to let Wavelog fill in your callsign.</span>
 	</label>
 	<label class="field">
-		<span>Station callsign (if not the operator's)</span>
+		<span>Station callsign</span>
 		<input
 			class="callsign"
 			type="text"
 			bind:value={form.stationCallsign}
 			autocapitalize="characters"
+			placeholder={defaults.stationCallsign}
 		/>
 	</label>
 	<label class="field">
 		<span>Operating location</span>
-		<input type="text" bind:value={form.location} />
+		<input type="text" bind:value={form.location} placeholder={defaults.location} />
 	</label>
 	<label class="field">
 		<span>Own JCC/JCG (optional)</span>
-		<input type="text" bind:value={form.myJcx} inputmode="numeric" />
+		<input type="text" bind:value={form.myJcx} inputmode="numeric" placeholder={defaults.myJcx} />
 	</label>
 	<label class="field">
 		<span>Frequency anchor (MHz)</span>
@@ -109,7 +120,7 @@
 			type="text"
 			bind:value={form.potaReference}
 			autocapitalize="characters"
-			placeholder="JP-0000"
+			placeholder={defaults.potaReference ?? 'JP-0000'}
 		/>
 	</label>
 	<button type="submit" class="primary" disabled={anchorHz === undefined}>Save</button>

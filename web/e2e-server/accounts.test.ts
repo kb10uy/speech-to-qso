@@ -58,7 +58,9 @@ test('registers a passkey from a bootstrap link, logs and syncs a QSO, signs in 
 
 	await page.getByRole('button', { name: 'Session', exact: true }).click();
 	await expect(page.getByRole('combobox', { name: /^Station/ })).toHaveValue(/.+/);
-	await expect(page.getByLabel('Operating location')).toHaveValue('Minato');
+	// The station's values are only shown; empty fields are left to the station.
+	await expect(page.getByLabel('Operating location')).toHaveValue('');
+	await expect(page.getByLabel('Operating location')).toHaveAttribute('placeholder', 'Minato');
 	// Left to Wavelog unless entered.
 	await expect(page.getByLabel('Operator callsign')).toHaveValue('');
 	await page.getByLabel('Frequency anchor (MHz)').fill('433');
@@ -76,6 +78,7 @@ test('registers a passkey from a bootstrap link, logs and syncs a QSO, signs in 
 	expect(adif).toContain('<CALL:6>JL1HIS');
 	expect(adif).toContain('<STATION_CALLSIGN:8>JJ1ABC/1');
 	expect(adif).not.toContain('<OPERATOR:');
+	expect(adif).toContain('<MY_CITY:6>Minato');
 	expect(adif).toContain('<MY_POTA_REF:7>JP-0001');
 
 	// Signing in again needs no callsign: the passkey identifies the user.

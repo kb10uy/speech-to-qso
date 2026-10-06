@@ -271,10 +271,15 @@ pub(crate) mod tests {
             })
         );
 
-        // Wavelog fills in the operator itself.
+        // Wavelog fills in the operator and the station location's values itself.
         let mut qso = sample();
         qso.operator = None;
-        assert!(qso.to_wavelog(3).unwrap().get("operator").is_none());
+        qso.location = String::new();
+        qso.pota_ref = None;
+        let body = qso.to_wavelog(3).unwrap();
+        for key in ["operator", "my_city", "my_sig", "my_sig_info", "my_pota_ref"] {
+            assert!(body.get(key).is_none(), "{key}");
+        }
 
         let mut qso = sample();
         qso.frequency = 100_000_000;

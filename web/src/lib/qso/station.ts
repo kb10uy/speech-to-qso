@@ -49,20 +49,37 @@ export function emptyStationInput(callsign = ''): StationInput {
 
 const orUndefined = (s: string) => (s.trim() === '' ? undefined : s.trim());
 
+/** The values a station provides wherever the session leaves them empty. */
+export interface StationDefaults {
+	stationCallsign?: string;
+	location?: string;
+	potaReference?: string;
+	myJcx?: string;
+}
+
+/** Keep in sync with `StationDefaults::of` in `server/src/adif.rs`. */
+export function stationDefaults(station: Station | undefined): StationDefaults {
+	if (station === undefined) return {};
+	return {
+		stationCallsign: orUndefined(station.callsign)?.toUpperCase(),
+		location: orUndefined(station.city),
+		potaReference: orUndefined(station.pota)?.toUpperCase(),
+		myJcx: orUndefined(station.cnty)
+	};
+}
+
 /**
- * Switches the session to a station: its values become the session's defaults for location,
- * POTA reference and own JCC/JCG, which can still be edited afterwards.
+ * Switches the session to a station. The session only keeps what overrides the station, so
+ * overrides made for the previous station are dropped.
  */
 export function applyStation(session: OperatingSession, station: Station): OperatingSession {
-	const stationCallsign = orUndefined(station.callsign)?.toUpperCase();
 	return {
 		...session,
 		stationId: station.id,
-		stationCallsign:
-			stationCallsign === session.operatorCall.trim().toUpperCase() ? undefined : stationCallsign,
-		location: station.city.trim(),
-		potaReference: orUndefined(station.pota)?.toUpperCase(),
-		myJcx: orUndefined(station.cnty)
+		stationCallsign: undefined,
+		location: '',
+		potaReference: undefined,
+		myJcx: undefined
 	};
 }
 

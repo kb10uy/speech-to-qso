@@ -4,6 +4,8 @@ import { isCallsign } from '../dsl';
 export interface OperatingSession {
 	/** Empty to leave the operator to Wavelog, which fills in the token owner's callsign. */
 	operatorCall: string;
+	// The fields below override the chosen station's values; empty ones are left to the station
+	// (and, in Wavelog, to its station location).
 	/** Free-form operating location (the portable operation site). */
 	location: string;
 	/** Partially spoken frequencies snap to the candidate nearest to this. */
@@ -15,7 +17,7 @@ export interface OperatingSession {
 	myJcx?: string;
 	/** The station (`Station.id`) chosen on this device; the server's default is used if unset. */
 	stationId?: string;
-	/** Callsign of the station, when it differs from the operator's (e.g. a club station). */
+	/** Callsign of the station (e.g. a club station or a portable suffix). */
 	stationCallsign?: string;
 }
 
