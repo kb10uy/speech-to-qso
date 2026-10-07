@@ -1,7 +1,13 @@
 import { goto } from '$app/navigation';
 import { asset } from '$app/paths';
-import { ApiError, ServerApi, type Me } from '../account/api';
-import { formatSpeech, formatTokens, parseSpeech, type SpeechLanguage } from '../dsl';
+import { ApiError, ServerApi, type CallsignHistory, type Me } from '../account/api';
+import {
+	formatSpeech,
+	formatTokens,
+	parseSpeech,
+	type SpeechLanguage,
+	type SpokenUpdate
+} from '../dsl';
 import {
 	adifFile,
 	applyStation,
@@ -30,10 +36,21 @@ export type AsrState = 'unloaded' | 'loading' | 'ready' | 'error';
 
 export interface Feedback {
 	kind: 'ok' | 'error' | 'info';
-	/** What the ASR heard (or what was typed), as display labels. */
-	heard?: string;
 	message: string;
 }
+
+/** What an utterance did to the draft: the fields it set, or none when it was rejected. */
+export interface AppliedUtterance {
+	source: 'voice' | 'typed';
+	ok: boolean;
+	fields: SpokenUpdate['kind'][];
+}
+
+export type HistoryLookup = { callsign: string } & (
+	| { status: 'loading' }
+	| { status: 'ready'; history: CallsignHistory }
+	| { status: 'error'; message: string }
+);
 
 export interface Utterance {
 	at: string;
@@ -46,6 +63,7 @@ export interface Utterance {
 
 const FINAL_RESULT_TIMEOUT_MS = 10_000;
 const MAX_UTTERANCES = 30;
+const FEEDBACK_MS = { ok: 3_000, info: 3_000, error: 6_000 };
 
 function vibrate(pattern: number | number[]) {
 	try {
@@ -91,6 +109,8 @@ export class QsoApp {
 	/** Token of a passkey bootstrap link (`#bootstrap=…`) the app was opened with. */
 	bootstrapToken = $state<string | null>(null);
 	localQsoCount = $state(0);
+	/** Wavelog's past QSOs with the latest callsign looked up; null without Wavelog. */
+	history = $state<HistoryLookup | null>(null);
 
 	#qsos: QsoStore | null = null;
 	#kv: KeyValueStore | null = null;
@@ -104,6 +124,9 @@ export class QsoApp {
 	#microphoneUsed = false;
 	#syncRequested = false;
 	#wakeLock: WakeLockSentinel | null = null;
+	#historyRequest = 0;
+	#feedbackTimer: ReturnType<typeof setTimeout> | undefined;
+	#utteranceListeners = new Set<(utterance: AppliedUtterance) => void>();
 
 	get unsyncedCount(): number {
 		return this.log.filter((r) => r.syncState !== 'synced').length;
@@ -228,9 +251,11 @@ export class QsoApp {
 		this.stations = stations ?? { default_station_id: null, stations: [] };
 		this.log = log;
 		this.localQsoCount = local.length;
-		this.feedback = null;
+		this.#notify(null);
 		this.utterances = [];
 		this.lastSync = null;
+		this.history = null;
+		this.#historyRequest += 1;
 		return true;
 	}
 
@@ -349,7 +374,7 @@ export class QsoApp {
 		if (this.ptt !== 'idle') return;
 		const recognizer = this.#recognizer;
 		if (recognizer === null || this.asr !== 'ready') {
-			this.feedback = { kind: 'error', message: 'Speech engine is not loaded' };
+			this.#notify({ kind: 'error', message: 'Speech engine is not loaded' });
 			return;
 		}
 		this.ptt = 'opening';
@@ -360,7 +385,7 @@ export class QsoApp {
 			if (recognizer.needsAudio) await this.#capture.open();
 		} catch (e) {
 			this.ptt = 'idle';
-			this.feedback = { kind: 'error', message: `Microphone: ${errorMessage(e)}` };
+			this.#notify({ kind: 'error', message: `Microphone: ${errorMessage(e)}` });
 			// A half-open or stuck context would fail the same way on every press; start over.
 			void this.#capture.close();
 			return;
@@ -369,10 +394,7 @@ export class QsoApp {
 		if (this.#releaseRequested) {
 			// Typically the first press, interrupted by the permission prompt.
 			this.ptt = 'idle';
-			this.feedback = {
-				kind: 'info',
-				message: 'Microphone ready. Hold the button while speaking.'
-			};
+			this.#notify({ kind: 'info', message: 'Microphone ready. Hold the button while speaking.' });
 			return;
 		}
 		try {
@@ -380,7 +402,7 @@ export class QsoApp {
 			if (recognizer.needsAudio) this.#capture.begin();
 		} catch (e) {
 			this.ptt = 'idle';
-			this.feedback = { kind: 'error', message: errorMessage(e) };
+			this.#notify({ kind: 'error', message: errorMessage(e) });
 			return;
 		}
 		this.ptt = 'listening';
@@ -405,7 +427,7 @@ export class QsoApp {
 			);
 			this.handleText(result.text, 'voice');
 		} catch (e) {
-			this.feedback = { kind: 'error', message: errorMessage(e) };
+			this.#notify({ kind: 'error', message: errorMessage(e) });
 			vibrate([60, 60, 60]);
 		} finally {
 			this.ptt = 'idle';
@@ -429,7 +451,7 @@ export class QsoApp {
 			this.ptt = 'idle';
 			this.partial = '';
 			this.level = 0;
-			this.feedback = { kind: 'info', message: 'Cancelled' };
+			this.#notify({ kind: 'info', message: 'Cancelled' });
 		}
 	}
 
@@ -449,16 +471,45 @@ export class QsoApp {
 			this.draft = draft;
 			void this.#saveDraft();
 			message = descriptions.join(', ');
-			this.feedback = { kind: 'ok', heard, message };
 		} else {
 			message = parsed.error;
-			this.feedback = { kind: 'error', heard, message };
 			vibrate([60, 60, 60]);
 		}
+		const fields = parsed.ok ? parsed.updates.map((u) => u.kind) : [];
+		for (const listener of this.#utteranceListeners) listener({ source, ok: parsed.ok, fields });
 		this.utterances = [
 			{ at: new Date().toISOString(), source, text: raw, heard, ok: parsed.ok, message },
 			...this.utterances
 		].slice(0, MAX_UTTERANCES);
+	}
+
+	/** Looks up a callsign in Wavelog, unless that is already done or under way. */
+	async lookUpHistory(callsign: string) {
+		if (this.history?.callsign === callsign && this.history.status !== 'error') return;
+		const request = ++this.#historyRequest;
+		this.history = { callsign, status: 'loading' };
+		try {
+			const history = await this.api.callsignHistory(callsign);
+			if (request === this.#historyRequest) this.history = { callsign, status: 'ready', history };
+		} catch (e) {
+			if (request !== this.#historyRequest) return;
+			const noWavelog = e instanceof ApiError && e.status === 409;
+			this.history = noWavelog ? null : { callsign, status: 'error', message: errorMessage(e) };
+		}
+	}
+
+	/** Calls `listener` after every utterance; returns a function that stops it. */
+	onUtterance(listener: (utterance: AppliedUtterance) => void): () => void {
+		this.#utteranceListeners.add(listener);
+		return () => this.#utteranceListeners.delete(listener);
+	}
+
+	/** Shows a message for a few seconds, or hides the current one. */
+	#notify(feedback: Feedback | null) {
+		clearTimeout(this.#feedbackTimer);
+		this.feedback = feedback;
+		if (feedback === null) return;
+		this.#feedbackTimer = setTimeout(() => (this.feedback = null), FEEDBACK_MS[feedback.kind]);
 	}
 
 	// ---------------------------------------------------------------- QSO log
@@ -466,7 +517,7 @@ export class QsoApp {
 	/** Starts a new QSO, carrying frequency and mode over. */
 	async clearDraft() {
 		this.draft = newDraft({ frequencyHz: this.draft.frequencyHz, mode: this.draft.mode });
-		this.feedback = null;
+		this.#notify(null);
 		await this.#saveDraft();
 	}
 
@@ -481,7 +532,7 @@ export class QsoApp {
 		const qsos = this.#qsos!;
 		const result = finalizeDraft(this.draft, this.session, crypto.randomUUID());
 		if (!result.ok) {
-			this.feedback = { kind: 'error', message: result.problems.join(' / ') };
+			this.#notify({ kind: 'error', message: result.problems.join(' / ') });
 			vibrate([60, 60, 60]);
 			return false;
 		}
@@ -492,10 +543,10 @@ export class QsoApp {
 		this.draft = newDraft({ frequencyHz: result.record.frequencyHz, mode: result.record.mode });
 		await this.#saveDraft();
 		if (version !== this.#accountVersion) return true;
-		this.feedback = {
+		this.#notify({
 			kind: 'ok',
 			message: `${result.record.callsign} logged locally${this.syncConfigured ? ', waiting for sync' : ''}`
-		};
+		});
 		vibrate(40);
 		void this.sync();
 		return true;

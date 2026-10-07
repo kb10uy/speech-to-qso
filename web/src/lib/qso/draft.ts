@@ -36,7 +36,7 @@ export function isPristine(draft: DraftQso): boolean {
 	return draft.startedAt === undefined;
 }
 
-/** Human-readable description of what an update did, for the feedback line. */
+/** Human-readable description of what an update did, for the list of recent utterances. */
 export function describeUpdate(update: SpokenUpdate, after: DraftQso): string {
 	switch (update.kind) {
 		case 'callsign':

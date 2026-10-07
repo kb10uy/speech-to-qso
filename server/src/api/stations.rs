@@ -1,10 +1,10 @@
-//! Wavelog connection and station locations.
+//! Wavelog connection, station locations, and what Wavelog knows about a callsign.
 
 use std::sync::Arc;
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
@@ -12,8 +12,9 @@ use serde::{Deserialize, Serialize};
 use super::{AppState, auth::CurrentUser};
 use crate::{
     error::{Error, Result},
+    qso::is_callsign,
     stations::{self, Station, StationInput, StationList},
-    wavelog::{self, WavelogConnection, WavelogError},
+    wavelog::{self, CallsignHistory, WavelogConnection, WavelogError},
 };
 
 fn wavelog_failed(e: WavelogError) -> Error {
@@ -80,6 +81,41 @@ pub async fn put_wavelog(
     Ok(Json(
         stations::replace_wavelog_stations(&state.db, user.id, fetched).await?,
     ))
+}
+
+#[derive(Deserialize)]
+pub struct HistoryQuery {
+    callsign: String,
+}
+
+#[derive(Serialize)]
+pub struct HistoryResponse {
+    callsign: String,
+    #[serde(flatten)]
+    history: CallsignHistory,
+}
+
+/// The user's past QSOs with a callsign, as Wavelog has them.
+pub async fn get_history(
+    State(state): State<Arc<AppState>>,
+    CurrentUser(user): CurrentUser,
+    Query(query): Query<HistoryQuery>,
+) -> Result<Json<HistoryResponse>> {
+    let callsign = query.callsign.trim().to_uppercase();
+    if !is_callsign(&callsign) {
+        return Err(Error::Unprocessable(format!(
+            "callsign: {callsign:?} is not a valid callsign"
+        )));
+    }
+    let conn = wavelog::load_connection(&state.db, user.id)
+        .await?
+        .ok_or_else(|| Error::Conflict("Wavelog is not set up".into()))?;
+    let history = state
+        .wavelog
+        .callsign_history(&conn, &callsign)
+        .await
+        .map_err(wavelog_failed)?;
+    Ok(Json(HistoryResponse { callsign, history }))
 }
 
 /// Forgets the Wavelog connection. The copied stations stay, but QSOs are no longer forwarded.

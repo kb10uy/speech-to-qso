@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { QsoApp } from '../app/app.svelte';
-	import { formatMhz, sessionProblems } from '../qso';
+	import { formatMhz, formatUtcMinute, sessionProblems } from '../qso';
+	import { flash } from './flash';
 	import PttButton from './PttButton.svelte';
 
 	let { app, onOpenSession }: { app: QsoApp; onOpenSession: () => void } = $props();
@@ -8,9 +10,32 @@
 	let command = $state('');
 	let commandInput = $state<HTMLInputElement | null>(null);
 	let commandOpen = $state(false);
+	let draftSection = $state<HTMLElement | null>(null);
 
 	const draft = $derived(app.draft);
 	const problems = $derived(sessionProblems(app.session));
+	const history = $derived(app.history?.callsign === draft.callsign ? app.history : null);
+	const found = $derived(history?.status === 'ready' ? history.history : null);
+	const blank = $derived(history?.status === 'loading' ? '…' : '—');
+
+	function time(iso: string | null): string {
+		return iso === null ? '—' : formatUtcMinute(iso);
+	}
+
+	$effect(() => {
+		const callsign = draft.callsign;
+		if (callsign === undefined || app.account !== 'signedIn' || !app.online) return;
+		untrack(() => void app.lookUpHistory(callsign));
+	});
+
+	$effect(() =>
+		app.onUtterance(({ source, ok, fields }) => {
+			if (!ok && source === 'typed') void flash(() => commandInput, 'flash-error');
+			for (const field of fields) {
+				void flash(() => draftSection?.querySelector(`[data-field="${field}"]`), 'flash');
+			}
+		})
+	);
 
 	function submitCommand(e: SubmitEvent) {
 		e.preventDefault();
@@ -33,23 +58,11 @@
 	</button>
 {/if}
 
-<section class="draft" aria-label="Draft QSO">
-	<button class="cell callsign mono" class:empty={!draft.callsign} onclick={() => edit('')}>
-		{draft.callsign ?? 'CALLSIGN'}
-	</button>
-
-	<div class="row">
-		<button class="cell rst" onclick={() => edit('sent')}>
-			<span class="key">S</span><span class="mono">{draft.rstSent}</span>
-		</button>
-		<button class="cell rst" onclick={() => edit('received')}>
-			<span class="key">R</span><span class="mono">{draft.rstReceived}</span>
-		</button>
-	</div>
-
+<section class="draft" aria-label="Draft QSO" bind:this={draftSection}>
 	<div class="row">
 		<button
 			class="cell freq"
+			data-field="frequency"
 			class:empty={draft.frequencyHz === undefined}
 			onclick={() => edit('frequency')}
 		>
@@ -58,16 +71,55 @@
 			>
 			<span class="unit">MHz</span>
 		</button>
-		<button class="cell mode mono" onclick={() => edit('mode')}>
+		<button class="cell mode mono" data-field="mode" onclick={() => edit('mode')}>
 			{draft.mode ?? app.session.defaultMode}
 		</button>
 	</div>
 
+	<button
+		class="cell callsign mono"
+		data-field="callsign"
+		class:empty={!draft.callsign}
+		onclick={() => edit('')}
+	>
+		{draft.callsign ?? 'CALLSIGN'}
+	</button>
+
 	<div class="row">
-		<button class="cell" class:empty={!draft.jcx} onclick={() => edit('jcx')}>
+		<button class="cell rst" data-field="rstSent" onclick={() => edit('sent')}>
+			<span class="key">S</span><span class="mono">{draft.rstSent}</span>
+		</button>
+		<button class="cell rst" data-field="rstReceived" onclick={() => edit('received')}>
+			<span class="key">R</span><span class="mono">{draft.rstReceived}</span>
+		</button>
+	</div>
+
+	<div class="history {history?.status ?? 'none'}" aria-label="Wavelog history" aria-live="polite">
+		{#if history?.status === 'error'}
+			<span class="note">Wavelog lookup failed: {history.message}</span>
+		{:else}
+			<div><span class="key">QSOs</span><span class="mono">{found?.qsos ?? blank}</span></div>
+			<div>
+				<span class="key">Last QSO</span>
+				<span class="mono">{found ? time(found.last_qso) : blank}</span>
+			</div>
+			<div>
+				<span class="key">Last QSL sent</span>
+				<span class="mono">{found ? time(found.last_qsl_sent) : blank}</span>
+			</div>
+		{/if}
+	</div>
+
+	<div class="row">
+		<button class="cell" data-field="jcx" class:empty={!draft.jcx} onclick={() => edit('jcx')}>
 			<span class="key">JCC/JCG</span><span class="mono">{draft.jcx ?? '—'}</span>
 		</button>
-		<button class="cell" class:qsl={draft.qsl !== 'none'} onclick={() => edit('card')}>
+		<button
+			class="cell"
+			data-field="qsl"
+			class:qsl={draft.qsl !== 'none'}
+			onclick={() => edit('card')}
+		>
 			{{ none: 'No QSL', requested: 'QSL Requested', oneWay: 'QSL One Way' }[draft.qsl]}
 		</button>
 	</div>
@@ -77,15 +129,13 @@
 	</div>
 </section>
 
-<div class="feedback {app.feedback?.kind ?? 'none'}" role="status" aria-live="polite">
-	{#if app.feedback}
-		{#if app.feedback.heard !== undefined}
-			<div class="heard">“{app.feedback.heard}”</div>
-		{/if}
-		<div>{app.feedback.message}</div>
-	{:else}
-		<div class="hint">Hold the button and speak, e.g. “received five seven”.</div>
-	{/if}
+<div
+	class="toast {app.feedback?.kind ?? ''}"
+	class:shown={app.feedback !== null}
+	role="status"
+	aria-live="polite"
+>
+	{app.feedback?.message ?? ''}
 </div>
 
 {#if app.asr === 'ready'}
@@ -153,6 +203,7 @@
 	.draft {
 		display: grid;
 		gap: 0.5rem;
+		margin-bottom: 0.8rem;
 	}
 	.row {
 		display: grid;
@@ -210,6 +261,40 @@
 	.row:has(.freq) {
 		grid-template-columns: 2fr 1fr;
 	}
+	.history {
+		display: grid;
+		grid-template-columns: auto 1fr 1fr;
+		gap: 0.8rem;
+		align-items: start;
+		min-height: 3.6rem;
+		box-sizing: border-box;
+		padding: 0.3rem 0.8rem;
+		border-left: 4px solid var(--info);
+		border-radius: var(--radius);
+		background: var(--surface);
+	}
+	.history > div {
+		display: grid;
+	}
+	.history .key {
+		font-size: 0.75rem;
+	}
+	.history .mono {
+		font-size: 0.95rem;
+		line-height: 1.2;
+	}
+	.history .note {
+		grid-column: 1 / -1;
+		align-self: center;
+		font-size: 0.9rem;
+		color: var(--muted);
+	}
+	.history.error {
+		border-left-color: var(--error);
+	}
+	.history.error .note {
+		color: var(--error);
+	}
 	.qsl {
 		color: var(--accent);
 		border-color: var(--accent);
@@ -222,32 +307,35 @@
 		color: var(--muted);
 		padding: 0 0.3rem;
 	}
-	.feedback {
-		margin: 0.8rem 0;
-		min-height: 3.2rem;
-		padding: 0.5rem 0.8rem;
+	.toast {
+		position: fixed;
+		top: 0.5rem;
+		left: 50%;
+		z-index: 10;
+		width: max-content;
+		max-width: calc(100vw - 2rem);
+		padding: 0.6rem 0.9rem;
 		border-radius: 10px;
-		border-left: 4px solid var(--border);
-		background: var(--surface);
+		border-left: 4px solid var(--info);
+		background: var(--surface-2);
+		box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
 		font-size: 0.95rem;
+		pointer-events: none;
+		opacity: 0;
+		transform: translate(-50%, -0.5rem);
 	}
-	.feedback.ok {
+	.toast.shown {
+		opacity: 1;
+		transform: translate(-50%, 0);
+		transition:
+			opacity 150ms,
+			transform 150ms;
+	}
+	.toast.ok {
 		border-left-color: var(--ok);
 	}
-	.feedback.error {
+	.toast.error {
 		border-left-color: var(--error);
-	}
-	.feedback.info {
-		border-left-color: var(--info);
-	}
-	.feedback.error > div:last-child {
-		color: var(--error);
-	}
-	.heard {
-		font-family: var(--mono);
-		color: var(--muted);
-		font-size: 0.85rem;
-		word-break: break-word;
 	}
 	.asr {
 		min-height: 9rem;

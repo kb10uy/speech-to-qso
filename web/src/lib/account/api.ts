@@ -38,6 +38,15 @@ export interface WavelogSettings {
 	url: string | null;
 }
 
+/** The user's past QSOs with a callsign, as Wavelog has them. Times are ISO 8601 in UTC. */
+export interface CallsignHistory {
+	callsign: string;
+	qsos: number;
+	last_qso: string | null;
+	/** When the latest QSO whose card was sent was made (not when the card was sent). */
+	last_qsl_sent: string | null;
+}
+
 export interface QsoResult {
 	status: 'created' | 'duplicate';
 	id: string;
@@ -176,6 +185,11 @@ export class ServerApi {
 
 	disconnectWavelog(): Promise<void> {
 		return this.request('DELETE', '/api/wavelog');
+	}
+
+	/** Fails with 409 when Wavelog is not set up. */
+	callsignHistory(callsign: string): Promise<CallsignHistory> {
+		return this.request('GET', `/api/wavelog/history?callsign=${encodeURIComponent(callsign)}`);
 	}
 
 	stations(): Promise<StationList> {

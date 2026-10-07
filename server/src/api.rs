@@ -110,6 +110,7 @@ pub fn router(state: Arc<AppState>, web_dir: Option<&Path>) -> Router {
                 .put(stations::put_wavelog)
                 .delete(stations::delete_wavelog),
         )
+        .route("/api/wavelog/history", get(stations::get_history))
         .route(
             "/api/stations",
             get(stations::list_stations).post(stations::create_station),
@@ -175,9 +176,12 @@ mod tests {
     };
     use http_body_util::BodyExt;
     use serde_json::Value;
-    use std::sync::{
-        Mutex,
-        atomic::{AtomicBool, Ordering},
+    use std::{
+        collections::HashMap,
+        sync::{
+            Mutex,
+            atomic::{AtomicBool, Ordering},
+        },
     };
     use tower::ServiceExt;
 
@@ -298,7 +302,28 @@ mod tests {
                             (StatusCode::CREATED, Json(json!({"data": {"id": 4886}})))
                         }
                     }
-                }),
+                })
+                .get(
+                    move |headers: axum::http::HeaderMap,
+                          axum::extract::Query(query): axum::extract::Query<HashMap<String, String>>| async move {
+                        assert!(authorized(&headers));
+                        assert_eq!(query["format"], "adif");
+                        if query["callsign"] != "JL1HIS" {
+                            let listing = json!({"data": {"exported": 0, "lastfetchedid": 0, "adif": null},
+                                "meta": {"page": 1, "per_page": 5000, "count": 0, "total": 0, "total_pages": 0,
+                                         "has_more": false}});
+                            return Json(listing);
+                        }
+                        let page = query.get("page").map_or("1", String::as_str);
+                        let adif = match page {
+                            "1" => "<QSO_DATE:8>20250401 <TIME_ON:6>123456 <QSL_SENT:1>Y <EOR>",
+                            _ => "<QSO_DATE:8>20261003 <TIME_ON:6>040506 <QSL_SENT:1>R <EOR>",
+                        };
+                        Json(json!({"data": {"exported": 1, "lastfetchedid": 1, "adif": format!("<EOH>{adif}")},
+                            "meta": {"page": page.parse::<u32>().unwrap(), "per_page": 1, "count": 1, "total": 2,
+                                     "total_pages": 2, "has_more": page == "1"}}))
+                    },
+                ),
             );
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
@@ -589,6 +614,35 @@ mod tests {
         assert_eq!((status, json["forwarded"].clone()), (StatusCode::OK, json!(true)));
         assert_eq!(wavelog.uploads.lock().unwrap().len(), 3);
         assert_eq!(logbook::list(&h.db, h.user.id).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn looks_up_callsigns_in_wavelog() {
+        let wavelog = fake_wavelog().await;
+        let h = harness(None).await;
+        let (status, _) = h.get("/api/wavelog/history?callsign=JL1HIS").await;
+        assert_eq!(status, StatusCode::CONFLICT);
+        h.put("/api/wavelog", json!({"url": wavelog.url, "token": "wl2_token"}))
+            .await;
+
+        let (status, json) = h.get("/api/wavelog/history?callsign=jl1his").await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            json,
+            json!({"callsign": "JL1HIS", "qsos": 2, "last_qso": "2026-10-03T04:05:06Z",
+                   "last_qsl_sent": "2025-04-01T12:34:56Z"})
+        );
+        let (_, json) = h.get("/api/wavelog/history?callsign=JA1ABC%2F1").await;
+        assert_eq!(
+            json,
+            json!({"callsign": "JA1ABC/1", "qsos": 0, "last_qso": null, "last_qsl_sent": null})
+        );
+        let (status, _) = h.get("/api/wavelog/history?callsign=hello").await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        let (status, _) = h
+            .request(Method::GET, "/api/wavelog/history?callsign=JL1HIS", None, false)
+            .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
 
     #[tokio::test]

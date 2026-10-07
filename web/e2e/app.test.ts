@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 async function setUpSession(page: Page) {
 	await page.goto('./');
@@ -15,6 +15,16 @@ async function openMenu(page: Page, item: string) {
 	await page.getByRole('menuitem', { name: item }).click();
 }
 
+/** Records whether the element gets the class at some point, since a flash lasts only 0.5 s. */
+async function watchClass(locator: Locator, className: string) {
+	await locator.evaluate((element, className) => {
+		new MutationObserver(() => {
+			if (element.classList.contains(className)) element.setAttribute('data-seen', className);
+		}).observe(element, { attributes: true, attributeFilter: ['class'] });
+	}, className);
+	return () => expect(locator).toHaveAttribute('data-seen', className);
+}
+
 async function type(page: Page, command: string) {
 	const input = page.getByPlaceholder(/e\.g\. jl1his/);
 	if (!(await input.isVisible())) await page.getByText('Type a command').click();
@@ -25,7 +35,12 @@ async function type(page: Page, command: string) {
 test('fills a QSO from typed DSL commands and logs it locally', async ({ page }) => {
 	await setUpSession(page);
 
+	const callsignFlashed = await watchClass(
+		page.getByLabel('Draft QSO').locator('[data-field="callsign"]'),
+		'flash'
+	);
 	await type(page, 'juliett lima one hotel india sierra');
+	await callsignFlashed();
 	await type(page, 'received five seven');
 	await type(page, 'frequency point nine four');
 	await type(page, 'jcx one zero zero one zero one');
@@ -38,8 +53,13 @@ test('fills a QSO from typed DSL commands and logs it locally', async ({ page })
 	await expect(draft).toContainText('100101');
 	await expect(draft).toContainText('QSL Requested');
 
+	const commandFlashed = await watchClass(page.getByPlaceholder(/e\.g\. jl1his/), 'flash-error');
 	await type(page, 'received banana');
-	await expect(page.getByRole('status')).toContainText('unexpected "banana" in RST');
+	await commandFlashed();
+	await page.getByText(/^Recent utterances/).click();
+	await expect(page.getByRole('listitem').filter({ hasText: 'banana' })).toContainText(
+		'unexpected "banana" in RST'
+	);
 
 	await page.getByRole('button', { name: 'LOG QSO' }).click();
 	await expect(page.getByRole('status')).toContainText('JL1HIS logged locally');
@@ -120,7 +140,10 @@ test('switches to the bundled Japanese model and takes Japanese commands', async
 	await expect(draft).toContainText('JL1HIS');
 	await expect(draft).toContainText('57');
 	await expect(draft).toContainText('QSL One Way');
-	await expect(page.getByRole('status')).toContainText('J L 1 H I S RCVD 5 7 QSL ONE WAY');
+	await page.getByText(/^Recent utterances/).click();
+	await expect(page.getByRole('listitem').first()).toContainText(
+		'J L 1 H I S RCVD 5 7 QSL ONE WAY'
+	);
 });
 
 test('starts offline once installed', async ({ page, context }) => {

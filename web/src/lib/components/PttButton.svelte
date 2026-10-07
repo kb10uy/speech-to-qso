@@ -1,7 +1,16 @@
 <script lang="ts">
 	import type { QsoApp } from '../app/app.svelte';
+	import { flash } from './flash';
 
 	let { app }: { app: QsoApp } = $props();
+
+	let button = $state<HTMLButtonElement | null>(null);
+
+	$effect(() =>
+		app.onUtterance(({ source, ok }) => {
+			if (!ok && source === 'voice') void flash(() => button, 'flash-error');
+		})
+	);
 
 	function down(e: PointerEvent) {
 		if (e.button !== 0) return;
@@ -23,6 +32,7 @@
 </script>
 
 <button
+	bind:this={button}
 	class="ptt"
 	class:active={app.ptt === 'listening' || app.ptt === 'opening'}
 	class:busy={app.ptt === 'finishing'}

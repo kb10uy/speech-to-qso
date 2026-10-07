@@ -30,8 +30,9 @@ Hold PTT → getUserMedia → AudioWorklet (16 kHz mono) → Vosk WASM (Worker)
 4. Speak only while holding **HOLD TO TALK**; releasing it runs recognition → parsing → draft update
 5. Check the result and press **LOG QSO**
 
-What was heard and what changed are shown in the feedback line above the button
-(`“received five seven” → RST received → 57`). If the ASR struggles, the same DSL can be typed under
+The fields an utterance sets flash briefly; a rejected utterance flashes the button (or the command box) red instead.
+What was heard and what changed are listed under "Recent utterances" (`J L 1 H I S` → `Callsign → JL1HIS`). Other
+messages, such as LOG QSO problems and microphone errors, appear for a few seconds at the top. If the ASR struggles, the same DSL can be typed under
 "Type a command" (shorthands such as `jl1his`, `received 57` and `freq .94` also work).
 On a desktop, the Space key works as PTT.
 
@@ -111,6 +112,9 @@ cargo run --release -- serve
   It requires `X-QSO-User` with the intended user's UUID; a different session user is rejected with 401, protecting
   pending uploads when another tab changes the shared login cookie. Retries use the original saved payload and station.
 - `GET /api/qso.adi` downloads the user's whole log as ADIF ("Download the server log" in the Log tab).
+- `GET /api/wavelog/history?callsign=…` returns the number of QSOs with that callsign in the user's Wavelog, when the
+  latest one was made, and when the latest one with `QSL_SENT` = `Y` was made (not when its card was sent). It answers
+  409 when Wavelog is not set up.
 
 ### Users and passkeys
 
@@ -139,8 +143,8 @@ speech-to-qso-server passkey bootstrap JJ1ABC
 
 ### Wavelog and stations
 
-Settings → Wavelog takes the Wavelog URL and an API v2 token (Wavelog 3.1.0 or later) with the `station:read` and
-`qso:write` scopes. The server checks it by fetching the station locations and keeps a copy of them; **Refresh
+Settings → Wavelog takes the Wavelog URL and an API v2 token (Wavelog 3.1.0 or later) with the `station:read`,
+`qso:read` and `qso:write` scopes. The server checks it by fetching the station locations and keeps a copy of them; **Refresh
 stations** fetches them again. Users without Wavelog add stations by hand instead (their QSOs are only stored on the
 server).
 
@@ -150,6 +154,9 @@ POTA reference (`pota`) and own JCC/JCG (`cnty`); the Session tab shows them as 
 there overrides them. QSOs are forwarded with the station's Wavelog id as `station_profile_id` and only carry the
 overrides, so Wavelog takes the rest from its station location. ADIF exports fill them in from the station. The operator callsign may be left empty: Wavelog then fills in the token
 owner's callsign, and the app's own ADIF records leave `OPERATOR` out.
+
+Once a callsign is entered, the QSO tab looks it up in Wavelog (an exact match, across all station locations) and shows
+the number of past QSOs, when the latest was made, and when the latest QSO whose card was sent was made.
 
 ### ADIF mapping
 

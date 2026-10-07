@@ -31,6 +31,15 @@ describe('ServerApi.request', () => {
 		expect(JSON.parse(init.body as string)).toEqual({ station_id: 's1' });
 	});
 
+	it('looks up callsigns with the callsign in the query', async () => {
+		const history = { callsign: 'JA1ABC/1', qsos: 0, last_qso: null, last_qsl_sent: null };
+		const fetchMock = vi.fn(async () => json(200, history));
+		await expect(new ServerApi(fetchMock).callsignHistory('JA1ABC/1')).resolves.toEqual(history);
+		const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+		expect(url).toBe('/api/wavelog/history?callsign=JA1ABC%2F1');
+		expect(init.method).toBe('GET');
+	});
+
 	it('returns nothing for 204', async () => {
 		const api = new ServerApi(vi.fn(async () => new Response(null, { status: 204 })));
 		await expect(api.logout()).resolves.toBeUndefined();

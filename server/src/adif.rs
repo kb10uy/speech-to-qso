@@ -1,4 +1,6 @@
-//! ADIF (ADI) rendering. Keep in sync with `web/src/lib/qso/adif.ts`.
+//! ADIF (ADI) rendering, kept in sync with `web/src/lib/qso/adif.ts`, and reading.
+
+use std::collections::HashMap;
 
 use crate::{
     band::band_for_frequency,
@@ -106,6 +108,36 @@ pub fn header() -> String {
     out
 }
 
+/// Reads the records of an ADI file, with upper-case field names. Field lengths count characters,
+/// like `field` and Wavelog's export write them.
+pub fn read_records(text: &str) -> Vec<HashMap<String, String>> {
+    let mut records = Vec::new();
+    let mut fields = HashMap::new();
+    let mut rest = text;
+    while let Some(start) = rest.find('<') {
+        let Some(length) = rest[start..].find('>') else {
+            break;
+        };
+        let tag = &rest[start + 1..start + length];
+        rest = &rest[start + length + 1..];
+        let mut parts = tag.split(':');
+        let name = parts.next().unwrap_or_default().trim().to_ascii_uppercase();
+        match name.as_str() {
+            "EOH" => fields.clear(),
+            "EOR" => records.push(std::mem::take(&mut fields)),
+            _ => {
+                let Some(length) = parts.next().and_then(|l| l.trim().parse::<usize>().ok()) else {
+                    continue;
+                };
+                let end = rest.char_indices().nth(length).map_or(rest.len(), |(i, _)| i);
+                fields.insert(name, rest[..end].to_string());
+                rest = &rest[end..];
+            }
+        }
+    }
+    records
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,6 +226,35 @@ mod tests {
         assert!(!adif.contains("JCX"));
         assert!(!adif.contains("MY_SIG"));
         assert!(adif.contains("<MY_CITY:5>東京都港区 "));
+    }
+
+    #[test]
+    fn reads_records_after_the_header() {
+        let text = "Wavelog ADIF export
+<ADIF_VER:5>3.1.7
+<PROGRAMID:7>Wavelog
+<EOH>
+
+                    <CALL:6>JL1HIS
+<QTH:5>東京都港区
+<qsl_sent:1>Y
+<EOR>
+                    <CALL:6>JL1HIS <APP_X:3:S>a<b <EOR>";
+        let records = read_records(text);
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0]["CALL"], "JL1HIS");
+        assert_eq!(records[0]["QTH"], "東京都港区");
+        assert_eq!(records[0]["QSL_SENT"], "Y");
+        assert!(!records[0].contains_key("ADIF_VER"));
+        assert_eq!(records[1]["APP_X"], "a<b");
+    }
+
+    #[test]
+    fn reads_back_what_it_writes() {
+        let records = read_records(&format!("{}{}", header(), record(&sample(), None)));
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0]["CALL"], "JL1HIS");
+        assert_eq!(records[0]["MY_POTA_REF"], "JP-0001");
     }
 
     #[test]
