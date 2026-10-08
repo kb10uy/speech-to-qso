@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { asset } from '$app/paths';
     import { QsoApp } from '../lib/app/app.svelte';
     import AccountMenu from '../lib/components/AccountMenu.svelte';
     import BootstrapView from '../lib/components/BootstrapView.svelte';
@@ -45,15 +46,20 @@
 </svelte:head>
 
 <header>
-    <nav>
-        <button class:current={tab === 'qso'} onclick={() => (tab = 'qso')}>QSO</button>
-        <button class:current={tab === 'session'} onclick={() => (tab = 'session')}>Session</button>
-        <button class:current={tab === 'log'} onclick={() => (tab = 'log')}>
-            Log{#if app.unsyncedCount > 0 && app.syncConfigured}<span class="dot"
-                    >{app.unsyncedCount}</span
-                >{/if}
-        </button>
-    </nav>
+    <div class="brand">
+        <img class="icon" src={asset('icon.svg')} alt="Speech to QSO" />
+        <nav>
+            <button class:current={tab === 'qso'} onclick={() => (tab = 'qso')}>QSO</button>
+            <button class:current={tab === 'session'} onclick={() => (tab = 'session')}>
+                Session
+            </button>
+            <button class:current={tab === 'log'} onclick={() => (tab = 'log')}>
+                Log{#if app.unsyncedCount > 0 && app.syncConfigured}<span class="dot"
+                        >{app.unsyncedCount}</span
+                    >{/if}
+            </button>
+        </nav>
+    </div>
     <div class="status">
         {#if !app.online}<span class="offline">offline</span>{/if}
         <AccountMenu
@@ -104,6 +110,17 @@
             max(0.6rem, calc((100% - 32rem) / 2 + 0.8rem)) 0.4rem;
         background: var(--bg);
         border-bottom: 1px solid var(--border);
+    }
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+    }
+    .icon {
+        flex: none;
+        width: 2rem;
+        height: 2rem;
     }
     nav {
         display: flex;
