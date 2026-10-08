@@ -167,7 +167,7 @@ the number of past QSOs, when the latest was made, and when the latest QSO whose
 | RST sent / rcvd    | `RST_SENT` / `RST_RCVD`                                 |
 | QSL requested      | `QSL_SENT:R` (the other station requested a card)       |
 | QSL one way        | `QSL_SENT:N`, `QSL_RCVD:R` (their card is coming)       |
-| JCX                | `COMMENT` (`JCX 100101`), `APP_SPEECHTOQSO_JCX`         |
+| JCC/JCG            | `CNTY`                                                  |
 | Operator callsign  | `OPERATOR` (left out if empty)                          |
 | Station callsign   | `STATION_CALLSIGN` (the station's, else the operator's) |
 | Operating location | `MY_CITY`                                               |

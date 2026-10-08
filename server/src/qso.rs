@@ -162,7 +162,7 @@ impl QsoPayload {
             }
         }
         if let Some(jcx) = &self.jcx {
-            set("comment", format!("JCX {jcx}").into());
+            set("cnty", jcx.clone().into());
         }
         if let Some(operator) = &self.operator {
             set("operator", operator.clone().into());
@@ -262,7 +262,7 @@ pub(crate) mod tests {
                 "rst_sent": "59",
                 "rst_rcvd": "57",
                 "qsl_sent": "R",
-                "comment": "JCX 100101",
+                "cnty": "100101",
                 "operator": "JJ1ABC",
                 "my_city": "Minato",
                 "my_sig": "POTA",

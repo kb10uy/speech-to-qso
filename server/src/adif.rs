@@ -53,7 +53,6 @@ pub fn record(qso: &QsoPayload, station: Option<&Station>) -> String {
     let date = qso.time_on.format("%Y%m%d").to_string();
     let time = qso.time_on.format("%H%M%S").to_string();
     let freq = frequency(qso.frequency);
-    let comment = qso.jcx.as_ref().map(|jcx| format!("JCX {jcx}"));
     let pota = qso.pota_ref.as_deref().or(defaults.pota_ref.as_deref());
     let location = Some(qso.location.as_str())
         .filter(|l| !l.is_empty())
@@ -75,8 +74,7 @@ pub fn record(qso: &QsoPayload, station: Option<&Station>) -> String {
     };
     field(&mut out, "QSL_SENT", qsl_sent);
     field(&mut out, "QSL_RCVD", qsl_rcvd);
-    field(&mut out, "COMMENT", comment.as_deref());
-    field(&mut out, "APP_SPEECHTOQSO_JCX", qso.jcx.as_deref());
+    field(&mut out, "CNTY", qso.jcx.as_deref());
     field(&mut out, "OPERATOR", qso.operator.as_deref());
     field(
         &mut out,
@@ -149,9 +147,8 @@ mod tests {
         assert_eq!(
             record(&sample(), None),
             "<CALL:6>JL1HIS <QSO_DATE:8>20261003 <TIME_ON:6>040506 <FREQ:6>432.94 <BAND:4>70cm \
-             <MODE:2>FM <RST_SENT:2>59 <RST_RCVD:2>57 <QSL_SENT:1>R <COMMENT:10>JCX 100101 \
-             <APP_SPEECHTOQSO_JCX:6>100101 <OPERATOR:6>JJ1ABC <STATION_CALLSIGN:6>JJ1ABC \
-             <MY_CITY:6>Minato <MY_SIG:4>POTA <MY_SIG_INFO:7>JP-0001 <MY_POTA_REF:7>JP-0001 <EOR>"
+             <MODE:2>FM <RST_SENT:2>59 <RST_RCVD:2>57 <QSL_SENT:1>R <CNTY:6>100101 \
+             <OPERATOR:6>JJ1ABC <STATION_CALLSIGN:6>JJ1ABC <MY_CITY:6>Minato <MY_SIG:4>POTA <MY_SIG_INFO:7>JP-0001 <MY_POTA_REF:7>JP-0001 <EOR>"
         );
     }
 
@@ -160,7 +157,7 @@ mod tests {
         let mut qso = sample();
         qso.qsl = Qsl::OneWay;
         // Identical to the expectation in web/src/lib/qso/adif.test.ts.
-        assert!(record(&qso, None).contains("<RST_RCVD:2>57 <QSL_SENT:1>N <QSL_RCVD:1>R <COMMENT:10>JCX 100101 "));
+        assert!(record(&qso, None).contains("<RST_RCVD:2>57 <QSL_SENT:1>N <QSL_RCVD:1>R <CNTY:6>100101 "));
     }
 
     #[test]
@@ -177,7 +174,7 @@ mod tests {
         qso.operator = None;
         qso.station_callsign = Some("JJ1ABC/1".into());
         // Identical to the expectation in web/src/lib/qso/adif.test.ts.
-        assert!(record(&qso, None).contains("<APP_SPEECHTOQSO_JCX:6>100101 <STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>"));
+        assert!(record(&qso, None).contains("<CNTY:6>100101 <STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>"));
     }
 
     #[test]
@@ -223,7 +220,7 @@ mod tests {
         qso.location = "東京都港区".into();
         let adif = record(&qso, None);
         assert!(!adif.contains("QSL_"));
-        assert!(!adif.contains("JCX"));
+        assert!(!adif.contains("CNTY"));
         assert!(!adif.contains("MY_SIG"));
         assert!(adif.contains("<MY_CITY:5>東京都港区 "));
     }
