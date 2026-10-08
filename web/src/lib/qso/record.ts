@@ -1,5 +1,5 @@
 import type { QslStatus } from '../dsl';
-import type { DraftQso } from './draft';
+import { FREE_TEXT_MAX_LENGTH, type DraftQso } from './draft';
 import { operatorCallProblem, type OperatingSession } from './session';
 
 export type SyncState = 'pending' | 'synced' | 'failed';
@@ -15,6 +15,8 @@ export interface QsoRecord {
     rstReceived: string;
     jcx?: string;
     qsl: QslStatus;
+    name?: string;
+    qth?: string;
     /** When the QSO was logged (ISO 8601, UTC). */
     timeOn: string;
 
@@ -50,6 +52,13 @@ export function finalizeDraft(
     if (draft.frequencyHz === undefined) problems.push('Frequency is missing');
     const mode = draft.mode ?? blankToUndefined(session.defaultMode);
     if (mode === undefined) problems.push('Mode is missing');
+    for (const [label, text] of [
+        ['Name', draft.name],
+        ['QTH', draft.qth]
+    ] as const) {
+        if (text !== undefined && [...text].length > FREE_TEXT_MAX_LENGTH)
+            problems.push(`${label} is longer than ${FREE_TEXT_MAX_LENGTH} characters`);
+    }
     const operator = operatorCallProblem(session.operatorCall);
     if (operator !== undefined) problems.push(`${operator} (Session)`);
     if (problems.length > 0) return { ok: false, problems };
@@ -65,6 +74,8 @@ export function finalizeDraft(
             rstReceived: draft.rstReceived,
             jcx: draft.jcx,
             qsl: draft.qsl,
+            name: draft.name,
+            qth: draft.qth,
             timeOn: now.toISOString(),
             operatorCall: blankToUndefined(session.operatorCall)?.toUpperCase(),
             location: session.location.trim(),
@@ -89,6 +100,8 @@ export interface QsoApiPayload {
     rst_rcvd: string;
     jcx?: string;
     qsl: QslStatus;
+    name?: string;
+    qth?: string;
     time_on: string;
     operator?: string;
     location: string;
@@ -108,6 +121,8 @@ export function toApiPayload(record: QsoRecord): QsoApiPayload {
         rst_rcvd: record.rstReceived,
         jcx: record.jcx,
         qsl: record.qsl,
+        name: record.name,
+        qth: record.qth,
         time_on: record.timeOn,
         operator: record.operatorCall,
         location: record.location,

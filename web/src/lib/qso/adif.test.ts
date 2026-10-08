@@ -26,16 +26,15 @@ describe('adifRecord', () => {
     it('renders an ADI record', () => {
         expect(adifRecord(record)).toBe(
             '<CALL:6>JL1HIS <QSO_DATE:8>20261003 <TIME_ON:6>040506 <FREQ:6>432.94 <BAND:4>70cm ' +
-                '<MODE:2>FM <RST_SENT:2>59 <RST_RCVD:2>57 <QSL_SENT:1>R <COMMENT:10>JCX 100101 ' +
-                '<APP_SPEECHTOQSO_JCX:6>100101 <OPERATOR:6>JJ1ABC <STATION_CALLSIGN:6>JJ1ABC ' +
-                '<MY_CITY:6>Minato <MY_SIG:4>POTA <MY_SIG_INFO:7>JP-0001 <MY_POTA_REF:7>JP-0001 <EOR>'
+                '<MODE:2>FM <RST_SENT:2>59 <RST_RCVD:2>57 <QSL_SENT:1>R <CNTY:6>100101 ' +
+                '<OPERATOR:6>JJ1ABC <STATION_CALLSIGN:6>JJ1ABC <MY_CITY:6>Minato <MY_SIG:4>POTA <MY_SIG_INFO:7>JP-0001 <MY_POTA_REF:7>JP-0001 <EOR>'
         );
     });
 
     it('renders a one-way card as nothing to send and a card to receive', () => {
         // Identical to the expectation in server/src/adif.rs.
         expect(adifRecord({ ...record, qsl: 'oneWay' as const })).toContain(
-            '<RST_RCVD:2>57 <QSL_SENT:1>N <QSL_RCVD:1>R <COMMENT:10>JCX 100101 '
+            '<RST_RCVD:2>57 <QSL_SENT:1>N <QSL_RCVD:1>R <CNTY:6>100101 '
         );
     });
 
@@ -50,7 +49,14 @@ describe('adifRecord', () => {
         // Identical to the expectation in server/src/adif.rs.
         expect(
             adifRecord({ ...record, operatorCall: undefined, stationCallsign: 'JJ1ABC/1' })
-        ).toContain('<APP_SPEECHTOQSO_JCX:6>100101 <STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>');
+        ).toContain('<CNTY:6>100101 <STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>');
+    });
+
+    it('renders the name and QTH after the JCX', () => {
+        // Identical to the expectation in server/src/adif.rs.
+        expect(adifRecord({ ...record, name: '太郎', qth: '東京都港区' })).toContain(
+            '<CNTY:6>100101 <NAME:2>太郎 <QTH:5>東京都港区 <OPERATOR:6>JJ1ABC '
+        );
     });
 
     it('fills in what the QSO left to its station', () => {
@@ -66,7 +72,7 @@ describe('adifRecord', () => {
         const bare = { ...record, operatorCall: undefined, location: '', potaReference: undefined };
         // Identical to the expectation in server/src/adif.rs.
         expect(adifRecord(bare, station)).toContain(
-            '<STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>Minato <APP_SPEECHTOQSO_MY_JCX:6>100101 ' +
+            '<STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>Minato <MY_CNTY:6>100101 ' +
                 '<MY_SIG:4>POTA <MY_SIG_INFO:7>JP-0001 <MY_POTA_REF:7>JP-0001 <EOR>'
         );
         // The QSO's own values win.
@@ -82,7 +88,7 @@ describe('adifRecord', () => {
             location: ''
         };
         const adif = adifRecord(minimal);
-        expect(adif).not.toMatch(/QSL_|COMMENT|JCX|MY_SIG|MY_CITY/);
+        expect(adif).not.toMatch(/QSL_|CNTY|NAME|QTH|MY_SIG|MY_CITY/);
     });
 
     it('counts characters, not UTF-16 units', () => {

@@ -1,7 +1,13 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import type { QsoApp } from '../app/app.svelte';
-    import { formatMhz, formatUtcMinute, sessionProblems } from '../qso';
+    import {
+        FREE_TEXT_MAX_LENGTH,
+        formatMhz,
+        formatUtcMinute,
+        sessionProblems,
+        type FreeTextField
+    } from '../qso';
     import { flash } from './flash';
     import PttButton from './PttButton.svelte';
 
@@ -51,6 +57,20 @@
         queueMicrotask(() => commandInput?.focus());
     }
 </script>
+
+{#snippet freeText(field: FreeTextField, label: string)}
+    <label class="cell text" data-field={field}>
+        <input
+            type="text"
+            value={draft[field] ?? ''}
+            onchange={(e) => app.setFreeText(field, e.currentTarget.value)}
+            maxlength={FREE_TEXT_MAX_LENGTH}
+            autocomplete="off"
+            placeholder={label}
+            aria-label={label}
+        />
+    </label>
+{/snippet}
 
 {#if problems.length > 0}
     <button class="banner" onclick={onOpenSession}>
@@ -115,9 +135,14 @@
     </div>
 
     <div class="row">
+        {@render freeText('qth', 'QTH')}
         <button class="cell" data-field="jcx" class:empty={!draft.jcx} onclick={() => edit('jcx')}>
             <span class="key">JCC/JCG</span><span class="mono">{draft.jcx ?? '—'}</span>
         </button>
+    </div>
+
+    <div class="row">
+        {@render freeText('name', 'Name')}
         <button
             class="cell"
             data-field="qsl"
@@ -230,6 +255,31 @@
     }
     .cell.empty {
         color: var(--muted);
+    }
+    .cell.text {
+        align-items: stretch;
+        min-width: 0;
+        padding-block: 0;
+    }
+    .cell.text input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-size: 1.1rem;
+        padding: 0;
+    }
+    .cell.text input::placeholder {
+        color: var(--muted);
+    }
+    .cell.text input:focus {
+        outline: none;
+    }
+    .cell.text:focus-within {
+        border-color: var(--accent);
     }
     .callsign {
         --callsign-size: clamp(2.2rem, 12vw, 3.6rem);

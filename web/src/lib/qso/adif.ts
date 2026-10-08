@@ -26,7 +26,6 @@ export function adifRecord(record: QsoRecord, station?: Station): string {
     const iso = time.toISOString();
     const date = iso.slice(0, 10).replaceAll('-', '');
     const timeOn = iso.slice(11, 19).replaceAll(':', '');
-    const comment = record.jcx === undefined ? undefined : `JCX ${record.jcx}`;
 
     return (
         [
@@ -41,15 +40,16 @@ export function adifRecord(record: QsoRecord, station?: Station): string {
             // Requested: we owe a card. One way: we send none and one is on its way to us.
             field('QSL_SENT', { none: undefined, requested: 'R', oneWay: 'N' }[record.qsl]),
             field('QSL_RCVD', record.qsl === 'oneWay' ? 'R' : undefined),
-            field('COMMENT', comment),
-            field('APP_SPEECHTOQSO_JCX', record.jcx),
+            field('CNTY', record.jcx),
+            field('NAME', record.name),
+            field('QTH', record.qth),
             field('OPERATOR', record.operatorCall),
             field(
                 'STATION_CALLSIGN',
                 record.stationCallsign ?? defaults.stationCallsign ?? record.operatorCall
             ),
             field('MY_CITY', location),
-            field('APP_SPEECHTOQSO_MY_JCX', record.myJcx ?? defaults.myJcx),
+            field('MY_CNTY', record.myJcx ?? defaults.myJcx),
             field('MY_SIG', pota === undefined ? undefined : 'POTA'),
             field('MY_SIG_INFO', pota),
             field('MY_POTA_REF', pota)
