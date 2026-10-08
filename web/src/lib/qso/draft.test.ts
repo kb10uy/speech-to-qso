@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseSpeech, type SpokenUpdate } from '../dsl';
-import { applyUpdate, applyUpdates, isPristine, newDraft } from './draft';
+import { applyUpdate, applyUpdates, isPristine, newDraft, setFreeText } from './draft';
 
 const ctx = { anchorHz: 433_000_000 };
 const now = new Date('2026-10-03T04:00:00Z');
@@ -66,6 +66,19 @@ describe('DraftQso', () => {
         );
         expect(draft.frequencyHz).toBe(432_940_000);
         expect(descriptions).toEqual(['Frequency *.94 → 432.940 MHz']);
+    });
+
+    it('sets free text, collapsing whitespace and clearing it when blank', () => {
+        let draft = setFreeText(newDraft(), 'qth', '  東京都\t港区 ', now);
+        expect(draft.qth).toBe('東京都 港区');
+        expect(draft.startedAt).toBe(now.toISOString());
+
+        draft = setFreeText(draft, 'qth', '   ', now);
+        expect(draft.qth).toBeUndefined();
+    });
+
+    it('does not start a QSO with blank free text', () => {
+        expect(isPristine(setFreeText(newDraft(), 'name', ' ', now))).toBe(true);
     });
 
     it('does not mutate the input draft', () => {

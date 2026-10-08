@@ -168,6 +168,7 @@ the number of past QSOs, when the latest was made, and when the latest QSO whose
 | QSL requested      | `QSL_SENT:R` (the other station requested a card)       |
 | QSL one way        | `QSL_SENT:N`, `QSL_RCVD:R` (their card is coming)       |
 | JCC/JCG            | `CNTY`                                                  |
+| Name / QTH         | `NAME` / `QTH` (typed, not spoken)                      |
 | Operator callsign  | `OPERATOR` (left out if empty)                          |
 | Station callsign   | `STATION_CALLSIGN` (the station's, else the operator's) |
 | Operating location | `MY_CITY`                                               |

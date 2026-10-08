@@ -49,6 +49,10 @@ pub struct QsoPayload {
     pub jcx: Option<String>,
     #[serde(default, alias = "qsl_requested", deserialize_with = "deserialize_qsl")]
     pub qsl: Qsl,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qth: Option<String>,
     pub time_on: DateTime<Utc>,
     /// Missing when the user leaves it to Wavelog, which fills in the token owner's callsign.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -95,6 +99,12 @@ fn is_rst(s: &str) -> bool {
     (b.len() == 2 || b.len() == 3) && (b'1'..=b'5').contains(&b[0]) && b[1..].iter().all(|d| (b'1'..=b'9').contains(d))
 }
 
+const FREE_TEXT_MAX_LENGTH: usize = 100;
+
+fn is_free_text(s: &str) -> bool {
+    (1..=FREE_TEXT_MAX_LENGTH).contains(&s.chars().count()) && !s.chars().any(char::is_control)
+}
+
 impl QsoPayload {
     pub fn validate(&self) -> Result<(), ValidationError> {
         if self.id.is_empty() || self.id.len() > 64 {
@@ -130,6 +140,16 @@ impl QsoPayload {
         {
             return Err(invalid("jcx", "must be alphanumeric"));
         }
+        for (field, text) in [("name", &self.name), ("qth", &self.qth)] {
+            if let Some(text) = text
+                && !is_free_text(text)
+            {
+                return Err(invalid(
+                    field,
+                    format!("must be 1-{FREE_TEXT_MAX_LENGTH} characters without control characters"),
+                ));
+            }
+        }
         Ok(())
     }
 }
@@ -163,6 +183,12 @@ impl QsoPayload {
         }
         if let Some(jcx) = &self.jcx {
             set("cnty", jcx.clone().into());
+        }
+        if let Some(name) = &self.name {
+            set("name", name.clone().into());
+        }
+        if let Some(qth) = &self.qth {
+            set("qth", qth.clone().into());
         }
         if let Some(operator) = &self.operator {
             set("operator", operator.clone().into());
@@ -282,6 +308,14 @@ pub(crate) mod tests {
         }
 
         let mut qso = sample();
+        qso.name = Some("太郎".into());
+        qso.qth = Some("東京都港区".into());
+        assert_eq!(qso.validate(), Ok(()));
+        let body = qso.to_wavelog(3).unwrap();
+        assert_eq!(body["name"], "太郎");
+        assert_eq!(body["qth"], "東京都港区");
+
+        let mut qso = sample();
         qso.frequency = 100_000_000;
         assert_eq!(qso.to_wavelog(3).unwrap_err().field, "frequency");
     }
@@ -301,6 +335,9 @@ pub(crate) mod tests {
             ("rst_sent", Box::new(|q| q.rst_sent = "69".into())),
             ("rst_rcvd", Box::new(|q| q.rst_rcvd = "5".into())),
             ("jcx", Box::new(|q| q.jcx = Some("10 01".into()))),
+            ("name", Box::new(|q| q.name = Some("".into()))),
+            ("name", Box::new(|q| q.name = Some("Taro\nYamada".into()))),
+            ("qth", Box::new(|q| q.qth = Some("港".repeat(101)))),
             ("station_callsign", Box::new(|q| q.station_callsign = Some("x".into()))),
         ];
         for (field, mutate) in cases {

@@ -16,8 +16,10 @@ import {
     finalizeDraft,
     isPristine,
     newDraft,
+    setFreeText,
     stationToApply,
     type DraftQso,
+    type FreeTextField,
     type OperatingSession,
     type QsoRecord,
     type StationList
@@ -534,6 +536,10 @@ export class QsoApp {
     setDraft(draft: DraftQso) {
         this.draft = draft;
         void this.#saveDraft();
+    }
+
+    setFreeText(field: FreeTextField, value: string) {
+        this.setDraft(setFreeText(this.draft, field, value));
     }
 
     async logQso(): Promise<boolean> {

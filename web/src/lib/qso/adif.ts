@@ -41,6 +41,8 @@ export function adifRecord(record: QsoRecord, station?: Station): string {
             field('QSL_SENT', { none: undefined, requested: 'R', oneWay: 'N' }[record.qsl]),
             field('QSL_RCVD', record.qsl === 'oneWay' ? 'R' : undefined),
             field('CNTY', record.jcx),
+            field('NAME', record.name),
+            field('QTH', record.qth),
             field('OPERATOR', record.operatorCall),
             field(
                 'STATION_CALLSIGN',

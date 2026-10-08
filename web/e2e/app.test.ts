@@ -45,6 +45,8 @@ test('fills a QSO from typed DSL commands and logs it locally', async ({ page })
     await type(page, 'frequency point nine four');
     await type(page, 'jcx one zero zero one zero one');
     await type(page, 'card requested');
+    await page.getByRole('textbox', { name: /^Name/ }).fill(' 太郎 ');
+    await page.getByRole('textbox', { name: /^QTH/ }).fill('東京都港区');
 
     const draft = page.getByLabel('Draft QSO');
     await expect(draft).toContainText('JL1HIS');
@@ -66,6 +68,7 @@ test('fills a QSO from typed DSL commands and logs it locally', async ({ page })
     // The next draft keeps the frequency but nothing QSO-specific.
     await expect(draft).toContainText('CALLSIGN');
     await expect(draft).toContainText('432.940');
+    await expect(page.getByRole('textbox', { name: /^QTH/ })).toHaveValue('');
 
     await page.reload();
     await page.getByRole('button', { name: /^Log/ }).click();
@@ -77,6 +80,7 @@ test('fills a QSO from typed DSL commands and logs it locally', async ({ page })
     const adif = await (await import('node:fs/promises')).readFile(file, 'utf8');
     expect(adif).toContain('<CALL:6>JL1HIS');
     expect(adif).toContain('<QSL_SENT:1>R');
+    expect(adif).toContain('<CNTY:6>100101 <NAME:2>太郎 <QTH:5>東京都港区 ');
 });
 
 test('streams 16 kHz PCM from the microphone while PTT is held', async ({ page }) => {

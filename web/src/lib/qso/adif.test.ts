@@ -52,6 +52,13 @@ describe('adifRecord', () => {
         ).toContain('<CNTY:6>100101 <STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>');
     });
 
+    it('renders the name and QTH after the JCX', () => {
+        // Identical to the expectation in server/src/adif.rs.
+        expect(adifRecord({ ...record, name: '太郎', qth: '東京都港区' })).toContain(
+            '<CNTY:6>100101 <NAME:2>太郎 <QTH:5>東京都港区 <OPERATOR:6>JJ1ABC '
+        );
+    });
+
     it('fills in what the QSO left to its station', () => {
         const station: Station = {
             ...emptyStationInput('JJ1ABC/1'),
@@ -81,7 +88,7 @@ describe('adifRecord', () => {
             location: ''
         };
         const adif = adifRecord(minimal);
-        expect(adif).not.toMatch(/QSL_|CNTY|MY_SIG|MY_CITY/);
+        expect(adif).not.toMatch(/QSL_|CNTY|NAME|QTH|MY_SIG|MY_CITY/);
     });
 
     it('counts characters, not UTF-16 units', () => {

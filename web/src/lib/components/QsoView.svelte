@@ -1,7 +1,7 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import type { QsoApp } from '../app/app.svelte';
-    import { formatMhz, formatUtcMinute, sessionProblems } from '../qso';
+    import { FREE_TEXT_MAX_LENGTH, formatMhz, formatUtcMinute, sessionProblems } from '../qso';
     import { flash } from './flash';
     import PttButton from './PttButton.svelte';
 
@@ -128,6 +128,22 @@
         </button>
     </div>
 
+    <div class="row">
+        {#each [['name', 'Name'], ['qth', 'QTH']] as const as [field, label] (field)}
+            <label class="cell text" data-field={field}>
+                <span class="key">{label}</span>
+                <input
+                    type="text"
+                    value={draft[field] ?? ''}
+                    onchange={(e) => app.setFreeText(field, e.currentTarget.value)}
+                    maxlength={FREE_TEXT_MAX_LENGTH}
+                    autocomplete="off"
+                    placeholder="—"
+                />
+            </label>
+        {/each}
+    </div>
+
     <div class="meta">
         <span>anchor {formatMhz(app.session.frequencyAnchorHz)} MHz</span>
     </div>
@@ -230,6 +246,26 @@
     }
     .cell.empty {
         color: var(--muted);
+    }
+    .cell.text {
+        align-items: center;
+        min-width: 0;
+    }
+    .cell.text input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-size: 1.1rem;
+        padding: 0;
+    }
+    .cell.text input:focus {
+        outline: none;
+    }
+    .cell.text:focus-within {
+        border-color: var(--accent);
     }
     .callsign {
         --callsign-size: clamp(2.2rem, 12vw, 3.6rem);

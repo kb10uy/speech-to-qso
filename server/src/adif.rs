@@ -75,6 +75,8 @@ pub fn record(qso: &QsoPayload, station: Option<&Station>) -> String {
     field(&mut out, "QSL_SENT", qsl_sent);
     field(&mut out, "QSL_RCVD", qsl_rcvd);
     field(&mut out, "CNTY", qso.jcx.as_deref());
+    field(&mut out, "NAME", qso.name.as_deref());
+    field(&mut out, "QTH", qso.qth.as_deref());
     field(&mut out, "OPERATOR", qso.operator.as_deref());
     field(
         &mut out,
@@ -175,6 +177,15 @@ mod tests {
         qso.station_callsign = Some("JJ1ABC/1".into());
         // Identical to the expectation in web/src/lib/qso/adif.test.ts.
         assert!(record(&qso, None).contains("<CNTY:6>100101 <STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>"));
+    }
+
+    #[test]
+    fn renders_the_name_and_qth_after_the_jcx() {
+        let mut qso = sample();
+        qso.name = Some("太郎".into());
+        qso.qth = Some("東京都港区".into());
+        // Identical to the expectation in web/src/lib/qso/adif.test.ts.
+        assert!(record(&qso, None).contains("<CNTY:6>100101 <NAME:2>太郎 <QTH:5>東京都港区 <OPERATOR:6>JJ1ABC "));
     }
 
     #[test]

@@ -100,6 +100,9 @@
                 {#if record.jcx}· JCC/JCG {record.jcx}{/if}
                 {#if record.qsl === 'requested'}· QSL{:else if record.qsl === 'oneWay'}· QSL one way{/if}
             </div>
+            {#if record.name || record.qth}
+                <div class="line2">{[record.name, record.qth].filter(Boolean).join(' · ')}</div>
+            {/if}
             {#if record.syncState === 'failed' && record.syncError}
                 <div class="err">{record.syncError}</div>
             {/if}

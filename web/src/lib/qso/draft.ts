@@ -16,8 +16,26 @@ export interface DraftQso {
     mode?: string;
     jcx?: string;
     qsl: QslStatus;
+    name?: string;
+    qth?: string;
     /** When the first field of this QSO was entered (ISO 8601, UTC). */
     startedAt?: string;
+}
+
+export type FreeTextField = 'name' | 'qth';
+
+export const FREE_TEXT_MAX_LENGTH = 100;
+
+export function setFreeText(
+    draft: DraftQso,
+    field: FreeTextField,
+    value: string,
+    now: Date = new Date()
+): DraftQso {
+    const text = value.replace(/\s+/g, ' ').trim();
+    const next: DraftQso = { ...draft, [field]: text === '' ? undefined : text };
+    if (text !== '' && next.startedAt === undefined) next.startedAt = now.toISOString();
+    return next;
 }
 
 /** Creates an empty draft. Frequency and mode are carried over between QSOs. */

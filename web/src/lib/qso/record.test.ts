@@ -71,6 +71,18 @@ describe('finalizeDraft', () => {
         });
     });
 
+    it('rejects free text the server would refuse', () => {
+        const draft = {
+            ...newDraft({ frequencyHz: 432_940_000 }),
+            callsign: 'JL1HIS',
+            qth: '港'.repeat(101)
+        };
+        expect(finalizeDraft(draft, session, 'id', now)).toEqual({
+            ok: false,
+            problems: ['QTH is longer than 100 characters']
+        });
+    });
+
     it('uses the time of logging as the QSO time, not the draft start time', () => {
         const draft = {
             ...newDraft({ frequencyHz: 145_000_000, mode: 'SSB' }),
@@ -90,7 +102,9 @@ describe('toApiPayload', () => {
             callsign: 'JL1HIS',
             rstReceived: '57',
             jcx: '100101',
-            qsl: 'requested' as const
+            qsl: 'requested' as const,
+            name: '太郎',
+            qth: '東京都港区'
         };
         const result = finalizeDraft(draft, session, 'uuid-1', now);
         if (!result.ok) throw new Error('unexpected');
@@ -103,6 +117,8 @@ describe('toApiPayload', () => {
             rst_rcvd: '57',
             jcx: '100101',
             qsl: 'requested',
+            name: '太郎',
+            qth: '東京都港区',
             time_on: '2026-10-03T04:05:06.000Z',
             operator: 'JJ1ABC',
             location: '東京都港区',
