@@ -1,81 +1,81 @@
 :root {
-	color-scheme: dark light;
-	--bg: #0d1117;
-	--surface: #161b22;
-	--surface-2: #21262d;
-	--border: #30363d;
-	--text: #e6edf3;
-	--muted: #8b949e;
-	--accent: #f0b429;
-	--accent-text: #1a1300;
-	--ok: #3fb950;
-	--error: #f85149;
-	--info: #58a6ff;
-	--ptt: #1f6feb;
-	--ptt-active: #d29922;
-	--log: #238636;
-	--radius: 14px;
-	--mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
-	font-family:
-		system-ui,
-		-apple-system,
-		'Segoe UI',
-		Roboto,
-		'Noto Sans JP',
-		sans-serif;
+    color-scheme: dark light;
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #21262d;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #f0b429;
+    --accent-text: #1a1300;
+    --ok: #3fb950;
+    --error: #f85149;
+    --info: #58a6ff;
+    --ptt: #1f6feb;
+    --ptt-active: #d29922;
+    --log: #238636;
+    --radius: 14px;
+    --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+    font-family:
+        system-ui,
+        -apple-system,
+        'Segoe UI',
+        Roboto,
+        'Noto Sans JP',
+        sans-serif;
 }
 
 @media (prefers-color-scheme: light) {
-	:root {
-		--bg: #f6f8fa;
-		--surface: #ffffff;
-		--surface-2: #eaeef2;
-		--border: #d0d7de;
-		--text: #1f2328;
-		--muted: #59636e;
-		--accent: #9a6700;
-		--accent-text: #ffffff;
-		--ok: #1a7f37;
-		--error: #cf222e;
-		--info: #0969da;
-		--ptt: #0969da;
-		--ptt-active: #bf8700;
-		--log: #1a7f37;
-	}
+    :root {
+        --bg: #f6f8fa;
+        --surface: #ffffff;
+        --surface-2: #eaeef2;
+        --border: #d0d7de;
+        --text: #1f2328;
+        --muted: #59636e;
+        --accent: #9a6700;
+        --accent-text: #ffffff;
+        --ok: #1a7f37;
+        --error: #cf222e;
+        --info: #0969da;
+        --ptt: #0969da;
+        --ptt-active: #bf8700;
+        --log: #1a7f37;
+    }
 }
 
 * {
-	box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 html,
 body {
-	margin: 0;
-	background: var(--bg);
-	color: var(--text);
-	-webkit-text-size-adjust: 100%;
-	overscroll-behavior: none;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
 }
 
 button,
 input,
 select {
-	font: inherit;
-	color: inherit;
+    font: inherit;
+    color: inherit;
 }
 
 button {
-	cursor: pointer;
-	border: 1px solid var(--border);
-	background: var(--surface-2);
-	border-radius: 10px;
-	padding: 0.6rem 1rem;
-	touch-action: manipulation;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    border-radius: 10px;
+    padding: 0.6rem 1rem;
+    touch-action: manipulation;
 }
 
 button:disabled {
-	opacity: 0.5;
-	cursor: default;
+    opacity: 0.5;
+    cursor: default;
 }
 
 input[type='text'],
@@ -83,59 +83,59 @@ input[type='url'],
 input[type='password'],
 input[type='number'],
 select {
-	width: 100%;
-	padding: 0.6rem 0.7rem;
-	border-radius: 10px;
-	border: 1px solid var(--border);
-	background: var(--surface);
+    width: 100%;
+    padding: 0.6rem 0.7rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
 }
 
 label {
-	display: block;
+    display: block;
 }
 
 .field {
-	display: grid;
-	gap: 0.3rem;
-	margin-bottom: 0.9rem;
+    display: grid;
+    gap: 0.3rem;
+    margin-bottom: 0.9rem;
 }
 
 .field > span {
-	font-size: 0.85rem;
-	color: var(--muted);
+    font-size: 0.85rem;
+    color: var(--muted);
 }
 
 .hint {
-	font-size: 0.8rem;
-	color: var(--muted);
+    font-size: 0.8rem;
+    color: var(--muted);
 }
 
 .mono {
-	font-family: var(--mono);
+    font-family: var(--mono);
 }
 
 details > summary {
-	cursor: pointer;
-	color: var(--muted);
-	padding: 0.4rem 0;
+    cursor: pointer;
+    color: var(--muted);
+    padding: 0.4rem 0;
 }
 
 @keyframes flash {
-	from {
-		background-color: color-mix(in srgb, var(--info) 55%, var(--surface));
-	}
+    from {
+        background-color: color-mix(in srgb, var(--info) 55%, var(--surface));
+    }
 }
 
 @keyframes flash-error {
-	from {
-		background-color: var(--error);
-	}
+    from {
+        background-color: var(--error);
+    }
 }
 
 .flash {
-	animation: flash 0.5s ease-out;
+    animation: flash 0.5s ease-out;
 }
 
 .flash-error {
-	animation: flash-error 0.5s ease-out;
+    animation: flash-error 0.5s ease-out;
 }

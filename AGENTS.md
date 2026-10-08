@@ -19,7 +19,7 @@ Run these before committing; CI (`.github/workflows/ci.yml`) runs the same.
 ```sh
 cd web
 npm ci
-npm run lint        # prettier --check (tabs, single quotes, width 100)
+npm run lint        # prettier --check (indentation from .editorconfig, single quotes, width 100)
 npm run check       # svelte-check / TypeScript
 npm test            # vitest unit tests
 npm run test:e2e    # Playwright (Chromium with fake microphone), the app alone

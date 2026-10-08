@@ -5,13 +5,13 @@ import { stationDefaults, type Station, type StationList } from './station';
 const PROGRAM_ID = 'speech-to-qso';
 
 function field(name: string, value: string | undefined): string {
-	if (value === undefined || value === '') return '';
-	return `<${name}:${[...value].length}>${value} `;
+    if (value === undefined || value === '') return '';
+    return `<${name}:${[...value].length}>${value} `;
 }
 
 /** Formats a frequency in Hz as an ADIF FREQ value (MHz). */
 export function adifFrequency(hz: number): string {
-	return (hz / 1_000_000).toFixed(6).replace(/\.?0+$/, '');
+    return (hz / 1_000_000).toFixed(6).replace(/\.?0+$/, '');
 }
 
 /**
@@ -19,42 +19,42 @@ export function adifFrequency(hz: number): string {
  * sync with `server/src/adif.rs`.
  */
 export function adifRecord(record: QsoRecord, station?: Station): string {
-	const defaults = stationDefaults(station);
-	const location = record.location || defaults.location;
-	const pota = record.potaReference ?? defaults.potaReference;
-	const time = new Date(record.timeOn);
-	const iso = time.toISOString();
-	const date = iso.slice(0, 10).replaceAll('-', '');
-	const timeOn = iso.slice(11, 19).replaceAll(':', '');
-	const comment = record.jcx === undefined ? undefined : `JCX ${record.jcx}`;
+    const defaults = stationDefaults(station);
+    const location = record.location || defaults.location;
+    const pota = record.potaReference ?? defaults.potaReference;
+    const time = new Date(record.timeOn);
+    const iso = time.toISOString();
+    const date = iso.slice(0, 10).replaceAll('-', '');
+    const timeOn = iso.slice(11, 19).replaceAll(':', '');
+    const comment = record.jcx === undefined ? undefined : `JCX ${record.jcx}`;
 
-	return (
-		[
-			field('CALL', record.callsign),
-			field('QSO_DATE', date),
-			field('TIME_ON', timeOn),
-			field('FREQ', adifFrequency(record.frequencyHz)),
-			field('BAND', bandForFrequency(record.frequencyHz)),
-			field('MODE', record.mode),
-			field('RST_SENT', record.rstSent),
-			field('RST_RCVD', record.rstReceived),
-			// Requested: we owe a card. One way: we send none and one is on its way to us.
-			field('QSL_SENT', { none: undefined, requested: 'R', oneWay: 'N' }[record.qsl]),
-			field('QSL_RCVD', record.qsl === 'oneWay' ? 'R' : undefined),
-			field('COMMENT', comment),
-			field('APP_SPEECHTOQSO_JCX', record.jcx),
-			field('OPERATOR', record.operatorCall),
-			field(
-				'STATION_CALLSIGN',
-				record.stationCallsign ?? defaults.stationCallsign ?? record.operatorCall
-			),
-			field('MY_CITY', location),
-			field('APP_SPEECHTOQSO_MY_JCX', record.myJcx ?? defaults.myJcx),
-			field('MY_SIG', pota === undefined ? undefined : 'POTA'),
-			field('MY_SIG_INFO', pota),
-			field('MY_POTA_REF', pota)
-		].join('') + '<EOR>'
-	);
+    return (
+        [
+            field('CALL', record.callsign),
+            field('QSO_DATE', date),
+            field('TIME_ON', timeOn),
+            field('FREQ', adifFrequency(record.frequencyHz)),
+            field('BAND', bandForFrequency(record.frequencyHz)),
+            field('MODE', record.mode),
+            field('RST_SENT', record.rstSent),
+            field('RST_RCVD', record.rstReceived),
+            // Requested: we owe a card. One way: we send none and one is on its way to us.
+            field('QSL_SENT', { none: undefined, requested: 'R', oneWay: 'N' }[record.qsl]),
+            field('QSL_RCVD', record.qsl === 'oneWay' ? 'R' : undefined),
+            field('COMMENT', comment),
+            field('APP_SPEECHTOQSO_JCX', record.jcx),
+            field('OPERATOR', record.operatorCall),
+            field(
+                'STATION_CALLSIGN',
+                record.stationCallsign ?? defaults.stationCallsign ?? record.operatorCall
+            ),
+            field('MY_CITY', location),
+            field('APP_SPEECHTOQSO_MY_JCX', record.myJcx ?? defaults.myJcx),
+            field('MY_SIG', pota === undefined ? undefined : 'POTA'),
+            field('MY_SIG_INFO', pota),
+            field('MY_POTA_REF', pota)
+        ].join('') + '<EOR>'
+    );
 }
 
 /**
@@ -62,20 +62,20 @@ export function adifRecord(record: QsoRecord, station?: Station): string {
  * server does.
  */
 export function adifFile(
-	records: readonly QsoRecord[],
-	stations: StationList = { default_station_id: null, stations: [] },
-	now: Date = new Date()
+    records: readonly QsoRecord[],
+    stations: StationList = { default_station_id: null, stations: [] },
+    now: Date = new Date()
 ): string {
-	const station = (record: QsoRecord) => {
-		const id = record.stationId ?? stations.default_station_id;
-		return stations.stations.find((s) => s.id === id);
-	};
-	const created = now.toISOString().replace(/[-:]/g, '').slice(0, 15).replace('T', ' ');
-	const header =
-		`Exported by ${PROGRAM_ID}\n` +
-		field('ADIF_VER', '3.1.4') +
-		field('PROGRAMID', PROGRAM_ID) +
-		field('CREATED_TIMESTAMP', created) +
-		'<EOH>\n';
-	return header + records.map((r) => adifRecord(r, station(r)) + '\n').join('');
+    const station = (record: QsoRecord) => {
+        const id = record.stationId ?? stations.default_station_id;
+        return stations.stations.find((s) => s.id === id);
+    };
+    const created = now.toISOString().replace(/[-:]/g, '').slice(0, 15).replace('T', ' ');
+    const header =
+        `Exported by ${PROGRAM_ID}\n` +
+        field('ADIF_VER', '3.1.4') +
+        field('PROGRAMID', PROGRAM_ID) +
+        field('CREATED_TIMESTAMP', created) +
+        '<EOH>\n';
+    return header + records.map((r) => adifRecord(r, station(r)) + '\n').join('');
 }

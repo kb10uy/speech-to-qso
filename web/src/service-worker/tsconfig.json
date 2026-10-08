@@ -1,4 +1,4 @@
 {
-	"extends": "$app/tsconfig/service-worker",
-	"include": ["."]
+    "extends": "$app/tsconfig/service-worker",
+    "include": ["."]
 }

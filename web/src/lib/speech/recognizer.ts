@@ -1,10 +1,10 @@
 /** Result of one PTT utterance. */
 export interface SpeechResult {
-	text: string;
-	words?: {
-		text: string;
-		confidence: number;
-	}[];
+    text: string;
+    words?: {
+        text: string;
+        confidence: number;
+    }[];
 }
 
 /**
@@ -14,25 +14,25 @@ export interface SpeechResult {
  * while the button is held, and calls `endUtterance` on release.
  */
 export interface SpeechRecognizer {
-	/** Engine name for display. */
-	readonly name: string;
-	/**
-	 * Whether the engine consumes PCM from `pushAudio`. Engines that capture the microphone
-	 * themselves set this to false.
-	 */
-	readonly needsAudio: boolean;
+    /** Engine name for display. */
+    readonly name: string;
+    /**
+     * Whether the engine consumes PCM from `pushAudio`. Engines that capture the microphone
+     * themselves set this to false.
+     */
+    readonly needsAudio: boolean;
 
-	initialize(): Promise<void>;
-	beginUtterance(): void;
-	pushAudio(samples: Float32Array): void;
-	endUtterance(): Promise<SpeechResult>;
-	/** Discards the current utterance. */
-	cancelUtterance(): void;
+    initialize(): Promise<void>;
+    beginUtterance(): void;
+    pushAudio(samples: Float32Array): void;
+    endUtterance(): Promise<SpeechResult>;
+    /** Discards the current utterance. */
+    cancelUtterance(): void;
 
-	/** Called with interim hypotheses while the user is speaking. */
-	onPartial?: (text: string) => void;
+    /** Called with interim hypotheses while the user is speaking. */
+    onPartial?: (text: string) => void;
 
-	dispose(): void;
+    dispose(): void;
 }
 
 /** Sample rate of the PCM passed to `pushAudio`. */
