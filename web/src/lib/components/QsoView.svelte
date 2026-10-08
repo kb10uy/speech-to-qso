@@ -1,7 +1,13 @@
 <script lang="ts">
     import { untrack } from 'svelte';
     import type { QsoApp } from '../app/app.svelte';
-    import { FREE_TEXT_MAX_LENGTH, formatMhz, formatUtcMinute, sessionProblems } from '../qso';
+    import {
+        FREE_TEXT_MAX_LENGTH,
+        formatMhz,
+        formatUtcMinute,
+        sessionProblems,
+        type FreeTextField
+    } from '../qso';
     import { flash } from './flash';
     import PttButton from './PttButton.svelte';
 
@@ -51,6 +57,20 @@
         queueMicrotask(() => commandInput?.focus());
     }
 </script>
+
+{#snippet freeText(field: FreeTextField, label: string)}
+    <label class="cell text" data-field={field}>
+        <input
+            type="text"
+            value={draft[field] ?? ''}
+            onchange={(e) => app.setFreeText(field, e.currentTarget.value)}
+            maxlength={FREE_TEXT_MAX_LENGTH}
+            autocomplete="off"
+            placeholder={label}
+            aria-label={label}
+        />
+    </label>
+{/snippet}
 
 {#if problems.length > 0}
     <button class="banner" onclick={onOpenSession}>
@@ -115,9 +135,14 @@
     </div>
 
     <div class="row">
+        {@render freeText('qth', 'QTH')}
         <button class="cell" data-field="jcx" class:empty={!draft.jcx} onclick={() => edit('jcx')}>
             <span class="key">JCC/JCG</span><span class="mono">{draft.jcx ?? '—'}</span>
         </button>
+    </div>
+
+    <div class="row">
+        {@render freeText('name', 'Name')}
         <button
             class="cell"
             data-field="qsl"
@@ -126,22 +151,6 @@
         >
             {{ none: 'No QSL', requested: 'QSL Requested', oneWay: 'QSL One Way' }[draft.qsl]}
         </button>
-    </div>
-
-    <div class="row">
-        {#each [['name', 'Name'], ['qth', 'QTH']] as const as [field, label] (field)}
-            <label class="cell text" data-field={field}>
-                <input
-                    type="text"
-                    value={draft[field] ?? ''}
-                    onchange={(e) => app.setFreeText(field, e.currentTarget.value)}
-                    maxlength={FREE_TEXT_MAX_LENGTH}
-                    autocomplete="off"
-                    placeholder={label}
-                    aria-label={label}
-                />
-            </label>
-        {/each}
     </div>
 
     <div class="meta">
