@@ -56,7 +56,7 @@
 </script>
 
 <form onsubmit={save}>
-    <h2>Operating session</h2>
+    <h2 class="mt-0">Operating session</h2>
     {#if app.stations.stations.length > 0}
         <label class="field">
             <span>Station</span>
@@ -76,7 +76,7 @@
     <label class="field">
         <span>Operator callsign</span>
         <input
-            class="callsign"
+            class="uppercase"
             type="text"
             bind:value={form.operatorCall}
             autocapitalize="characters"
@@ -87,7 +87,7 @@
     <label class="field">
         <span>Station callsign</span>
         <input
-            class="callsign"
+            class="uppercase"
             type="text"
             bind:value={form.stationCallsign}
             autocapitalize="characters"
@@ -114,7 +114,8 @@
             Partially spoken frequencies snap to the nearest match around this, e.g. with 433.000,
             “frequency point nine four” → 432.940.
         </span>
-        {#if anchorHz === undefined}<span class="error">Enter a frequency in MHz</span>{/if}
+        {#if anchorHz === undefined}<span class="text-sm text-error">Enter a frequency in MHz</span
+            >{/if}
     </label>
     <label class="field">
         <span>Default mode</span>
@@ -129,26 +130,5 @@
             placeholder={defaults.potaReference ?? 'JP-0000'}
         />
     </label>
-    <button type="submit" class="primary" disabled={anchorHz === undefined}>Save</button>
+    <button type="submit" class="btn-primary" disabled={anchorHz === undefined}>Save</button>
 </form>
-
-<style>
-    h2 {
-        margin-top: 0;
-    }
-    .callsign {
-        text-transform: uppercase;
-    }
-    .error {
-        color: var(--error);
-        font-size: 0.85rem;
-    }
-    .primary {
-        width: 100%;
-        background: var(--accent);
-        color: var(--accent-text);
-        border: none;
-        font-weight: 700;
-        padding: 0.9rem;
-    }
-</style>

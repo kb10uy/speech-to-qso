@@ -132,6 +132,10 @@
         color: var(--muted);
     }
 
+    .btn-primary {
+        @apply w-full border-none bg-accent p-3.5 font-bold text-accent-text;
+    }
+
     .hint {
         font-size: 0.8rem;
         color: var(--muted);

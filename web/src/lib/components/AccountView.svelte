@@ -64,25 +64,27 @@
 </script>
 
 <section aria-label="Account">
-    <h2>Account</h2>
+    <h2 class="mt-0 mb-3">Account</h2>
     {#if app.user === null}
         <p class="hint">
             Sign in from the menu at the top right to sync QSOs to the server (and on to Wavelog).
             Without signing in, QSOs stay on this device.
         </p>
         {#if !isWebAuthnSupported()}
-            <p class="error">This browser does not support passkeys.</p>
+            <p class="text-error">This browser does not support passkeys.</p>
         {/if}
         {#if app.account === 'unavailable'}
             <p class="hint">The server cannot be reached right now.</p>
         {/if}
     {:else}
-        <p>Signed in as <strong class="mono">{app.user.callsign}</strong></p>
+        <p>Signed in as <strong class="font-mono">{app.user.callsign}</strong></p>
 
-        <h3>Passkeys</h3>
-        <ul class="list">
+        <h3 class="mt-4 mb-2 text-base">Passkeys</h3>
+        <ul class="m-0 mb-2.5 grid list-none gap-1.5 p-0">
             {#each passkeys as passkey (passkey.id)}
-                <li>
+                <li
+                    class="flex items-center justify-between gap-2 rounded-control border border-border bg-surface px-3 py-2"
+                >
                     <div>
                         <strong>{passkey.name}</strong>
                         <div class="hint">
@@ -91,9 +93,14 @@
                             )}
                         </div>
                     </div>
-                    <span class="actions">
-                        <button onclick={() => rename(passkey)} disabled={busy}>Rename</button>
+                    <span class="flex gap-1">
                         <button
+                            class="px-2.5 py-1.5 text-sm"
+                            onclick={() => rename(passkey)}
+                            disabled={busy}>Rename</button
+                        >
+                        <button
+                            class="px-2.5 py-1.5 text-sm"
                             onclick={() => remove(passkey)}
                             disabled={busy || passkeys.length === 1}
                             title={passkeys.length === 1
@@ -105,7 +112,7 @@
             {/each}
         </ul>
         <form
-            class="add"
+            class="flex gap-1.5"
             onsubmit={(e) => {
                 e.preventDefault();
                 void addPasskey();
@@ -117,54 +124,9 @@
                 placeholder="Name, e.g. iPhone"
                 aria-label="New passkey name"
             />
-            <button type="submit" disabled={busy}>Add a passkey</button>
+            <button class="whitespace-nowrap" type="submit" disabled={busy}>Add a passkey</button>
         </form>
         <p class="hint">Add a passkey for each device or password manager you sign in with.</p>
     {/if}
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
+    {#if error}<p class="text-error" role="alert">{error}</p>{/if}
 </section>
-
-<style>
-    h2 {
-        margin: 0 0 0.8rem;
-    }
-    h3 {
-        margin: 1rem 0 0.5rem;
-        font-size: 1rem;
-    }
-    .list {
-        list-style: none;
-        margin: 0 0 0.6rem;
-        padding: 0;
-        display: grid;
-        gap: 0.4rem;
-    }
-    .list li {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 0.5rem;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 0.5rem 0.7rem;
-    }
-    .actions {
-        display: flex;
-        gap: 0.3rem;
-    }
-    .actions button {
-        padding: 0.35rem 0.6rem;
-        font-size: 0.85rem;
-    }
-    .add {
-        display: flex;
-        gap: 0.4rem;
-    }
-    .add button {
-        white-space: nowrap;
-    }
-    .error {
-        color: var(--error);
-    }
-</style>
