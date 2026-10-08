@@ -141,10 +141,6 @@
         color: var(--muted);
     }
 
-    .mono {
-        font-family: var(--mono);
-    }
-
     details > summary {
         cursor: pointer;
         color: var(--muted);
