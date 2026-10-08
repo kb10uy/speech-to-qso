@@ -131,14 +131,14 @@
     <div class="row">
         {#each [['name', 'Name'], ['qth', 'QTH']] as const as [field, label] (field)}
             <label class="cell text" data-field={field}>
-                <span class="key">{label}</span>
                 <input
                     type="text"
                     value={draft[field] ?? ''}
                     onchange={(e) => app.setFreeText(field, e.currentTarget.value)}
                     maxlength={FREE_TEXT_MAX_LENGTH}
                     autocomplete="off"
-                    placeholder="—"
+                    placeholder={label}
+                    aria-label={label}
                 />
             </label>
         {/each}
@@ -260,6 +260,9 @@
         font: inherit;
         font-size: 1.1rem;
         padding: 0;
+    }
+    .cell.text input::placeholder {
+        color: var(--muted);
     }
     .cell.text input:focus {
         outline: none;
