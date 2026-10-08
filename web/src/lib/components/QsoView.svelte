@@ -248,13 +248,15 @@
         color: var(--muted);
     }
     .cell.text {
-        align-items: center;
+        align-items: stretch;
         min-width: 0;
+        padding-block: 0;
     }
     .cell.text input {
         flex: 1;
         min-width: 0;
         border: none;
+        border-radius: 0;
         background: transparent;
         color: inherit;
         font: inherit;
