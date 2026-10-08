@@ -71,7 +71,7 @@ test('fills a QSO from typed DSL commands and logs it locally', async ({ page })
     await expect(page.getByRole('textbox', { name: /^QTH/ })).toHaveValue('');
 
     await page.reload();
-    await page.getByRole('button', { name: /^Log/ }).click();
+    await openMenu(page, 'Log');
     await expect(page.locator('li', { hasText: 'JL1HIS' })).toContainText('432.940 FM · 59/57');
 
     const download = page.waitForEvent('download');

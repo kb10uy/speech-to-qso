@@ -1,5 +1,5 @@
 <script lang="ts" module>
-    export type MenuPage = 'settings' | 'help';
+    export type MenuPage = 'log' | 'settings' | 'help';
 </script>
 
 <script lang="ts">
@@ -19,6 +19,7 @@
     let root = $state<HTMLElement>();
 
     const callsign = $derived(app.session.operatorCall || app.user?.callsign || '');
+    const unsynced = $derived(app.syncConfigured ? app.unsyncedCount : 0);
 
     async function run(action: () => Promise<unknown>) {
         open = false;
@@ -75,10 +76,19 @@
         aria-expanded={open}
         disabled={busy}
         onclick={() => (open = !open)}
-        >{callsign || 'Menu'}<span aria-hidden="true" class="caret">▾</span></button
+        >{callsign || 'Menu'}{#if unsynced > 0}<span aria-hidden="true" class="pending"
+            ></span>{/if}<span aria-hidden="true" class="caret">▾</span></button
     >
     {#if open}
         <ul role="menu">
+            <li role="none">
+                <button
+                    role="menuitem"
+                    class:current={current === 'log'}
+                    onclick={() => show('log')}
+                    >Log{#if unsynced > 0}<span class="count">{unsynced}</span>{/if}</button
+                >
+            </li>
             <li role="none">
                 <button
                     role="menuitem"
@@ -115,15 +125,33 @@
         position: relative;
     }
     .trigger {
-        padding: 0.25rem 0.5rem;
+        padding: 0.45rem 0.7rem;
         background: transparent;
         border-color: transparent;
         color: var(--text);
     }
-    .trigger.current,
-    .trigger[aria-expanded='true'] {
-        background: var(--surface-2);
-        border-color: var(--border);
+    .trigger.current {
+        font-weight: 600;
+    }
+    .pending {
+        display: inline-block;
+        width: 0.45rem;
+        height: 0.45rem;
+        margin-left: 0.3rem;
+        vertical-align: super;
+        border-radius: 50%;
+        background: var(--info);
+    }
+    .count {
+        display: inline-block;
+        margin-left: 0.3rem;
+        min-width: 1.2rem;
+        padding: 0 0.3rem;
+        border-radius: 999px;
+        background: var(--info);
+        color: #fff;
+        font-size: 0.75rem;
+        text-align: center;
     }
     .caret {
         margin-left: 0.3rem;

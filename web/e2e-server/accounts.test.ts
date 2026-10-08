@@ -63,7 +63,8 @@ test('keeps local and account logs separate, rejects a changed cookie and clears
     expect(await page.evaluate(() => window.__qso.log.length)).toBe(0);
     expect(await page.evaluate(() => window.__qso.localQsoCount)).toBe(1);
 
-    await page.getByRole('button', { name: /^Log/ }).click();
+    await page.getByRole('button', { name: 'JJ2AAA' }).click();
+    await page.getByRole('menuitem', { name: 'Log' }).click();
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Import local QSOs' }).click();
     await expect(page.locator('li', { hasText: 'JL1HIS' })).toContainText('synced');
@@ -252,7 +253,8 @@ test('registers a passkey from a bootstrap link, logs and syncs a QSO, signs in 
     await type(page, 'juliett lima one hotel india sierra received five seven');
     await type(page, 'frequency point nine four');
     await page.getByRole('button', { name: 'LOG QSO' }).click();
-    await page.getByRole('button', { name: /^Log/ }).click();
+    await page.getByRole('button', { name: 'JJ1ABC' }).click();
+    await page.getByRole('menuitem', { name: 'Log' }).click();
     await expect(page.locator('li', { hasText: 'JL1HIS' })).toContainText('synced');
 
     const download = page.waitForEvent('download');

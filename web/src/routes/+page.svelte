@@ -53,18 +53,13 @@
             <button class:current={tab === 'session'} onclick={() => (tab = 'session')}>
                 Session
             </button>
-            <button class:current={tab === 'log'} onclick={() => (tab = 'log')}>
-                Log{#if app.unsyncedCount > 0 && app.syncConfigured}<span class="dot"
-                        >{app.unsyncedCount}</span
-                    >{/if}
-            </button>
         </nav>
     </div>
     <div class="status">
         {#if !app.online}<span class="offline">offline</span>{/if}
         <AccountMenu
             {app}
-            current={tab === 'settings' || tab === 'help' ? tab : null}
+            current={tab === 'log' || tab === 'settings' || tab === 'help' ? tab : null}
             onOpen={(page) => (tab = page)}
         />
     </div>
@@ -136,24 +131,13 @@
         border-color: var(--border);
         font-weight: 600;
     }
-    .dot {
-        display: inline-block;
-        margin-left: 0.3rem;
-        min-width: 1.2rem;
-        padding: 0 0.3rem;
-        border-radius: 999px;
-        background: var(--info);
-        color: #fff;
-        font-size: 0.75rem;
-    }
     .status {
         display: flex;
         gap: 0.4rem;
         align-items: center;
-        font-size: 0.85rem;
-        color: var(--muted);
     }
     .offline {
+        font-size: 0.85rem;
         color: var(--error);
     }
     main {
