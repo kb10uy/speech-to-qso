@@ -33,73 +33,28 @@
 
 <button
     bind:this={button}
-    class="ptt"
-    class:active={app.ptt === 'listening' || app.ptt === 'opening'}
-    class:busy={app.ptt === 'finishing'}
+    class={[
+        'relative grid min-h-36 w-full touch-none place-content-center gap-1.5 overflow-hidden rounded-3xl border-none text-2xl font-bold tracking-wider transition-[background-color,scale] duration-80 select-none [-webkit-touch-callout:none]',
+        app.ptt === 'listening' || app.ptt === 'opening'
+            ? 'scale-98 bg-ptt-active text-white'
+            : app.ptt === 'finishing'
+              ? 'bg-surface-2 text-text'
+              : 'bg-ptt text-white'
+    ]}
     onpointerdown={down}
     onpointerup={() => void app.pttRelease()}
     onpointercancel={() => void app.pttCancel()}
     oncontextmenu={(e) => e.preventDefault()}
     aria-label="Push to talk"
 >
-    <span class="meter" style:transform="scaleX({app.ptt === 'listening' ? meter : 0})"></span>
-    <span class="label">{label}</span>
+    <span
+        class="absolute bottom-0 left-0 h-2 w-full origin-left bg-white/85 transition-transform duration-60 ease-linear"
+        style:transform="scaleX({app.ptt === 'listening' ? meter : 0})"
+    ></span>
+    <span class="relative">{label}</span>
     {#if app.ptt === 'listening' && app.partial}
-        <span class="partial">{app.partial}</span>
+        <span class="relative px-4 text-base font-normal tracking-normal opacity-90"
+            >{app.partial}</span
+        >
     {/if}
 </button>
-
-<style>
-    .ptt {
-        position: relative;
-        overflow: hidden;
-        width: 100%;
-        min-height: 9rem;
-        border-radius: 22px;
-        border: none;
-        background: var(--ptt);
-        color: #fff;
-        display: grid;
-        place-content: center;
-        gap: 0.4rem;
-        font-size: 1.6rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-touch-callout: none;
-        touch-action: none;
-        transition:
-            background 80ms,
-            transform 80ms;
-    }
-    .ptt.active {
-        background: var(--ptt-active);
-        transform: scale(0.98);
-    }
-    .ptt.busy {
-        background: var(--surface-2);
-        color: var(--text);
-    }
-    .meter {
-        position: absolute;
-        left: 0;
-        bottom: 0;
-        height: 8px;
-        width: 100%;
-        background: rgba(255, 255, 255, 0.85);
-        transform-origin: left;
-        transition: transform 60ms linear;
-    }
-    .label,
-    .partial {
-        position: relative;
-    }
-    .partial {
-        font-size: 0.95rem;
-        font-weight: 400;
-        letter-spacing: 0;
-        opacity: 0.9;
-        padding: 0 1rem;
-    }
-</style>
