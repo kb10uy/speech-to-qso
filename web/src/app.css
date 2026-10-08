@@ -1,3 +1,7 @@
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
 :root {
     color-scheme: dark light;
     --bg: #0d1117;
@@ -44,80 +48,112 @@
     }
 }
 
-* {
-    box-sizing: border-box;
+@theme inline {
+    --color-bg: var(--bg);
+    --color-surface: var(--surface);
+    --color-surface-2: var(--surface-2);
+    --color-border: var(--border);
+    --color-text: var(--text);
+    --color-muted: var(--muted);
+    --color-accent: var(--accent);
+    --color-accent-text: var(--accent-text);
+    --color-ok: var(--ok);
+    --color-error: var(--error);
+    --color-info: var(--info);
+    --color-ptt: var(--ptt);
+    --color-ptt-active: var(--ptt-active);
+    --color-log: var(--log);
+    --font-mono: var(--mono);
+    --radius-control: 10px;
+    --radius-card: var(--radius);
 }
 
-html,
-body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    -webkit-text-size-adjust: 100%;
-    overscroll-behavior: none;
+@layer base {
+    * {
+        box-sizing: border-box;
+    }
+
+    html,
+    body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        -webkit-text-size-adjust: 100%;
+        overscroll-behavior: none;
+    }
+
+    button,
+    input,
+    select {
+        font: inherit;
+        color: inherit;
+    }
+
+    button {
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        border-radius: 10px;
+        padding: 0.6rem 1rem;
+        touch-action: manipulation;
+    }
+
+    button:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+
+    input[type='text'],
+    input[type='url'],
+    input[type='password'],
+    input[type='number'],
+    select {
+        width: 100%;
+        padding: 0.6rem 0.7rem;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+    }
+
+    label {
+        display: block;
+    }
 }
 
-button,
-input,
-select {
-    font: inherit;
-    color: inherit;
-}
+@layer components {
+    .field {
+        display: grid;
+        gap: 0.3rem;
+        margin-bottom: 0.9rem;
+    }
 
-button {
-    cursor: pointer;
-    border: 1px solid var(--border);
-    background: var(--surface-2);
-    border-radius: 10px;
-    padding: 0.6rem 1rem;
-    touch-action: manipulation;
-}
+    .field > span {
+        font-size: 0.85rem;
+        color: var(--muted);
+    }
 
-button:disabled {
-    opacity: 0.5;
-    cursor: default;
-}
+    .hint {
+        font-size: 0.8rem;
+        color: var(--muted);
+    }
 
-input[type='text'],
-input[type='url'],
-input[type='password'],
-input[type='number'],
-select {
-    width: 100%;
-    padding: 0.6rem 0.7rem;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-}
+    .mono {
+        font-family: var(--mono);
+    }
 
-label {
-    display: block;
-}
+    details > summary {
+        cursor: pointer;
+        color: var(--muted);
+        padding: 0.4rem 0;
+    }
 
-.field {
-    display: grid;
-    gap: 0.3rem;
-    margin-bottom: 0.9rem;
-}
+    .flash {
+        animation: flash 0.5s ease-out;
+    }
 
-.field > span {
-    font-size: 0.85rem;
-    color: var(--muted);
-}
-
-.hint {
-    font-size: 0.8rem;
-    color: var(--muted);
-}
-
-.mono {
-    font-family: var(--mono);
-}
-
-details > summary {
-    cursor: pointer;
-    color: var(--muted);
-    padding: 0.4rem 0;
+    .flash-error {
+        animation: flash-error 0.5s ease-out;
+    }
 }
 
 @keyframes flash {
@@ -130,12 +166,4 @@ details > summary {
     from {
         background-color: var(--error);
     }
-}
-
-.flash {
-    animation: flash 0.5s ease-out;
-}
-
-.flash-error {
-    animation: flash-error 0.5s ease-out;
 }
