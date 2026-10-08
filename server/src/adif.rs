@@ -89,7 +89,7 @@ pub fn record(qso: &QsoPayload, station: Option<&Station>) -> String {
     field(&mut out, "MY_CITY", location);
     field(
         &mut out,
-        "APP_SPEECHTOQSO_MY_JCX",
+        "MY_CNTY",
         qso.my_jcx.as_deref().or(defaults.my_jcx.as_deref()),
     );
     field(&mut out, "MY_SIG", pota.map(|_| "POTA"));
@@ -214,7 +214,7 @@ mod tests {
         qso.pota_ref = None;
         // Identical to the expectation in web/src/lib/qso/adif.test.ts.
         assert!(record(&qso, Some(&station)).contains(
-            "<STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>Minato <APP_SPEECHTOQSO_MY_JCX:6>100101 \
+            "<STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>Minato <MY_CNTY:6>100101 \
              <MY_SIG:4>POTA <MY_SIG_INFO:7>JP-0001 <MY_POTA_REF:7>JP-0001 <EOR>"
         ));
         // The QSO's own values win.

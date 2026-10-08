@@ -49,7 +49,7 @@ export function adifRecord(record: QsoRecord, station?: Station): string {
                 record.stationCallsign ?? defaults.stationCallsign ?? record.operatorCall
             ),
             field('MY_CITY', location),
-            field('APP_SPEECHTOQSO_MY_JCX', record.myJcx ?? defaults.myJcx),
+            field('MY_CNTY', record.myJcx ?? defaults.myJcx),
             field('MY_SIG', pota === undefined ? undefined : 'POTA'),
             field('MY_SIG_INFO', pota),
             field('MY_POTA_REF', pota)

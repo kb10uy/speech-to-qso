@@ -172,7 +172,7 @@ the number of past QSOs, when the latest was made, and when the latest QSO whose
 | Operator callsign  | `OPERATOR` (left out if empty)                          |
 | Station callsign   | `STATION_CALLSIGN` (the station's, else the operator's) |
 | Operating location | `MY_CITY`                                               |
-| Own JCC/JCG        | `APP_SPEECHTOQSO_MY_JCX`                                |
+| Own JCC/JCG        | `MY_CNTY`                                               |
 | POTA reference     | `MY_SIG=POTA`, `MY_SIG_INFO`, `MY_POTA_REF`             |
 
 ## Deployment

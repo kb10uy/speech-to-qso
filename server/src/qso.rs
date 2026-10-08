@@ -196,6 +196,9 @@ impl QsoPayload {
         if !self.location.is_empty() {
             set("my_city", self.location.clone().into());
         }
+        if let Some(my_jcx) = &self.my_jcx {
+            set("my_cnty", my_jcx.clone().into());
+        }
         if let Some(pota) = &self.pota_ref {
             set("my_sig", "POTA".into());
             set("my_sig_info", pota.clone().into());
@@ -303,9 +306,13 @@ pub(crate) mod tests {
         qso.location = String::new();
         qso.pota_ref = None;
         let body = qso.to_wavelog(3).unwrap();
-        for key in ["operator", "my_city", "my_sig", "my_sig_info", "my_pota_ref"] {
+        for key in ["operator", "my_city", "my_cnty", "my_sig", "my_sig_info", "my_pota_ref"] {
             assert!(body.get(key).is_none(), "{key}");
         }
+
+        let mut qso = sample();
+        qso.my_jcx = Some("100102".into());
+        assert_eq!(qso.to_wavelog(3).unwrap()["my_cnty"], "100102");
 
         let mut qso = sample();
         qso.name = Some("太郎".into());

@@ -72,7 +72,7 @@ describe('adifRecord', () => {
         const bare = { ...record, operatorCall: undefined, location: '', potaReference: undefined };
         // Identical to the expectation in server/src/adif.rs.
         expect(adifRecord(bare, station)).toContain(
-            '<STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>Minato <APP_SPEECHTOQSO_MY_JCX:6>100101 ' +
+            '<STATION_CALLSIGN:8>JJ1ABC/1 <MY_CITY:6>Minato <MY_CNTY:6>100101 ' +
                 '<MY_SIG:4>POTA <MY_SIG_INFO:7>JP-0001 <MY_POTA_REF:7>JP-0001 <EOR>'
         );
         // The QSO's own values win.
