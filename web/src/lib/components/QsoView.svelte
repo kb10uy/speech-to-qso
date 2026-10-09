@@ -50,8 +50,8 @@
         command = '';
     }
 
-    const cell = 'flex min-h-14 justify-center gap-2 rounded-card border bg-surface px-3';
-    const button = [cell, 'items-baseline py-2.5 text-[1.4rem]'];
+    const cell = 'flex min-h-14 justify-center rounded-card border bg-surface px-3';
+    const button = [cell, 'items-baseline gap-2 py-2.5 text-[1.4rem]'];
 
     /** Tapping a field pre-fills the command box with its keyword. */
     function edit(keyword: string) {
@@ -91,14 +91,24 @@
 <section class="mb-3 grid gap-2" aria-label="Draft QSO" bind:this={draftSection}>
     <div class="grid grid-cols-[2fr_1fr] gap-2">
         <button
-            class={[button, 'border-border', draft.frequencyHz === undefined && 'text-muted']}
+            class={[
+                cell,
+                'flex-col items-center border-border py-1',
+                draft.frequencyHz === undefined && 'text-muted'
+            ]}
             data-field="frequency"
             onclick={() => edit('frequency')}
         >
-            <span class="font-mono text-2xl font-semibold"
-                >{draft.frequencyHz === undefined ? '---.---' : formatMhz(draft.frequencyHz)}</span
+            <span class="flex items-baseline gap-2">
+                <span class="font-mono text-2xl font-semibold"
+                    >{draft.frequencyHz === undefined
+                        ? '---.---'
+                        : formatMhz(draft.frequencyHz)}</span
+                >
+                <span class="text-sm text-muted">MHz</span>
+            </span>
+            <span class="text-xs text-muted">anchor {formatMhz(app.session.frequencyAnchorHz)}</span
             >
-            <span class="text-sm text-muted">MHz</span>
         </button>
         <button
             class={[button, 'border-border font-mono']}
@@ -140,38 +150,6 @@
         </button>
     </div>
 
-    <div
-        class={[
-            'grid min-h-[3.6rem] grid-cols-[auto_1fr_1fr] items-start gap-3 rounded-card border-l-4 bg-surface px-3 py-1',
-            history?.status === 'error' ? 'border-error' : 'border-info'
-        ]}
-        aria-label="Wavelog history"
-        aria-live="polite"
-    >
-        {#if history?.status === 'error'}
-            <span class="col-span-full self-center text-sm text-error"
-                >Wavelog lookup failed: {history.message}</span
-            >
-        {:else}
-            <div class="grid">
-                <span class="text-xs text-muted">QSOs</span><span class="font-mono text-base/tight"
-                    >{found?.qsos ?? blank}</span
-                >
-            </div>
-            <div class="grid">
-                <span class="text-xs text-muted">Last QSO</span>
-                <span class="font-mono text-base/tight">{found ? time(found.last_qso) : blank}</span
-                >
-            </div>
-            <div class="grid">
-                <span class="text-xs text-muted">Last QSL sent</span>
-                <span class="font-mono text-base/tight"
-                    >{found ? time(found.last_qsl_sent) : blank}</span
-                >
-            </div>
-        {/if}
-    </div>
-
     <div class="grid grid-cols-2 gap-2">
         {@render freeText('qth', 'QTH')}
         <button
@@ -199,8 +177,33 @@
         </button>
     </div>
 
-    <div class="flex justify-between px-1 text-xs text-muted">
-        <span>anchor {formatMhz(app.session.frequencyAnchorHz)} MHz</span>
+    <div
+        class="grid min-h-[3.6rem] grid-cols-[auto_1fr_1fr] items-start gap-3 rounded-card bg-surface px-3 py-1"
+        aria-label="Wavelog history"
+        aria-live="polite"
+    >
+        {#if history?.status === 'error'}
+            <span class="col-span-full self-center text-sm text-error"
+                >Wavelog lookup failed: {history.message}</span
+            >
+        {:else}
+            <div class="grid">
+                <span class="text-xs text-muted">QSOs</span><span class="font-mono text-base/tight"
+                    >{found?.qsos ?? blank}</span
+                >
+            </div>
+            <div class="grid">
+                <span class="text-xs text-muted">Last QSO</span>
+                <span class="font-mono text-base/tight">{found ? time(found.last_qso) : blank}</span
+                >
+            </div>
+            <div class="grid">
+                <span class="text-xs text-muted">Last QSL sent</span>
+                <span class="font-mono text-base/tight"
+                    >{found ? time(found.last_qsl_sent) : blank}</span
+                >
+            </div>
+        {/if}
     </div>
 </section>
 

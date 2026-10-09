@@ -140,7 +140,7 @@ test('keeps local and account logs separate, rejects a changed cookie and clears
     expect(await page.evaluate(() => window.__qso.unsyncedCount)).toBe(0);
 });
 
-test('shows what Wavelog knows about the callsign above JCC/JCG', async ({ page }) => {
+test('shows what Wavelog knows about the callsign below the name and QSL', async ({ page }) => {
     await registerUser(page, 'JJ4AAA');
     const history = page.getByLabel('Wavelog history');
 
@@ -165,7 +165,7 @@ test('shows what Wavelog knows about the callsign above JCC/JCG', async ({ page 
     await expect(history).toContainText(/QSOs\s*3/);
     await expect(history).toContainText('2026-10-03 04:05Z');
     await expect(history).toContainText('2025-04-01 12:34Z');
-    await expect(history.locator('xpath=following-sibling::*[1]')).toContainText('JCC/JCG');
+    await expect(history.locator('xpath=preceding-sibling::*[1]')).toContainText('QSL');
 
     await type(page, 'jr1zzz');
     await expect(history).toContainText(/QSOs\s*0/);
