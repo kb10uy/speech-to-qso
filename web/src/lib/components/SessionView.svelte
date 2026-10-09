@@ -56,7 +56,7 @@
 </script>
 
 <form onsubmit={save}>
-    <h2 class="mt-0">Operating session</h2>
+    <h2 class="mt-0 mb-5 text-2xl font-bold">Operating session</h2>
     {#if app.stations.stations.length > 0}
         <label class="field">
             <span>Station</span>

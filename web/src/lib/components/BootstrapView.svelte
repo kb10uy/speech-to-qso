@@ -43,17 +43,17 @@
 </script>
 
 <section aria-label="Set up a passkey">
-    <h2 class="mt-0">Set up your passkey</h2>
+    <h2 class="mt-0 mb-5 text-2xl font-bold">Set up your passkey</h2>
     {#if started}
-        <p>
+        <p class="my-3">
             Create the first passkey for <strong class="font-mono">{started.info.callsign}</strong>.
             You sign in with it from now on; more passkeys can be added later in Settings.
         </p>
     {:else if !error}
-        <p class="hint">Checking the link…</p>
+        <p class="hint my-3">Checking the link…</p>
     {/if}
     {#if !isWebAuthnSupported()}
-        <p class="text-error">This browser does not support passkeys.</p>
+        <p class="my-3 text-error">This browser does not support passkeys.</p>
     {:else}
         <form onsubmit={register}>
             <label class="field">
@@ -67,6 +67,6 @@
             >
         </form>
     {/if}
-    {#if error}<p class="text-error" role="alert">{error}</p>{/if}
+    {#if error}<p class="my-3 text-error" role="alert">{error}</p>{/if}
     <button class="mt-3" onclick={() => void app.cancelBootstrap()}>Cancel</button>
 </section>

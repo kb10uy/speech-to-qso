@@ -25,7 +25,7 @@
 {/if}
 
 <form onsubmit={save}>
-    <h2 class="mt-6 mb-3">Speech recognition</h2>
+    <h2 class="mt-6 mb-3 text-2xl font-bold">Speech recognition</h2>
     <label class="field">
         <span>Vosk model</span>
         <select bind:value={form.voskLanguage}>
@@ -52,7 +52,7 @@
 </form>
 
 <section class="mt-5">
-    <p>
+    <p class="my-3">
         Speech engine: <strong>{app.asr}</strong>
         {#if app.asrError}<span class="text-error">({app.asrError})</span>{/if}
     </p>

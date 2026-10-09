@@ -81,9 +81,9 @@
 
 <main class="mx-auto max-w-lg px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
     {#if initError}
-        <p class="text-error">Failed to start: {initError}</p>
+        <p class="my-3 text-error">Failed to start: {initError}</p>
     {:else if !app.ready}
-        <p class="hint">Loading…</p>
+        <p class="hint my-3">Loading…</p>
     {:else if app.bootstrapToken !== null}
         {#key app.bootstrapToken}
             <BootstrapView {app} token={app.bootstrapToken} />

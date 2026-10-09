@@ -64,22 +64,22 @@
 </script>
 
 <section aria-label="Account">
-    <h2 class="mt-0 mb-3">Account</h2>
+    <h2 class="mt-0 mb-3 text-2xl font-bold">Account</h2>
     {#if app.user === null}
-        <p class="hint">
+        <p class="hint my-3">
             Sign in from the menu at the top right to sync QSOs to the server (and on to Wavelog).
             Without signing in, QSOs stay on this device.
         </p>
         {#if !isWebAuthnSupported()}
-            <p class="text-error">This browser does not support passkeys.</p>
+            <p class="my-3 text-error">This browser does not support passkeys.</p>
         {/if}
         {#if app.account === 'unavailable'}
-            <p class="hint">The server cannot be reached right now.</p>
+            <p class="hint my-3">The server cannot be reached right now.</p>
         {/if}
     {:else}
-        <p>Signed in as <strong class="font-mono">{app.user.callsign}</strong></p>
+        <p class="my-3">Signed in as <strong class="font-mono">{app.user.callsign}</strong></p>
 
-        <h3 class="mt-4 mb-2 text-base">Passkeys</h3>
+        <h3 class="mt-4 mb-2 text-base font-bold">Passkeys</h3>
         <ul class="m-0 mb-2.5 grid list-none gap-1.5 p-0">
             {#each passkeys as passkey (passkey.id)}
                 <li
@@ -126,7 +126,7 @@
             />
             <button class="whitespace-nowrap" type="submit" disabled={busy}>Add a passkey</button>
         </form>
-        <p class="hint">Add a passkey for each device or password manager you sign in with.</p>
+        <p class="hint my-3">Add a passkey for each device or password manager you sign in with.</p>
     {/if}
-    {#if error}<p class="text-error" role="alert">{error}</p>{/if}
+    {#if error}<p class="my-3 text-error" role="alert">{error}</p>{/if}
 </section>

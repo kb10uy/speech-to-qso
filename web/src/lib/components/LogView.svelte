@@ -73,23 +73,25 @@
 </div>
 {#if app.user !== null}
     {#if app.localQsoCount > 0}
-        <p class="hint">
+        <p class="hint my-3">
             {app.localQsoCount} local QSO(s) are kept separately from this account.
             <button onclick={() => void importLocal()} disabled={importing}
                 >Import local QSOs</button
             >
         </p>
-        {#if importError}<p class="text-xs text-error" role="alert">{importError}</p>{/if}
+        {#if importError}<p class="my-3 text-xs text-error" role="alert">{importError}</p>{/if}
     {/if}
-    <p class="hint">
-        Export ADIF saves the QSOs on this device. <a class="text-info" href="/api/qso.adi" download
-            >Download the server log</a
+    <p class="hint my-3">
+        Export ADIF saves the QSOs on this device. <a
+            class="text-info underline"
+            href="/api/qso.adi"
+            download>Download the server log</a
         > for every QSO synced from any device.
     </p>
 {/if}
 
 {#if !app.online}
-    <p class="hint">Offline — QSOs are kept on this device and synced when back online.</p>
+    <p class="hint my-3">Offline — QSOs are kept on this device and synced when back online.</p>
 {/if}
 
 <ul class="m-0 grid list-none gap-2 p-0">

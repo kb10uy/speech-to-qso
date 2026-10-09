@@ -93,8 +93,8 @@
 </script>
 
 <section aria-label="Wavelog">
-    <h2 class="mt-6 mb-3">Wavelog</h2>
-    <p class="hint">
+    <h2 class="mt-6 mb-3 text-2xl font-bold">Wavelog</h2>
+    <p class="hint my-3">
         QSOs logged with a Wavelog station are forwarded to your Wavelog (3.1 or later). Create an
         API token with the <span class="font-mono">station:read</span>,
         <span class="font-mono">qso:read</span>
@@ -137,8 +137,8 @@
 </section>
 
 <section aria-label="Stations">
-    <h2 class="mt-6 mb-3">Stations</h2>
-    <p class="hint">
+    <h2 class="mt-6 mb-3 text-2xl font-bold">Stations</h2>
+    <p class="hint my-3">
         A station provides the session defaults (station callsign, location, POTA reference, own
         JCC/JCG). Each device picks its station in the Session tab; the default is used until it
         does.
@@ -251,5 +251,5 @@
             </div>
         </form>
     {/if}
-    {#if error}<p class="text-error" role="alert">{error}</p>{/if}
+    {#if error}<p class="my-3 text-error" role="alert">{error}</p>{/if}
 </section>

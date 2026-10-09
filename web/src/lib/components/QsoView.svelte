@@ -232,7 +232,7 @@
             <p>Loading speech engine… (the first load downloads the model, ≈40 MB)</p>
         {:else}
             {#if app.asr === 'error'}
-                <p class="text-error">Speech engine failed: {app.asrError}</p>
+                <p class="my-3 text-error">Speech engine failed: {app.asrError}</p>
             {/if}
             <button class="px-5 py-3.5 text-lg" onclick={() => void app.loadAsr()}>
                 Load speech engine (Vosk, ≈40 MB once)

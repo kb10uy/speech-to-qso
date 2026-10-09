@@ -1,11 +1,11 @@
 <section>
-    <h2 class="mt-5 mb-3">Voice commands</h2>
-    <p class="hint">
+    <h2 class="mt-5 mb-3 text-2xl font-bold">Voice commands</h2>
+    <p class="hint my-3">
         One utterance per PTT press. Speaking a field again overwrites it. Commands can be chained.
         With the Japanese model, say the same words as katakana loanwords (ジュリエット リマ ワン
         …), and 送信, 受信 and 周波数 for sent, received and frequency.
     </p>
-    <dl class="grid gap-1">
+    <dl class="my-4 grid gap-1">
         <dt class="mt-2 font-mono">juliett lima one hotel india sierra</dt>
         <dd class="m-0 text-sm text-muted">
             Callsign JL1HIS (“stroke one” or “portable one” → /1, “portable” → /P)
