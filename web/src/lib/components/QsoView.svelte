@@ -191,7 +191,7 @@
             data-field="qsl"
             onclick={() => edit('card')}
         >
-            {{ none: 'No QSL', requested: 'QSL Requested', oneWay: 'QSL One Way' }[draft.qsl]}
+            {{ none: 'No QSL', requested: 'Requested', oneWay: 'One Way' }[draft.qsl]}
         </button>
     </div>
 </section>

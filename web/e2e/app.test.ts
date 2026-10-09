@@ -53,7 +53,7 @@ test('fills a QSO from typed DSL commands and logs it locally', async ({ page })
     await expect(draft).toContainText('57');
     await expect(draft).toContainText('432.940');
     await expect(draft).toContainText('100101');
-    await expect(draft).toContainText('QSL Requested');
+    await expect(draft).toContainText('Requested');
 
     const commandFlashed = await watchClass(page.getByPlaceholder(/e\.g\. jl1his/), 'flash-error');
     await type(page, 'received banana');
@@ -143,7 +143,7 @@ test('switches to the bundled Japanese model and takes Japanese commands', async
     const draft = page.getByLabel('Draft QSO');
     await expect(draft).toContainText('JL1HIS');
     await expect(draft).toContainText('57');
-    await expect(draft).toContainText('QSL One Way');
+    await expect(draft).toContainText('One Way');
     await page.getByText(/^Recent utterances/).click();
     await expect(page.getByRole('listitem').first()).toContainText(
         'J L 1 H I S RCVD 5 7 QSL ONE WAY'
