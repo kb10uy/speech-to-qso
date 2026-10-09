@@ -1,3 +1,5 @@
+@import 'tailwindcss';
+
 :root {
     color-scheme: dark light;
     --bg: #0d1117;
@@ -14,15 +16,9 @@
     --ptt: #1f6feb;
     --ptt-active: #d29922;
     --log: #238636;
-    --radius: 14px;
+    --radius: 8px;
+    --radius-small: 6px;
     --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
-    font-family:
-        system-ui,
-        -apple-system,
-        'Segoe UI',
-        Roboto,
-        'Noto Sans JP',
-        sans-serif;
 }
 
 @media (prefers-color-scheme: light) {
@@ -44,80 +40,100 @@
     }
 }
 
-* {
-    box-sizing: border-box;
+@theme inline {
+    --color-bg: var(--bg);
+    --color-surface: var(--surface);
+    --color-surface-2: var(--surface-2);
+    --color-border: var(--border);
+    --color-text: var(--text);
+    --color-muted: var(--muted);
+    --color-accent: var(--accent);
+    --color-accent-text: var(--accent-text);
+    --color-ok: var(--ok);
+    --color-error: var(--error);
+    --color-info: var(--info);
+    --color-ptt: var(--ptt);
+    --color-ptt-active: var(--ptt-active);
+    --color-log: var(--log);
+    --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans JP', sans-serif;
+    --font-mono: var(--mono);
+    --radius-control: var(--radius-small);
+    --radius-card: var(--radius);
 }
 
-html,
-body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    -webkit-text-size-adjust: 100%;
-    overscroll-behavior: none;
+@layer base {
+    html,
+    body {
+        background: var(--bg);
+        color: var(--text);
+        overscroll-behavior: none;
+    }
+
+    button {
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        border-radius: var(--radius-small);
+        padding: 0.6rem 1rem;
+        touch-action: manipulation;
+    }
+
+    button:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+
+    input[type='text'],
+    input[type='url'],
+    input[type='password'],
+    input[type='number'],
+    select {
+        width: 100%;
+        padding: 0.6rem 0.7rem;
+        border-radius: var(--radius-small);
+        border: 1px solid var(--border);
+        background: var(--surface);
+    }
+
+    label {
+        display: block;
+    }
 }
 
-button,
-input,
-select {
-    font: inherit;
-    color: inherit;
-}
+@layer components {
+    .field {
+        display: grid;
+        gap: 0.3rem;
+        margin-bottom: 0.9rem;
+    }
 
-button {
-    cursor: pointer;
-    border: 1px solid var(--border);
-    background: var(--surface-2);
-    border-radius: 10px;
-    padding: 0.6rem 1rem;
-    touch-action: manipulation;
-}
+    .field > span {
+        font-size: 0.85rem;
+        color: var(--muted);
+    }
 
-button:disabled {
-    opacity: 0.5;
-    cursor: default;
-}
+    .btn-primary {
+        @apply w-full border-none bg-accent p-3.5 font-bold text-accent-text;
+    }
 
-input[type='text'],
-input[type='url'],
-input[type='password'],
-input[type='number'],
-select {
-    width: 100%;
-    padding: 0.6rem 0.7rem;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-}
+    .hint {
+        font-size: 0.8rem;
+        color: var(--muted);
+    }
 
-label {
-    display: block;
-}
+    details > summary {
+        cursor: pointer;
+        color: var(--muted);
+        padding: 0.4rem 0;
+    }
 
-.field {
-    display: grid;
-    gap: 0.3rem;
-    margin-bottom: 0.9rem;
-}
+    .flash {
+        animation: flash 0.5s ease-out;
+    }
 
-.field > span {
-    font-size: 0.85rem;
-    color: var(--muted);
-}
-
-.hint {
-    font-size: 0.8rem;
-    color: var(--muted);
-}
-
-.mono {
-    font-family: var(--mono);
-}
-
-details > summary {
-    cursor: pointer;
-    color: var(--muted);
-    padding: 0.4rem 0;
+    .flash-error {
+        animation: flash-error 0.5s ease-out;
+    }
 }
 
 @keyframes flash {
@@ -130,12 +146,4 @@ details > summary {
     from {
         background-color: var(--error);
     }
-}
-
-.flash {
-    animation: flash 0.5s ease-out;
-}
-
-.flash-error {
-    animation: flash-error 0.5s ease-out;
 }

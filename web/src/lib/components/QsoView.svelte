@@ -4,7 +4,7 @@
     import {
         FREE_TEXT_MAX_LENGTH,
         formatMhz,
-        formatUtcMinute,
+        formatUtcDate,
         sessionProblems,
         type FreeTextField
     } from '../qso';
@@ -24,8 +24,8 @@
     const found = $derived(history?.status === 'ready' ? history.history : null);
     const blank = $derived(history?.status === 'loading' ? '…' : '—');
 
-    function time(iso: string | null): string {
-        return iso === null ? '—' : formatUtcMinute(iso);
+    function date(iso: string | null): string {
+        return iso === null ? '—' : formatUtcDate(iso);
     }
 
     $effect(() => {
@@ -50,6 +50,9 @@
         command = '';
     }
 
+    const cell = 'flex min-h-14 justify-center rounded-card border bg-surface px-3';
+    const button = [cell, 'items-baseline gap-2 py-2.5 text-[1.4rem]'];
+
     /** Tapping a field pre-fills the command box with its keyword. */
     function edit(keyword: string) {
         commandOpen = true;
@@ -59,8 +62,15 @@
 </script>
 
 {#snippet freeText(field: FreeTextField, label: string)}
-    <label class="cell text" data-field={field}>
+    <label
+        class={[
+            cell,
+            'min-w-0 items-stretch border-border text-[1.4rem] focus-within:border-accent'
+        ]}
+        data-field={field}
+    >
         <input
+            class="min-w-0 flex-1 rounded-none border-none bg-transparent p-0 text-lg placeholder:text-muted focus:outline-none"
             type="text"
             value={draft[field] ?? ''}
             onchange={(e) => app.setFreeText(field, e.currentTarget.value)}
@@ -73,94 +83,131 @@
 {/snippet}
 
 {#if problems.length > 0}
-    <button class="banner" onclick={onOpenSession}>
+    <button class="mb-3 w-full border-accent bg-accent/20 text-left" onclick={onOpenSession}>
         {problems.join(' / ')} — tap to set up the session
     </button>
 {/if}
 
-<section class="draft" aria-label="Draft QSO" bind:this={draftSection}>
-    <div class="row">
+<section class="mb-3 grid gap-2" aria-label="Draft QSO" bind:this={draftSection}>
+    <div class="grid grid-cols-[2fr_1fr] gap-2">
         <button
-            class="cell freq"
+            class={[
+                cell,
+                'flex-col items-center border-border py-1',
+                draft.frequencyHz === undefined && 'text-muted'
+            ]}
             data-field="frequency"
-            class:empty={draft.frequencyHz === undefined}
             onclick={() => edit('frequency')}
         >
-            <span class="mono"
-                >{draft.frequencyHz === undefined ? '---.---' : formatMhz(draft.frequencyHz)}</span
+            <span class="flex items-baseline gap-2">
+                <span class="font-mono text-2xl font-semibold"
+                    >{draft.frequencyHz === undefined
+                        ? '---.---'
+                        : formatMhz(draft.frequencyHz)}</span
+                >
+                <span class="text-sm text-muted">MHz</span>
+            </span>
+            <span class="text-xs text-muted">anchor {formatMhz(app.session.frequencyAnchorHz)}</span
             >
-            <span class="unit">MHz</span>
         </button>
-        <button class="cell mode mono" data-field="mode" onclick={() => edit('mode')}>
+        <button
+            class={[button, 'border-border font-mono']}
+            data-field="mode"
+            onclick={() => edit('mode')}
+        >
             {draft.mode ?? app.session.defaultMode}
         </button>
     </div>
 
-    <button
-        class="cell callsign mono"
-        data-field="callsign"
-        class:empty={!draft.callsign}
-        onclick={() => edit('')}
-    >
-        {draft.callsign ?? 'CALLSIGN'}
-    </button>
-
-    <div class="row">
-        <button class="cell rst" data-field="rstSent" onclick={() => edit('sent')}>
-            <span class="key">S</span><span class="mono">{draft.rstSent}</span>
-        </button>
-        <button class="cell rst" data-field="rstReceived" onclick={() => edit('received')}>
-            <span class="key">R</span><span class="mono">{draft.rstReceived}</span>
-        </button>
-    </div>
-
     <div
-        class="history {history?.status ?? 'none'}"
-        aria-label="Wavelog history"
-        aria-live="polite"
+        class={[cell, 'relative flex-col items-center gap-0.5 border-border py-2']}
+        data-field="callsign"
     >
-        {#if history?.status === 'error'}
-            <span class="note">Wavelog lookup failed: {history.message}</span>
-        {:else}
-            <div><span class="key">QSOs</span><span class="mono">{found?.qsos ?? blank}</span></div>
-            <div>
-                <span class="key">Last QSO</span>
-                <span class="mono">{found ? time(found.last_qso) : blank}</span>
-            </div>
-            <div>
-                <span class="key">Last QSL sent</span>
-                <span class="mono">{found ? time(found.last_qsl_sent) : blank}</span>
-            </div>
-        {/if}
+        <button
+            class={[
+                'h-[calc(var(--callsign-size)*1.2)] w-full overflow-hidden border-none bg-transparent p-0 font-mono leading-[1.2] font-bold whitespace-nowrap [--callsign-size:clamp(2.2rem,12vw,3.6rem)] after:absolute after:inset-0',
+                draft.callsign
+                    ? 'text-(length:--callsign-size) tracking-[0.04em]'
+                    : 'text-[1.6rem] tracking-[0.2em] text-muted'
+            ]}
+            onclick={() => edit('')}
+        >
+            {draft.callsign ?? 'CALLSIGN'}
+        </button>
+        <div
+            class={[
+                'w-full truncate text-center text-xs tabular-nums',
+                history?.status === 'error' ? 'text-error' : 'text-muted'
+            ]}
+            aria-label="Wavelog history"
+            aria-live="polite"
+        >
+            {#if history?.status === 'error'}
+                Wavelog lookup failed: {history.message}
+            {:else}
+                {found?.qsos ?? blank} QSOs · last {found ? date(found.last_qso) : blank} · QSL sent
+                {found ? date(found.last_qsl_sent) : blank}
+            {/if}
+        </div>
     </div>
 
-    <div class="row">
-        {@render freeText('qth', 'QTH')}
-        <button class="cell" data-field="jcx" class:empty={!draft.jcx} onclick={() => edit('jcx')}>
-            <span class="key">JCC/JCG</span><span class="mono">{draft.jcx ?? '—'}</span>
+    <div class="grid grid-cols-2 gap-2">
+        <button class={[button, 'border-border']} data-field="rstSent" onclick={() => edit('sent')}>
+            <span class="text-sm text-muted">S</span><span class="font-mono text-3xl font-semibold"
+                >{draft.rstSent}</span
+            >
+        </button>
+        <button
+            class={[button, 'border-border']}
+            data-field="rstReceived"
+            onclick={() => edit('received')}
+        >
+            <span class="text-sm text-muted">R</span><span class="font-mono text-3xl font-semibold"
+                >{draft.rstReceived}</span
+            >
         </button>
     </div>
 
-    <div class="row">
+    <div class="grid grid-cols-2 gap-2">
+        {@render freeText('qth', 'QTH')}
+        <button
+            class={[button, 'border-border', !draft.jcx && 'text-muted']}
+            data-field="jcx"
+            onclick={() => edit('jcx')}
+        >
+            <span class="text-sm text-muted">JCC/JCG</span><span class="font-mono"
+                >{draft.jcx ?? '—'}</span
+            >
+        </button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2">
         {@render freeText('name', 'Name')}
         <button
-            class="cell"
+            class={[
+                button,
+                draft.qsl === 'none' ? 'border-border' : 'border-accent font-semibold text-accent'
+            ]}
             data-field="qsl"
-            class:qsl={draft.qsl !== 'none'}
             onclick={() => edit('card')}
         >
-            {{ none: 'No QSL', requested: 'QSL Requested', oneWay: 'QSL One Way' }[draft.qsl]}
+            {{ none: 'No QSL', requested: 'Requested', oneWay: 'One Way' }[draft.qsl]}
         </button>
-    </div>
-
-    <div class="meta">
-        <span>anchor {formatMhz(app.session.frequencyAnchorHz)} MHz</span>
     </div>
 </section>
 
 <div
-    class="toast {app.feedback?.kind ?? ''}"
-    class:shown={app.feedback !== null}
+    class={[
+        'pointer-events-none fixed top-2 left-1/2 z-10 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-control border-l-4 bg-surface-2 px-3.5 py-2.5 text-base shadow-[0_4px_16px_rgb(0_0_0/0.3)]',
+        app.feedback === null
+            ? '-translate-y-2 opacity-0'
+            : 'translate-y-0 opacity-100 transition-[opacity,translate] duration-150',
+        app.feedback?.kind === 'ok'
+            ? 'border-ok'
+            : app.feedback?.kind === 'error'
+              ? 'border-error'
+              : 'border-info'
+    ]}
     role="status"
     aria-live="polite"
 >
@@ -170,30 +217,34 @@
 {#if app.asr === 'ready'}
     <PttButton {app} />
 {:else}
-    <div class="asr">
+    <div
+        class="grid min-h-36 place-content-center rounded-card border-2 border-dashed border-border p-4 text-center"
+    >
         {#if app.asr === 'loading'}
             <p>Loading speech engine… (the first load downloads the model, ≈40 MB)</p>
         {:else}
             {#if app.asr === 'error'}
-                <p class="error">Speech engine failed: {app.asrError}</p>
+                <p class="my-3 text-error">Speech engine failed: {app.asrError}</p>
             {/if}
-            <button class="load" onclick={() => void app.loadAsr()}>
+            <button class="px-5 py-3.5 text-lg" onclick={() => void app.loadAsr()}>
                 Load speech engine (Vosk, ≈40 MB once)
             </button>
         {/if}
     </div>
 {/if}
 
-<div class="actions">
-    <button class="log" onclick={() => void app.logQso()} disabled={app.ptt !== 'idle'}
-        >LOG QSO</button
+<div class="mt-3 grid grid-cols-[1fr_auto] gap-2">
+    <button
+        class="rounded-card border-none bg-log p-4 text-[1.4rem] font-bold tracking-wider text-white"
+        onclick={() => void app.logQso()}
+        disabled={app.ptt !== 'idle'}>LOG QSO</button
     >
-    <button class="clear" onclick={() => void app.clearDraft()}>Clear</button>
+    <button class="rounded-card" onclick={() => void app.clearDraft()}>Clear</button>
 </div>
 
-<details bind:open={commandOpen}>
+<details class="mt-3" bind:open={commandOpen}>
     <summary>Type a command</summary>
-    <form onsubmit={submitCommand} class="command">
+    <form onsubmit={submitCommand} class="grid grid-cols-[1fr_auto] gap-2">
         <input
             bind:this={commandInput}
             bind:value={command}
@@ -208,12 +259,17 @@
 </details>
 
 {#if app.utterances.length > 0}
-    <details>
+    <details class="mt-3">
         <summary>Recent utterances ({app.utterances.length})</summary>
-        <ol class="utterances">
+        <ol class="m-0 grid list-none gap-1.5 p-0">
             {#each app.utterances as u (u.at + u.text)}
-                <li class:bad={!u.ok}>
-                    <span class="mono" title={u.text}
+                <li
+                    class={[
+                        'grid border-l-3 px-2 py-1 text-sm',
+                        u.ok ? 'border-ok' : 'border-error'
+                    ]}
+                >
+                    <span class="font-mono" title={u.text}
                         >{u.source === 'typed' ? '⌨' : '🎙'} {u.heard}</span
                     >
                     <span class="hint">{u.message}</span>
@@ -222,234 +278,3 @@
         </ol>
     </details>
 {/if}
-
-<style>
-    .banner {
-        width: 100%;
-        margin-bottom: 0.8rem;
-        background: color-mix(in srgb, var(--accent) 20%, transparent);
-        border-color: var(--accent);
-        text-align: left;
-    }
-    .draft {
-        display: grid;
-        gap: 0.5rem;
-        margin-bottom: 0.8rem;
-    }
-    .row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5rem;
-    }
-    .cell {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 0.6rem 0.8rem;
-        font-size: 1.4rem;
-        display: flex;
-        align-items: baseline;
-        justify-content: center;
-        gap: 0.5rem;
-        min-height: 3.4rem;
-    }
-    .cell.empty {
-        color: var(--muted);
-    }
-    .cell.text {
-        align-items: stretch;
-        min-width: 0;
-        padding-block: 0;
-    }
-    .cell.text input {
-        flex: 1;
-        min-width: 0;
-        border: none;
-        border-radius: 0;
-        background: transparent;
-        color: inherit;
-        font: inherit;
-        font-size: 1.1rem;
-        padding: 0;
-    }
-    .cell.text input::placeholder {
-        color: var(--muted);
-    }
-    .cell.text input:focus {
-        outline: none;
-    }
-    .cell.text:focus-within {
-        border-color: var(--accent);
-    }
-    .callsign {
-        --callsign-size: clamp(2.2rem, 12vw, 3.6rem);
-        font-size: var(--callsign-size);
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        padding: 0.8rem;
-        box-sizing: border-box;
-        height: calc(var(--callsign-size) * 1.2 + 1.6rem + 2px);
-        line-height: 1.2;
-        align-items: center;
-        white-space: nowrap;
-        overflow: hidden;
-    }
-    .callsign.empty {
-        font-size: 1.6rem;
-        letter-spacing: 0.2em;
-    }
-    .key {
-        font-size: 0.9rem;
-        color: var(--muted);
-    }
-    .rst .mono {
-        font-size: 1.8rem;
-        font-weight: 600;
-    }
-    .freq .mono {
-        font-size: 1.6rem;
-        font-weight: 600;
-    }
-    .unit {
-        font-size: 0.9rem;
-        color: var(--muted);
-    }
-    .row:has(.freq) {
-        grid-template-columns: 2fr 1fr;
-    }
-    .history {
-        display: grid;
-        grid-template-columns: auto 1fr 1fr;
-        gap: 0.8rem;
-        align-items: start;
-        min-height: 3.6rem;
-        box-sizing: border-box;
-        padding: 0.3rem 0.8rem;
-        border-left: 4px solid var(--info);
-        border-radius: var(--radius);
-        background: var(--surface);
-    }
-    .history > div {
-        display: grid;
-    }
-    .history .key {
-        font-size: 0.75rem;
-    }
-    .history .mono {
-        font-size: 0.95rem;
-        line-height: 1.2;
-    }
-    .history .note {
-        grid-column: 1 / -1;
-        align-self: center;
-        font-size: 0.9rem;
-        color: var(--muted);
-    }
-    .history.error {
-        border-left-color: var(--error);
-    }
-    .history.error .note {
-        color: var(--error);
-    }
-    .qsl {
-        color: var(--accent);
-        border-color: var(--accent);
-        font-weight: 600;
-    }
-    .meta {
-        display: flex;
-        justify-content: space-between;
-        font-size: 0.8rem;
-        color: var(--muted);
-        padding: 0 0.3rem;
-    }
-    .toast {
-        position: fixed;
-        top: 0.5rem;
-        left: 50%;
-        z-index: 10;
-        width: max-content;
-        max-width: calc(100vw - 2rem);
-        padding: 0.6rem 0.9rem;
-        border-radius: 10px;
-        border-left: 4px solid var(--info);
-        background: var(--surface-2);
-        box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
-        font-size: 0.95rem;
-        pointer-events: none;
-        opacity: 0;
-        transform: translate(-50%, -0.5rem);
-    }
-    .toast.shown {
-        opacity: 1;
-        transform: translate(-50%, 0);
-        transition:
-            opacity 150ms,
-            transform 150ms;
-    }
-    .toast.ok {
-        border-left-color: var(--ok);
-    }
-    .toast.error {
-        border-left-color: var(--error);
-    }
-    .asr {
-        min-height: 9rem;
-        display: grid;
-        place-content: center;
-        text-align: center;
-        border: 2px dashed var(--border);
-        border-radius: 22px;
-        padding: 1rem;
-    }
-    .asr .error {
-        color: var(--error);
-    }
-    .load {
-        font-size: 1.1rem;
-        padding: 0.9rem 1.2rem;
-    }
-    .actions {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 0.5rem;
-        margin-top: 0.8rem;
-    }
-    .log {
-        background: var(--log);
-        color: #fff;
-        border: none;
-        font-size: 1.4rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        padding: 1rem;
-        border-radius: 16px;
-    }
-    .clear {
-        border-radius: 16px;
-    }
-    details {
-        margin-top: 0.8rem;
-    }
-    .command {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 0.5rem;
-    }
-    .utterances {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: grid;
-        gap: 0.4rem;
-    }
-    .utterances li {
-        display: grid;
-        font-size: 0.85rem;
-        padding: 0.3rem 0.5rem;
-        border-left: 3px solid var(--ok);
-    }
-    .utterances li.bad {
-        border-left-color: var(--error);
-    }
-</style>

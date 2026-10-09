@@ -1,45 +1,30 @@
 <section>
-    <h2>Voice commands</h2>
-    <p class="hint">
+    <h2 class="mt-5 mb-3 text-2xl font-bold">Voice commands</h2>
+    <p class="hint my-3">
         One utterance per PTT press. Speaking a field again overwrites it. Commands can be chained.
         With the Japanese model, say the same words as katakana loanwords (ジュリエット リマ ワン
         …), and 送信, 受信 and 周波数 for sent, received and frequency.
     </p>
-    <dl>
-        <dt>juliett lima one hotel india sierra</dt>
-        <dd>Callsign JL1HIS (“stroke one” or “portable one” → /1, “portable” → /P)</dd>
-        <dt>sent five nine · received five seven</dt>
-        <dd>RST sent / received (defaults 59)</dd>
-        <dt>frequency point nine four</dt>
-        <dd>*.940 MHz, nearest to the anchor</dd>
-        <dt>frequency two point seven four</dt>
-        <dd>*2.740 MHz; “four thirty two point nine four” is fully specified</dd>
-        <dt>jcx one zero zero one zero one</dt>
-        <dd>JCC/JCG 100101 (also “jcc”, “jcg”)</dd>
-        <dt>card requested · card negative</dt>
-        <dd>QSL requested on/off</dd>
-        <dt>card one way</dt>
-        <dd>QSL one way: they send a card and expect none back</dd>
-        <dt>mode foxtrot mike</dt>
-        <dd>Mode FM (also SSB, CW, FT8, …)</dd>
+    <dl class="my-4 grid gap-1">
+        <dt class="mt-2 font-mono">juliett lima one hotel india sierra</dt>
+        <dd class="m-0 text-sm text-muted">
+            Callsign JL1HIS (“stroke one” or “portable one” → /1, “portable” → /P)
+        </dd>
+        <dt class="mt-2 font-mono">sent five nine · received five seven</dt>
+        <dd class="m-0 text-sm text-muted">RST sent / received (defaults 59)</dd>
+        <dt class="mt-2 font-mono">frequency point nine four</dt>
+        <dd class="m-0 text-sm text-muted">*.940 MHz, nearest to the anchor</dd>
+        <dt class="mt-2 font-mono">frequency two point seven four</dt>
+        <dd class="m-0 text-sm text-muted">
+            *2.740 MHz; “four thirty two point nine four” is fully specified
+        </dd>
+        <dt class="mt-2 font-mono">jcx one zero zero one zero one</dt>
+        <dd class="m-0 text-sm text-muted">JCC/JCG 100101 (also “jcc”, “jcg”)</dd>
+        <dt class="mt-2 font-mono">card requested · card negative</dt>
+        <dd class="m-0 text-sm text-muted">QSL requested on/off</dd>
+        <dt class="mt-2 font-mono">card one way</dt>
+        <dd class="m-0 text-sm text-muted">QSL one way: they send a card and expect none back</dd>
+        <dt class="mt-2 font-mono">mode foxtrot mike</dt>
+        <dd class="m-0 text-sm text-muted">Mode FM (also SSB, CW, FT8, …)</dd>
     </dl>
 </section>
-
-<style>
-    h2 {
-        margin: 1.2rem 0 0.8rem;
-    }
-    dl {
-        display: grid;
-        gap: 0.2rem;
-    }
-    dt {
-        font-family: var(--mono);
-        margin-top: 0.5rem;
-    }
-    dd {
-        margin: 0;
-        color: var(--muted);
-        font-size: 0.9rem;
-    }
-</style>

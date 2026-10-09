@@ -43,48 +43,30 @@
 </script>
 
 <section aria-label="Set up a passkey">
-    <h2>Set up your passkey</h2>
+    <h2 class="mt-0 mb-5 text-2xl font-bold">Set up your passkey</h2>
     {#if started}
-        <p>
-            Create the first passkey for <strong class="mono">{started.info.callsign}</strong>. You
-            sign in with it from now on; more passkeys can be added later in Settings.
+        <p class="my-3">
+            Create the first passkey for <strong class="font-mono">{started.info.callsign}</strong>.
+            You sign in with it from now on; more passkeys can be added later in Settings.
         </p>
     {:else if !error}
-        <p class="hint">Checking the link…</p>
+        <p class="hint my-3">Checking the link…</p>
     {/if}
     {#if !isWebAuthnSupported()}
-        <p class="error">This browser does not support passkeys.</p>
+        <p class="my-3 text-error">This browser does not support passkeys.</p>
     {:else}
         <form onsubmit={register}>
             <label class="field">
                 <span>Passkey name</span>
                 <input type="text" bind:value={name} placeholder="e.g. iPhone" />
             </label>
-            <button type="submit" class="primary" disabled={busy || (started === null && !error)}
-                >Create passkey</button
+            <button
+                type="submit"
+                class="btn-primary"
+                disabled={busy || (started === null && !error)}>Create passkey</button
             >
         </form>
     {/if}
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <button class="cancel" onclick={() => void app.cancelBootstrap()}>Cancel</button>
+    {#if error}<p class="my-3 text-error" role="alert">{error}</p>{/if}
+    <button class="mt-3" onclick={() => void app.cancelBootstrap()}>Cancel</button>
 </section>
-
-<style>
-    h2 {
-        margin-top: 0;
-    }
-    .primary {
-        width: 100%;
-        background: var(--accent);
-        color: var(--accent-text);
-        border: none;
-        font-weight: 700;
-        padding: 0.9rem;
-    }
-    .cancel {
-        margin-top: 0.8rem;
-    }
-    .error {
-        color: var(--error);
-    }
-</style>

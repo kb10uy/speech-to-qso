@@ -1,5 +1,5 @@
 <script lang="ts" module>
-    export type MenuPage = 'settings' | 'help';
+    export type MenuPage = 'log' | 'settings' | 'help';
 </script>
 
 <script lang="ts">
@@ -19,6 +19,19 @@
     let root = $state<HTMLElement>();
 
     const callsign = $derived(app.session.operatorCall || app.user?.callsign || '');
+    const unsynced = $derived(app.syncConfigured ? app.unsyncedCount : 0);
+
+    const popover =
+        'absolute top-full right-0 z-2 mt-1 rounded-control border border-border bg-surface shadow-[0_6px_20px_rgb(0_0_0/0.25)]';
+
+    function item(page?: MenuPage) {
+        return [
+            'block w-full border-transparent px-3 py-1.5 text-left',
+            page !== undefined && current === page
+                ? 'bg-surface-2'
+                : 'bg-transparent hover:bg-surface-2'
+        ];
+    }
 
     async function run(action: () => Promise<unknown>) {
         open = false;
@@ -66,115 +79,67 @@
     }}
 />
 
-<div class="menu" bind:this={root}>
+<div class="relative" bind:this={root}>
     <button
-        class="trigger"
-        class:mono={callsign !== ''}
-        class:current={current !== null}
+        class={[
+            'border-transparent bg-transparent px-3 py-1.5 text-text',
+            callsign !== '' && 'font-mono',
+            current !== null && 'font-semibold'
+        ]}
         aria-haspopup="menu"
         aria-expanded={open}
         disabled={busy}
         onclick={() => (open = !open)}
-        >{callsign || 'Menu'}<span aria-hidden="true" class="caret">▾</span></button
+        >{callsign || 'Menu'}{#if unsynced > 0}<span
+                aria-hidden="true"
+                class="ml-1.5 inline-block size-1.75 rounded-full bg-info align-super"
+            ></span>{/if}<span aria-hidden="true" class="ml-1.5 text-[0.75em] text-muted">▾</span
+        ></button
     >
     {#if open}
-        <ul role="menu">
+        <ul role="menu" class={[popover, 'm-0 min-w-36 list-none p-1']}>
             <li role="none">
-                <button
-                    role="menuitem"
-                    class:current={current === 'settings'}
-                    onclick={() => show('settings')}>Settings</button
+                <button role="menuitem" class={item('log')} onclick={() => show('log')}
+                    >Log{#if unsynced > 0}<span
+                            class="ml-1.5 inline-block min-w-5 rounded-full bg-info px-1.5 text-center text-xs text-white"
+                            >{unsynced}</span
+                        >{/if}</button
                 >
             </li>
             <li role="none">
-                <button
-                    role="menuitem"
-                    class:current={current === 'help'}
-                    onclick={() => show('help')}>Help</button
+                <button role="menuitem" class={item('settings')} onclick={() => show('settings')}
+                    >Settings</button
+                >
+            </li>
+            <li role="none">
+                <button role="menuitem" class={item('help')} onclick={() => show('help')}
+                    >Help</button
                 >
             </li>
             {#if app.user !== null}
-                <li role="separator"></li>
-                <li role="none"><button role="menuitem" onclick={signOut}>Sign out</button></li>
+                <li role="separator" class="my-1 border-t border-border"></li>
+                <li role="none">
+                    <button role="menuitem" class={item()} onclick={signOut}>Sign out</button>
+                </li>
             {:else if isWebAuthnSupported()}
-                <li role="separator"></li>
-                <li role="none"><button role="menuitem" onclick={signIn}>Sign in</button></li>
+                <li role="separator" class="my-1 border-t border-border"></li>
+                <li role="none">
+                    <button role="menuitem" class={item()} onclick={signIn}>Sign in</button>
+                </li>
             {/if}
         </ul>
     {/if}
     {#if error}
-        <div class="error" role="alert">
+        <div
+            class={[popover, 'flex w-max max-w-72 items-start gap-1.5 py-2 pr-1.5 pl-3 text-error']}
+            role="alert"
+        >
             <span>{error}</span>
-            <button onclick={() => (error = null)} aria-label="Dismiss">×</button>
+            <button
+                class="border-transparent bg-transparent px-1.5 py-0"
+                onclick={() => (error = null)}
+                aria-label="Dismiss">×</button
+            >
         </div>
     {/if}
 </div>
-
-<style>
-    .menu {
-        position: relative;
-    }
-    .trigger {
-        padding: 0.25rem 0.5rem;
-        background: transparent;
-        border-color: transparent;
-        color: var(--text);
-    }
-    .trigger.current,
-    .trigger[aria-expanded='true'] {
-        background: var(--surface-2);
-        border-color: var(--border);
-    }
-    .caret {
-        margin-left: 0.3rem;
-        color: var(--muted);
-        font-size: 0.75em;
-    }
-    ul,
-    .error {
-        position: absolute;
-        right: 0;
-        top: calc(100% + 0.3rem);
-        z-index: 2;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
-    }
-    ul {
-        list-style: none;
-        margin: 0;
-        padding: 0.3rem;
-        min-width: 9rem;
-    }
-    li[role='separator'] {
-        margin: 0.3rem 0;
-        border-top: 1px solid var(--border);
-    }
-    [role='menuitem'] {
-        display: block;
-        width: 100%;
-        text-align: left;
-        padding: 0.45rem 0.7rem;
-        background: transparent;
-        border-color: transparent;
-    }
-    [role='menuitem']:hover,
-    [role='menuitem'].current {
-        background: var(--surface-2);
-    }
-    .error {
-        display: flex;
-        align-items: start;
-        gap: 0.4rem;
-        width: max-content;
-        max-width: 18rem;
-        padding: 0.5rem 0.4rem 0.5rem 0.7rem;
-        color: var(--error);
-    }
-    .error button {
-        padding: 0 0.4rem;
-        background: transparent;
-        border-color: transparent;
-    }
-</style>

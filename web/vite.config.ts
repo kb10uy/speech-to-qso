@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
+import tailwindcss from '@tailwindcss/vite';
 
 // The server (see server/) serves the built app and its API on one origin. In development,
 // Vite forwards the API to it; run it with PUBLIC_ORIGIN=http://localhost:5173.
@@ -8,6 +9,7 @@ const apiServer = process.env.API_SERVER ?? 'http://127.0.0.1:8080';
 
 export default defineConfig({
     plugins: [
+        tailwindcss(),
         sveltekit({
             compilerOptions: {
                 // Force runes mode for the project, except for libraries. Can be removed in svelte 6.

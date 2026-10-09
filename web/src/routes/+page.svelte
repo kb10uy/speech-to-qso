@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { asset } from '$app/paths';
     import { QsoApp } from '../lib/app/app.svelte';
     import AccountMenu from '../lib/components/AccountMenu.svelte';
     import BootstrapView from '../lib/components/BootstrapView.svelte';
@@ -10,6 +11,11 @@
     import SettingsView from '../lib/components/SettingsView.svelte';
 
     type Tab = 'qso' | 'session' | 'log' | 'settings' | 'help';
+
+    const tabs = [
+        { id: 'qso', label: 'QSO' },
+        { id: 'session', label: 'Session' }
+    ] as const;
 
     const app = new QsoApp();
     let tab = $state<Tab>('qso');
@@ -44,31 +50,40 @@
     <title>Speech to QSO</title>
 </svelte:head>
 
-<header>
-    <nav>
-        <button class:current={tab === 'qso'} onclick={() => (tab = 'qso')}>QSO</button>
-        <button class:current={tab === 'session'} onclick={() => (tab = 'session')}>Session</button>
-        <button class:current={tab === 'log'} onclick={() => (tab = 'log')}>
-            Log{#if app.unsyncedCount > 0 && app.syncConfigured}<span class="dot"
-                    >{app.unsyncedCount}</span
-                >{/if}
-        </button>
-    </nav>
-    <div class="status">
-        {#if !app.online}<span class="offline">offline</span>{/if}
-        <AccountMenu
-            {app}
-            current={tab === 'settings' || tab === 'help' ? tab : null}
-            onOpen={(page) => (tab = page)}
-        />
+<header class="sticky top-0 z-1 border-b border-border bg-bg pt-[env(safe-area-inset-top)]">
+    <div class="mx-auto flex max-w-lg items-center justify-between gap-2 px-3 py-1.5">
+        <div class="flex min-w-0 items-center gap-2">
+            <img class="size-8 flex-none" src={asset('icon.svg')} alt="Speech to QSO" />
+            <nav class="flex gap-1">
+                {#each tabs as { id, label } (id)}
+                    <button
+                        class={[
+                            'px-3 py-1.5',
+                            tab === id
+                                ? 'border-border bg-surface-2 font-semibold'
+                                : 'border-transparent bg-transparent'
+                        ]}
+                        onclick={() => (tab = id)}>{label}</button
+                    >
+                {/each}
+            </nav>
+        </div>
+        <div class="flex items-center gap-1.5">
+            {#if !app.online}<span class="text-sm text-error">offline</span>{/if}
+            <AccountMenu
+                {app}
+                current={tab === 'log' || tab === 'settings' || tab === 'help' ? tab : null}
+                onOpen={(page) => (tab = page)}
+            />
+        </div>
     </div>
 </header>
 
-<main>
+<main class="mx-auto max-w-lg px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
     {#if initError}
-        <p class="error">Failed to start: {initError}</p>
+        <p class="my-3 text-error">Failed to start: {initError}</p>
     {:else if !app.ready}
-        <p class="hint">Loading…</p>
+        <p class="hint my-3">Loading…</p>
     {:else if app.bootstrapToken !== null}
         {#key app.bootstrapToken}
             <BootstrapView {app} token={app.bootstrapToken} />
@@ -89,62 +104,3 @@
         {/key}
     {/if}
 </main>
-
-<style>
-    header {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.5rem;
-        /* The bar spans the window, but its contents line up with main's on wide screens. */
-        padding: calc(env(safe-area-inset-top) + 0.4rem)
-            max(0.6rem, calc((100% - 32rem) / 2 + 0.8rem)) 0.4rem;
-        background: var(--bg);
-        border-bottom: 1px solid var(--border);
-    }
-    nav {
-        display: flex;
-        gap: 0.3rem;
-    }
-    nav button {
-        padding: 0.45rem 0.7rem;
-        background: transparent;
-        border-color: transparent;
-    }
-    nav button.current {
-        background: var(--surface-2);
-        border-color: var(--border);
-        font-weight: 600;
-    }
-    .dot {
-        display: inline-block;
-        margin-left: 0.3rem;
-        min-width: 1.2rem;
-        padding: 0 0.3rem;
-        border-radius: 999px;
-        background: var(--info);
-        color: #fff;
-        font-size: 0.75rem;
-    }
-    .status {
-        display: flex;
-        gap: 0.4rem;
-        align-items: center;
-        font-size: 0.85rem;
-        color: var(--muted);
-    }
-    .offline {
-        color: var(--error);
-    }
-    main {
-        max-width: 32rem;
-        margin: 0 auto;
-        padding: 0.8rem 0.8rem calc(env(safe-area-inset-bottom) + 1.5rem);
-    }
-    .error {
-        color: var(--error);
-    }
-</style>

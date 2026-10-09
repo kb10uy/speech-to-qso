@@ -19,6 +19,13 @@
         return record.syncState === 'failed' ? 'failed' : 'waiting';
     }
 
+    const badgeColors: Record<ReturnType<typeof syncLabel>, string> = {
+        synced: 'border-ok text-ok',
+        waiting: 'border-info text-info',
+        failed: 'border-error text-error',
+        local: 'border-border text-muted'
+    };
+
     function download() {
         const url = URL.createObjectURL(app.exportAdif());
         const a = document.createElement('a');
@@ -53,9 +60,9 @@
     }
 </script>
 
-<div class="toolbar">
+<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
     <span>{app.log.length} QSOs{syncConfigured ? `, ${app.unsyncedCount} unsynced` : ''}</span>
-    <span class="buttons">
+    <span class="flex gap-1.5">
         {#if syncConfigured}
             <button onclick={() => void app.sync()} disabled={app.syncing || !app.online}>
                 {app.syncing ? 'Syncing…' : 'Sync now'}
@@ -66,123 +73,63 @@
 </div>
 {#if app.user !== null}
     {#if app.localQsoCount > 0}
-        <p class="hint">
+        <p class="hint my-3">
             {app.localQsoCount} local QSO(s) are kept separately from this account.
             <button onclick={() => void importLocal()} disabled={importing}
                 >Import local QSOs</button
             >
         </p>
-        {#if importError}<p class="err" role="alert">{importError}</p>{/if}
+        {#if importError}<p class="my-3 text-xs text-error" role="alert">{importError}</p>{/if}
     {/if}
-    <p class="hint">
-        Export ADIF saves the QSOs on this device. <a href="/api/qso.adi" download
-            >Download the server log</a
+    <p class="hint my-3">
+        Export ADIF saves the QSOs on this device. <a
+            class="text-info underline"
+            href="/api/qso.adi"
+            download>Download the server log</a
         > for every QSO synced from any device.
     </p>
 {/if}
 
 {#if !app.online}
-    <p class="hint">Offline — QSOs are kept on this device and synced when back online.</p>
+    <p class="hint my-3">Offline — QSOs are kept on this device and synced when back online.</p>
 {/if}
 
-<ul>
+<ul class="m-0 grid list-none gap-2 p-0">
     {#each app.log as record (record.id)}
-        <li>
-            <div class="line1">
-                <strong class="mono">{record.callsign}</strong>
-                <span class="badge {syncLabel(record)}" title={record.syncError ?? ''}
-                    >{syncLabel(record)}</span
+        <li class="relative rounded-card border border-border bg-surface py-2.5 pr-10 pl-3">
+            <div class="flex items-center gap-2.5 text-xl">
+                <strong class="font-mono">{record.callsign}</strong>
+                <span
+                    class={[
+                        'rounded-full border px-2 py-0.5 text-xs',
+                        badgeColors[syncLabel(record)]
+                    ]}
+                    title={record.syncError ?? ''}>{syncLabel(record)}</span
                 >
             </div>
-            <div class="line2 mono">
+            <div class="font-mono text-sm text-muted">
                 {time(record)}Z · {formatMhz(record.frequencyHz)}
                 {record.mode} · {record.rstSent}/{record.rstReceived}
                 {#if record.jcx}· JCC/JCG {record.jcx}{/if}
                 {#if record.qsl === 'requested'}· QSL{:else if record.qsl === 'oneWay'}· QSL one way{/if}
             </div>
             {#if record.name || record.qth}
-                <div class="line2">{[record.name, record.qth].filter(Boolean).join(' · ')}</div>
+                <div class="text-sm text-muted">
+                    {[record.name, record.qth].filter(Boolean).join(' · ')}
+                </div>
             {/if}
             {#if record.syncState === 'failed' && record.syncError}
-                <div class="err">{record.syncError}</div>
+                <div class="text-xs text-error">{record.syncError}</div>
             {/if}
-            <button class="del" onclick={() => void remove(record)} aria-label="Delete">✕</button>
+            <button
+                class="absolute top-1.5 right-1.5 border-none bg-transparent px-2 py-1 text-muted"
+                onclick={() => void remove(record)}
+                aria-label="Delete">✕</button
+            >
         </li>
     {:else}
-        <li class="hint">No QSOs yet.</li>
+        <li class="hint relative rounded-card border border-border bg-surface py-2.5 pr-10 pl-3">
+            No QSOs yet.
+        </li>
     {/each}
 </ul>
-
-<style>
-    a {
-        color: var(--info);
-    }
-    .toolbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-        margin-bottom: 0.8rem;
-    }
-    .buttons {
-        display: flex;
-        gap: 0.4rem;
-    }
-    ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: grid;
-        gap: 0.5rem;
-    }
-    li {
-        position: relative;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 0.6rem 2.6rem 0.6rem 0.8rem;
-    }
-    .line1 {
-        display: flex;
-        gap: 0.6rem;
-        align-items: center;
-        font-size: 1.2rem;
-    }
-    .line2 {
-        font-size: 0.85rem;
-        color: var(--muted);
-    }
-    .err {
-        font-size: 0.8rem;
-        color: var(--error);
-    }
-    .badge {
-        font-size: 0.7rem;
-        padding: 0.1rem 0.45rem;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        color: var(--muted);
-    }
-    .badge.synced {
-        color: var(--ok);
-        border-color: var(--ok);
-    }
-    .badge.waiting {
-        color: var(--info);
-        border-color: var(--info);
-    }
-    .badge.failed {
-        color: var(--error);
-        border-color: var(--error);
-    }
-    .del {
-        position: absolute;
-        top: 0.4rem;
-        right: 0.4rem;
-        padding: 0.2rem 0.55rem;
-        background: transparent;
-        border: none;
-        color: var(--muted);
-    }
-</style>

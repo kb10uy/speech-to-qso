@@ -93,13 +93,13 @@
 </script>
 
 <section aria-label="Wavelog">
-    <h2>Wavelog</h2>
-    <p class="hint">
+    <h2 class="mt-6 mb-3 text-2xl font-bold">Wavelog</h2>
+    <p class="hint my-3">
         QSOs logged with a Wavelog station are forwarded to your Wavelog (3.1 or later). Create an
-        API token with the <span class="mono">station:read</span>,
-        <span class="mono">qso:read</span>
+        API token with the <span class="font-mono">station:read</span>,
+        <span class="font-mono">qso:read</span>
         and
-        <span class="mono">qso:write</span> scopes in Wavelog; it is stored on the server only.
+        <span class="font-mono">qso:write</span> scopes in Wavelog; it is stored on the server only.
     </p>
     <form
         onsubmit={(e) => {
@@ -126,7 +126,7 @@
                 required={!wavelog.configured}
             />
         </label>
-        <div class="buttons">
+        <div class="flex flex-wrap gap-1.5">
             <button type="submit" disabled={busy}>{wavelog.configured ? 'Save' : 'Connect'}</button>
             {#if wavelog.configured}
                 <button type="button" onclick={refresh} disabled={busy}>Refresh stations</button>
@@ -137,8 +137,8 @@
 </section>
 
 <section aria-label="Stations">
-    <h2>Stations</h2>
-    <p class="hint">
+    <h2 class="mt-6 mb-3 text-2xl font-bold">Stations</h2>
+    <p class="hint my-3">
         A station provides the session defaults (station callsign, location, POTA reference, own
         JCC/JCG). Each device picks its station in the Session tab; the default is used until it
         does.
@@ -163,9 +163,11 @@
             {/if}
         </label>
     {/if}
-    <ul class="list">
+    <ul class="m-0 mb-2.5 grid list-none gap-1.5 p-0">
         {#each handEntered as station (station.id)}
-            <li>
+            <li
+                class="flex items-center justify-between gap-2 rounded-control border border-border bg-surface px-3 py-2"
+            >
                 <div>
                     <strong>{stationLabel(station)}</strong>
                     <div class="hint">
@@ -174,14 +176,26 @@
                             .join(' · ')}
                     </div>
                 </div>
-                <span class="actions">
-                    <button onclick={() => edit(station)} disabled={busy}>Edit</button>
-                    <button onclick={() => remove(station)} disabled={busy}>Delete</button>
+                <span class="flex gap-1">
+                    <button
+                        class="px-2.5 py-1.5 text-sm"
+                        onclick={() => edit(station)}
+                        disabled={busy}>Edit</button
+                    >
+                    <button
+                        class="px-2.5 py-1.5 text-sm"
+                        onclick={() => remove(station)}
+                        disabled={busy}>Delete</button
+                    >
                 </span>
             </li>
         {:else}
             {#if app.stations.stations.length === 0}
-                <li class="hint">No stations yet. Connect Wavelog or add one.</li>
+                <li
+                    class="hint flex items-center justify-between gap-2 rounded-control border border-border bg-surface px-3 py-2"
+                >
+                    No stations yet. Connect Wavelog or add one.
+                </li>
             {/if}
         {/each}
     </ul>
@@ -190,7 +204,7 @@
         <button onclick={() => edit(null)} disabled={busy}>Add a station</button>
     {:else}
         <form
-            class="station"
+            class="mt-2.5"
             onsubmit={(e) => {
                 e.preventDefault();
                 void save();
@@ -229,7 +243,7 @@
                     autocapitalize="characters"
                 />
             </label>
-            <div class="buttons">
+            <div class="flex flex-wrap gap-1.5">
                 <button type="submit" disabled={busy}>Save station</button>
                 <button type="button" onclick={() => (editing = null)} disabled={busy}
                     >Cancel</button
@@ -237,47 +251,5 @@
             </div>
         </form>
     {/if}
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
+    {#if error}<p class="my-3 text-error" role="alert">{error}</p>{/if}
 </section>
-
-<style>
-    h2 {
-        margin: 1.4rem 0 0.8rem;
-    }
-    .buttons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-    }
-    .list {
-        list-style: none;
-        margin: 0 0 0.6rem;
-        padding: 0;
-        display: grid;
-        gap: 0.4rem;
-    }
-    .list li {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 0.5rem;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 0.5rem 0.7rem;
-    }
-    .actions {
-        display: flex;
-        gap: 0.3rem;
-    }
-    .actions button {
-        padding: 0.35rem 0.6rem;
-        font-size: 0.85rem;
-    }
-    .station {
-        margin-top: 0.6rem;
-    }
-    .error {
-        color: var(--error);
-    }
-</style>

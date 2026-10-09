@@ -25,7 +25,7 @@
 {/if}
 
 <form onsubmit={save}>
-    <h2>Speech recognition</h2>
+    <h2 class="mt-6 mb-3 text-2xl font-bold">Speech recognition</h2>
     <label class="field">
         <span>Vosk model</span>
         <select bind:value={form.voskLanguage}>
@@ -43,53 +43,20 @@
         <input type="number" min="0" max="2000" step="50" bind:value={form.releaseTailMs} />
         <span class="hint">Keeps listening briefly after the button is released.</span>
     </label>
-    <label class="check">
-        <input type="checkbox" bind:checked={form.keepScreenOn} />
+    <label class="mb-3.5 flex items-center gap-2.5">
+        <input class="size-5" type="checkbox" bind:checked={form.keepScreenOn} />
         Keep the screen on while operating
     </label>
 
-    <button type="submit" class="primary">{saved ? 'Saved ✓' : 'Save'}</button>
+    <button type="submit" class="btn-primary">{saved ? 'Saved ✓' : 'Save'}</button>
 </form>
 
-<section class="status">
-    <p>
+<section class="mt-5">
+    <p class="my-3">
         Speech engine: <strong>{app.asr}</strong>
-        {#if app.asrError}<span class="error">({app.asrError})</span>{/if}
+        {#if app.asrError}<span class="text-error">({app.asrError})</span>{/if}
     </p>
     <button onclick={() => void app.loadAsr()} disabled={app.asr === 'loading'}
         >Reload speech engine</button
     >
 </section>
-
-<style>
-    h2 {
-        margin: 1.2rem 0 0.8rem;
-    }
-    form h2:first-child {
-        margin-top: 1.4rem;
-    }
-    .check {
-        display: flex;
-        gap: 0.6rem;
-        align-items: center;
-        margin-bottom: 0.9rem;
-    }
-    .check input {
-        width: 1.3rem;
-        height: 1.3rem;
-    }
-    .primary {
-        width: 100%;
-        background: var(--accent);
-        color: var(--accent-text);
-        border: none;
-        font-weight: 700;
-        padding: 0.9rem;
-    }
-    .status {
-        margin-top: 1.2rem;
-    }
-    .error {
-        color: var(--error);
-    }
-</style>
