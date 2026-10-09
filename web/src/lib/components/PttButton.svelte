@@ -34,7 +34,7 @@
 <button
     bind:this={button}
     class={[
-        'relative grid min-h-36 w-full touch-none place-content-center gap-1.5 overflow-hidden rounded-3xl border-none text-2xl font-bold tracking-wider transition-[background-color,scale] duration-80 select-none [-webkit-touch-callout:none]',
+        'relative grid min-h-36 w-full touch-none place-content-center gap-1.5 overflow-hidden rounded-card border-none text-2xl font-bold tracking-wider transition-[background-color,scale] duration-80 select-none [-webkit-touch-callout:none]',
         app.ptt === 'listening' || app.ptt === 'opening'
             ? 'scale-98 bg-ptt-active text-white'
             : app.ptt === 'finishing'

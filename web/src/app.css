@@ -16,7 +16,8 @@
     --ptt: #1f6feb;
     --ptt-active: #d29922;
     --log: #238636;
-    --radius: 14px;
+    --radius: 8px;
+    --radius-small: 6px;
     --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
 }
 
@@ -56,7 +57,7 @@
     --color-log: var(--log);
     --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans JP', sans-serif;
     --font-mono: var(--mono);
-    --radius-control: 10px;
+    --radius-control: var(--radius-small);
     --radius-card: var(--radius);
 }
 
@@ -72,7 +73,7 @@
         cursor: pointer;
         border: 1px solid var(--border);
         background: var(--surface-2);
-        border-radius: 10px;
+        border-radius: var(--radius-small);
         padding: 0.6rem 1rem;
         touch-action: manipulation;
     }
@@ -89,7 +90,7 @@
     select {
         width: 100%;
         padding: 0.6rem 0.7rem;
-        border-radius: 10px;
+        border-radius: var(--radius-small);
         border: 1px solid var(--border);
         background: var(--surface);
     }

@@ -96,7 +96,7 @@
 
 <ul class="m-0 grid list-none gap-2 p-0">
     {#each app.log as record (record.id)}
-        <li class="relative rounded-xl border border-border bg-surface py-2.5 pr-10 pl-3">
+        <li class="relative rounded-card border border-border bg-surface py-2.5 pr-10 pl-3">
             <div class="flex items-center gap-2.5 text-xl">
                 <strong class="font-mono">{record.callsign}</strong>
                 <span
@@ -128,7 +128,7 @@
             >
         </li>
     {:else}
-        <li class="hint relative rounded-xl border border-border bg-surface py-2.5 pr-10 pl-3">
+        <li class="hint relative rounded-card border border-border bg-surface py-2.5 pr-10 pl-3">
             No QSOs yet.
         </li>
     {/each}

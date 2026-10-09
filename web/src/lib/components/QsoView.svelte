@@ -218,7 +218,7 @@
     <PttButton {app} />
 {:else}
     <div
-        class="grid min-h-36 place-content-center rounded-3xl border-2 border-dashed border-border p-4 text-center"
+        class="grid min-h-36 place-content-center rounded-card border-2 border-dashed border-border p-4 text-center"
     >
         {#if app.asr === 'loading'}
             <p>Loading speech engine… (the first load downloads the model, ≈40 MB)</p>
@@ -235,11 +235,11 @@
 
 <div class="mt-3 grid grid-cols-[1fr_auto] gap-2">
     <button
-        class="rounded-2xl border-none bg-log p-4 text-[1.4rem] font-bold tracking-wider text-white"
+        class="rounded-card border-none bg-log p-4 text-[1.4rem] font-bold tracking-wider text-white"
         onclick={() => void app.logQso()}
         disabled={app.ptt !== 'idle'}>LOG QSO</button
     >
-    <button class="rounded-2xl" onclick={() => void app.clearDraft()}>Clear</button>
+    <button class="rounded-card" onclick={() => void app.clearDraft()}>Clear</button>
 </div>
 
 <details class="mt-3" bind:open={commandOpen}>
