@@ -140,14 +140,14 @@ test('keeps local and account logs separate, rejects a changed cookie and clears
     expect(await page.evaluate(() => window.__qso.unsyncedCount)).toBe(0);
 });
 
-test('shows what Wavelog knows about the callsign below the name and QSL', async ({ page }) => {
+test('shows what Wavelog knows about the callsign in its cell', async ({ page }) => {
     await registerUser(page, 'JJ4AAA');
     const history = page.getByLabel('Wavelog history');
 
     const unconfigured = page.waitForResponse('**/api/wavelog/history?**');
     await type(page, 'jl1his');
     expect((await unconfigured).status()).toBe(409);
-    await expect(history).toContainText(/QSOs\s*—/);
+    await expect(history).toContainText('— QSOs');
 
     await page.route('**/api/wavelog/history?**', (route) => {
         const callsign = new URL(route.request().url()).searchParams.get('callsign');
@@ -162,16 +162,19 @@ test('shows what Wavelog knows about the callsign below the name and QSL', async
         });
     });
     await type(page, 'ja1abc');
-    await expect(history).toContainText(/QSOs\s*3/);
-    await expect(history).toContainText('2026-10-03 04:05Z');
-    await expect(history).toContainText('2025-04-01 12:34Z');
-    await expect(history.locator('xpath=preceding-sibling::*[1]')).toContainText('QSL');
+    await expect(history).toContainText('3 QSOs · last 2026-10-03 · QSL sent 2025-04-01');
+    await expect(
+        page
+            .getByLabel('Draft QSO')
+            .locator('[data-field="callsign"]')
+            .getByLabel('Wavelog history')
+    ).toBeVisible();
 
     await type(page, 'jr1zzz');
-    await expect(history).toContainText(/QSOs\s*0/);
+    await expect(history).toContainText('0 QSOs');
     await expect(history).not.toContainText('2026');
     await page.getByRole('button', { name: 'Clear' }).click();
-    await expect(history).toContainText(/QSOs\s*—/);
+    await expect(history).toContainText('— QSOs');
 });
 
 test('allows only one concurrent completion of a bootstrap link', async ({ page }) => {

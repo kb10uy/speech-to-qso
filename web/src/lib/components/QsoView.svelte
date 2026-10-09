@@ -4,7 +4,7 @@
     import {
         FREE_TEXT_MAX_LENGTH,
         formatMhz,
-        formatUtcMinute,
+        formatUtcDate,
         sessionProblems,
         type FreeTextField
     } from '../qso';
@@ -24,8 +24,8 @@
     const found = $derived(history?.status === 'ready' ? history.history : null);
     const blank = $derived(history?.status === 'loading' ? '…' : '—');
 
-    function time(iso: string | null): string {
-        return iso === null ? '—' : formatUtcMinute(iso);
+    function date(iso: string | null): string {
+        return iso === null ? '—' : formatUtcDate(iso);
     }
 
     $effect(() => {
@@ -119,19 +119,37 @@
         </button>
     </div>
 
-    <button
-        class={[
-            cell,
-            'h-[calc(var(--callsign-size)*1.2+1.5rem+2px)] items-center overflow-hidden border-border py-3 font-mono leading-[1.2] font-bold whitespace-nowrap [--callsign-size:clamp(2.2rem,12vw,3.6rem)]',
-            draft.callsign
-                ? 'text-(length:--callsign-size) tracking-[0.04em]'
-                : 'text-[1.6rem] tracking-[0.2em] text-muted'
-        ]}
+    <div
+        class={[cell, 'relative flex-col items-center gap-0.5 border-border py-2']}
         data-field="callsign"
-        onclick={() => edit('')}
     >
-        {draft.callsign ?? 'CALLSIGN'}
-    </button>
+        <button
+            class={[
+                'h-[calc(var(--callsign-size)*1.2)] w-full overflow-hidden border-none bg-transparent p-0 font-mono leading-[1.2] font-bold whitespace-nowrap [--callsign-size:clamp(2.2rem,12vw,3.6rem)] after:absolute after:inset-0',
+                draft.callsign
+                    ? 'text-(length:--callsign-size) tracking-[0.04em]'
+                    : 'text-[1.6rem] tracking-[0.2em] text-muted'
+            ]}
+            onclick={() => edit('')}
+        >
+            {draft.callsign ?? 'CALLSIGN'}
+        </button>
+        <div
+            class={[
+                'w-full truncate text-center text-xs tabular-nums',
+                history?.status === 'error' ? 'text-error' : 'text-muted'
+            ]}
+            aria-label="Wavelog history"
+            aria-live="polite"
+        >
+            {#if history?.status === 'error'}
+                Wavelog lookup failed: {history.message}
+            {:else}
+                {found?.qsos ?? blank} QSOs · last {found ? date(found.last_qso) : blank} · QSL sent
+                {found ? date(found.last_qsl_sent) : blank}
+            {/if}
+        </div>
+    </div>
 
     <div class="grid grid-cols-2 gap-2">
         <button class={[button, 'border-border']} data-field="rstSent" onclick={() => edit('sent')}>
@@ -175,35 +193,6 @@
         >
             {{ none: 'No QSL', requested: 'QSL Requested', oneWay: 'QSL One Way' }[draft.qsl]}
         </button>
-    </div>
-
-    <div
-        class="grid min-h-[3.6rem] grid-cols-[auto_1fr_1fr] items-start gap-3 rounded-card bg-surface px-3 py-1"
-        aria-label="Wavelog history"
-        aria-live="polite"
-    >
-        {#if history?.status === 'error'}
-            <span class="col-span-full self-center text-sm text-error"
-                >Wavelog lookup failed: {history.message}</span
-            >
-        {:else}
-            <div class="grid">
-                <span class="text-xs text-muted">QSOs</span><span class="font-mono text-base/tight"
-                    >{found?.qsos ?? blank}</span
-                >
-            </div>
-            <div class="grid">
-                <span class="text-xs text-muted">Last QSO</span>
-                <span class="font-mono text-base/tight">{found ? time(found.last_qso) : blank}</span
-                >
-            </div>
-            <div class="grid">
-                <span class="text-xs text-muted">Last QSL sent</span>
-                <span class="font-mono text-base/tight"
-                    >{found ? time(found.last_qsl_sent) : blank}</span
-                >
-            </div>
-        {/if}
     </div>
 </section>
 

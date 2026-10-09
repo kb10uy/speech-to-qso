@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMhz, formatUtcMinute, parseMhz } from './format';
+import { formatMhz, formatUtcDate, parseMhz } from './format';
 
 describe('formatMhz', () => {
     it('shows at least kHz precision', () => {
@@ -10,10 +10,10 @@ describe('formatMhz', () => {
     });
 });
 
-describe('formatUtcMinute', () => {
-    it('shows UTC to the minute', () => {
-        expect(formatUtcMinute('2026-10-03T04:05:06Z')).toBe('2026-10-03 04:05Z');
-        expect(formatUtcMinute('2026-10-03T09:05:59+09:00')).toBe('2026-10-03 00:05Z');
+describe('formatUtcDate', () => {
+    it('shows the UTC date', () => {
+        expect(formatUtcDate('2026-10-03T04:05:06Z')).toBe('2026-10-03');
+        expect(formatUtcDate('2026-10-03T08:59:59+09:00')).toBe('2026-10-02');
     });
 });
 

@@ -4,10 +4,9 @@ export function formatMhz(hz: number): string {
     return mhz.replace(/(\.\d{3}\d*?)0+$/, '$1');
 }
 
-/** Formats an ISO 8601 time as UTC to the minute, e.g. `2026-10-03 04:05Z`. */
-export function formatUtcMinute(iso: string): string {
-    const utc = new Date(iso).toISOString();
-    return `${utc.slice(0, 10)} ${utc.slice(11, 16)}Z`;
+/** Formats an ISO 8601 time as its UTC date, e.g. `2026-10-03`. */
+export function formatUtcDate(iso: string): string {
+    return new Date(iso).toISOString().slice(0, 10);
 }
 
 /** Parses a user-entered MHz value (e.g. `433` or `432.94`) into Hz. */
