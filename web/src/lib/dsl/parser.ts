@@ -26,7 +26,8 @@ export type SpokenUpdate =
     | { kind: 'frequency'; value: FrequencyPattern }
     | { kind: 'jcx'; value: string }
     | { kind: 'qsl'; value: QslStatus }
-    | { kind: 'mode'; value: QsoMode };
+    | { kind: 'mode'; value: QsoMode }
+    | { kind: 'exchangeReceived'; value: string };
 
 export type ParseResult =
     | { ok: true; tokens: string[]; updates: SpokenUpdate[] }
@@ -140,6 +141,19 @@ function parseMode(tokens: readonly string[]): QsoMode {
     return { ...KNOWN_MODES[name] };
 }
 
+const EXCHANGE_MAX_LENGTH = 16;
+
+/**
+ * A contest exchange is whatever the contest defines (`1001M`, `005`, `25H`), so it is only
+ * read as letters and digits; the RST is not part of it.
+ */
+function parseExchange(tokens: readonly string[]): string {
+    if (tokens.length === 0) throw new DslError('number is empty');
+    const exchange = readSpelled(tokens, false);
+    if (exchange.length > EXCHANGE_MAX_LENGTH) throw new DslError('number is too long');
+    return exchange;
+}
+
 function parseSegment(kind: CommandKind, tokens: readonly string[]): SpokenUpdate {
     switch (kind) {
         case 'callsign':
@@ -156,6 +170,8 @@ function parseSegment(kind: CommandKind, tokens: readonly string[]): SpokenUpdat
             return { kind: 'qsl', value: parseQsl(tokens) };
         case 'mode':
             return { kind: 'mode', value: parseMode(tokens) };
+        case 'exchangeReceived':
+            return { kind: 'exchangeReceived', value: parseExchange(tokens) };
     }
 }
 

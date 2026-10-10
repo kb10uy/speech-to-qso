@@ -58,6 +58,9 @@ describe('grammarPhrases', () => {
             'mode fm',
             'mode foxtrot mike',
             'mode foxtrot tango eight',
+            'number one zero zero one mike',
+            'received five nine number zero zero five',
+            'number one two papa card requested',
             'juliet lima one hotel india sierra received five nine sent five nine card requested mode fm frequency four three two point nine four'
         ];
         for (const sample of samples) expectCovered(english, sample);
@@ -69,6 +72,8 @@ describe('grammarPhrases', () => {
         expect(bigrams).not.toContain('alpha point');
         expect(bigrams).not.toContain('card five');
         expect(bigrams).not.toContain('frequency alpha');
+        expect(bigrams).not.toContain('number point');
+        expect(bigrams).not.toContain('number stroke');
         expect(bigrams).not.toContain('megahertz five');
         expect(starts).not.toContain('point');
         expect(starts).not.toContain('requested');
@@ -77,6 +82,7 @@ describe('grammarPhrases', () => {
         expect(ends).not.toContain('stroke');
         expect(ends).not.toContain('received');
         expect(ends).not.toContain('double');
+        expect(ends).not.toContain('number');
     });
 
     it('lets noise appear anywhere', () => {
@@ -129,6 +135,8 @@ describe('grammarPhrases for a Japanese model', () => {
             'モード ＦＭ',
             'モード Ｒ Ｔ Ｔ Ｙ',
             'モード フォックス トロット タンゴ エイト',
+            'ナンバー ワン ゼロ ゼロ ワン Ｍ',
+            '受信 ファイブ ナイン ナンバー ゼロ ゼロ ファイブ',
             'ジュリエット リマ ワン ホテル インディア シエラ 受信 ファイブ ナイン カード ネガティブ モード ＦＭ 周波数 ポイント ナイン フォー'
         ];
         for (const sample of samples) expectCovered(japanese, sample);

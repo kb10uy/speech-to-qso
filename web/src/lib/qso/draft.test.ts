@@ -57,6 +57,18 @@ describe('DraftQso', () => {
         expect(draft.callsign).toBe('JL1HIT');
     });
 
+    it('records the contest number apart from the RST', () => {
+        const { draft, descriptions } = applyUpdates(
+            newDraft(),
+            spoken('received five seven number one zero zero one mike'),
+            ctx,
+            now
+        );
+        expect(draft.rstReceived).toBe('57');
+        expect(draft.exchangeReceived).toBe('1001M');
+        expect(descriptions).toEqual(['RST received → 57', 'Number → 1001M']);
+    });
+
     it('resolves frequencies against the anchor', () => {
         const { draft, descriptions } = applyUpdates(
             newDraft({ frequencyHz: 430_200_000 }),

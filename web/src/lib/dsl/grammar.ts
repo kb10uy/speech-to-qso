@@ -50,6 +50,7 @@ type Slot =
     | 'jcxKeyword'
     | 'qslKeyword'
     | 'modeKeyword'
+    | 'exchangeKeyword'
     | 'qslValue'
     | 'mode'
     | 'unknown';
@@ -85,6 +86,7 @@ const ENGLISH: Readonly<Record<Slot, readonly Sequence[]>> = {
     jcxKeyword: keyword('jcx'),
     qslKeyword: keyword('qsl'),
     modeKeyword: keyword('mode'),
+    exchangeKeyword: keyword('exchangeReceived'),
     qslValue: QSL_VALUES.map(({ words }) => words),
     mode: single(Object.keys(MODE_WORDS)),
     unknown: [['[unk]']]
@@ -135,7 +137,8 @@ const KEYWORDS: readonly Slot[] = [
     'frequencyKeyword',
     'jcxKeyword',
     'qslKeyword',
-    'modeKeyword'
+    'modeKeyword',
+    'exchangeKeyword'
 ];
 /** What may follow a complete field value: another command, or noise. */
 const NEXT_COMMAND: readonly Slot[] = [...KEYWORDS, 'unknown'];
@@ -170,6 +173,7 @@ const TRANSITIONS: Readonly<Record<Slot, readonly Next[]>> = {
     qslKeyword: ['qslValue', 'unknown'],
     qslValue: [...NEXT_COMMAND, 'end'],
     modeKeyword: ['mode', 'letter', 'number', 'unknown'],
+    exchangeKeyword: ['letter', 'number', 'unknown'],
     mode: [...NEXT_COMMAND, 'end'],
     unknown: [...SLOTS, 'end']
 };
