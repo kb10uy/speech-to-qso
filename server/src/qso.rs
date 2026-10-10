@@ -105,9 +105,14 @@ pub fn is_callsign(s: &str) -> bool {
         && s.chars().any(|c| c.is_ascii_uppercase())
 }
 
+/// A readability-strength(-tone) report, or a signal report in dB as FT8, FT4 and JT65 send (`+00`, `-12`).
 fn is_rst(s: &str) -> bool {
     let b = s.as_bytes();
-    (b.len() == 2 || b.len() == 3) && (b'1'..=b'5').contains(&b[0]) && b[1..].iter().all(|d| (b'1'..=b'9').contains(d))
+    let rst = (b.len() == 2 || b.len() == 3)
+        && (b'1'..=b'5').contains(&b[0])
+        && b[1..].iter().all(|d| (b'1'..=b'9').contains(d));
+    let db = b.len() == 3 && matches!(b[0], b'+' | b'-') && b[1..].iter().all(u8::is_ascii_digit);
+    rst || db
 }
 
 fn is_mode(s: &str) -> bool {
@@ -287,6 +292,12 @@ pub(crate) mod tests {
             qso.call = call.into();
             assert_eq!(qso.validate(), Ok(()), "{call}");
         }
+        for rst in ["599", "595", "+00", "-12"] {
+            let mut qso = sample();
+            qso.rst_sent = rst.into();
+            qso.rst_rcvd = rst.into();
+            assert_eq!(qso.validate(), Ok(()), "{rst}");
+        }
     }
 
     #[test]
@@ -409,6 +420,8 @@ pub(crate) mod tests {
             ("submode", Box::new(|q| q.submode = Some("<EOR>".into()))),
             ("rst_sent", Box::new(|q| q.rst_sent = "69".into())),
             ("rst_rcvd", Box::new(|q| q.rst_rcvd = "5".into())),
+            ("rst_rcvd", Box::new(|q| q.rst_rcvd = "+0".into())),
+            ("rst_rcvd", Box::new(|q| q.rst_rcvd = "-1a".into())),
             ("jcx", Box::new(|q| q.jcx = Some("10 01".into()))),
             ("name", Box::new(|q| q.name = Some("".into()))),
             ("name", Box::new(|q| q.name = Some("Taro\nYamada".into()))),
