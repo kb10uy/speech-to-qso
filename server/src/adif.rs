@@ -67,6 +67,9 @@ pub fn record(qso: &QsoPayload, station: Option<&Station>) -> String {
     field(&mut out, "SUBMODE", qso.submode.as_deref());
     field(&mut out, "RST_SENT", Some(&qso.rst_sent));
     field(&mut out, "RST_RCVD", Some(&qso.rst_rcvd));
+    field(&mut out, "CONTEST_ID", qso.contest_id.as_deref());
+    field(&mut out, "STX_STRING", qso.stx_string.as_deref());
+    field(&mut out, "SRX_STRING", qso.srx_string.as_deref());
     // Requested: we owe a card. One way: we send none and one is on its way to us.
     let (qsl_sent, qsl_rcvd) = match qso.qsl {
         Qsl::None => (None, None),
@@ -162,6 +165,18 @@ mod tests {
         qso.submode = Some("FT4".into());
         // Identical to the expectation in web/src/lib/qso/adif.test.ts.
         assert!(record(&qso, None).contains("<BAND:4>70cm <MODE:4>MFSK <SUBMODE:3>FT4 <RST_SENT:2>59 "));
+    }
+
+    #[test]
+    fn renders_the_contest_fields_after_the_rst() {
+        let mut qso = sample();
+        qso.contest_id = Some("ALL-JA1".into());
+        qso.stx_string = Some("59 007M".into());
+        qso.srx_string = Some("57 1001H".into());
+        // Identical to the expectation in web/src/lib/qso/adif.test.ts.
+        assert!(record(&qso, None).contains(
+            "<RST_RCVD:2>57 <CONTEST_ID:7>ALL-JA1 <STX_STRING:7>59 007M <SRX_STRING:8>57 1001H <QSL_SENT:1>R "
+        ));
     }
 
     #[test]

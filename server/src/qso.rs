@@ -56,6 +56,14 @@ pub struct QsoPayload {
     pub name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub qth: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contest_id: Option<String>,
+    /// The sent contest exchange, with the RST if the user asked for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stx_string: Option<String>,
+    /// The received contest exchange, with the RST if the user asked for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub srx_string: Option<String>,
     pub time_on: DateTime<Utc>,
     /// Missing when the user leaves it to Wavelog, which fills in the token owner's callsign.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -107,9 +115,12 @@ fn is_mode(s: &str) -> bool {
 }
 
 const FREE_TEXT_MAX_LENGTH: usize = 100;
+const CONTEST_ID_MAX_LENGTH: usize = 64;
+/// Same as `EXCHANGE_STRING_MAX_LENGTH` in `web/src/lib/qso/contest.ts`.
+const EXCHANGE_MAX_LENGTH: usize = 32;
 
-fn is_free_text(s: &str) -> bool {
-    (1..=FREE_TEXT_MAX_LENGTH).contains(&s.chars().count()) && !s.chars().any(char::is_control)
+fn is_text(s: &str, max_length: usize) -> bool {
+    (1..=max_length).contains(&s.chars().count()) && !s.chars().any(char::is_control)
 }
 
 impl QsoPayload {
@@ -154,11 +165,25 @@ impl QsoPayload {
         }
         for (field, text) in [("name", &self.name), ("qth", &self.qth)] {
             if let Some(text) = text
-                && !is_free_text(text)
+                && !is_text(text, FREE_TEXT_MAX_LENGTH)
             {
                 return Err(invalid(
                     field,
                     format!("must be 1-{FREE_TEXT_MAX_LENGTH} characters without control characters"),
+                ));
+            }
+        }
+        for (field, text, max_length) in [
+            ("contest_id", &self.contest_id, CONTEST_ID_MAX_LENGTH),
+            ("stx_string", &self.stx_string, EXCHANGE_MAX_LENGTH),
+            ("srx_string", &self.srx_string, EXCHANGE_MAX_LENGTH),
+        ] {
+            if let Some(text) = text
+                && !is_text(text, max_length)
+            {
+                return Err(invalid(
+                    field,
+                    format!("must be 1-{max_length} characters without control characters"),
                 ));
             }
         }
@@ -188,6 +213,15 @@ impl QsoPayload {
         set("time_on", self.time_on.format("%H%M%S").to_string().into());
         set("rst_sent", self.rst_sent.clone().into());
         set("rst_rcvd", self.rst_rcvd.clone().into());
+        if let Some(contest_id) = &self.contest_id {
+            set("contest_id", contest_id.clone().into());
+        }
+        if let Some(stx) = &self.stx_string {
+            set("stx_string", stx.clone().into());
+        }
+        if let Some(srx) = &self.srx_string {
+            set("srx_string", srx.clone().into());
+        }
         match self.qsl {
             Qsl::None => {}
             Qsl::Requested => set("qsl_sent", "R".into()),
@@ -345,6 +379,16 @@ pub(crate) mod tests {
         assert_eq!(body["qth"], "東京都港区");
 
         let mut qso = sample();
+        qso.contest_id = Some("ALL-JA1".into());
+        qso.stx_string = Some("59 007M".into());
+        qso.srx_string = Some("57 1001H".into());
+        assert_eq!(qso.validate(), Ok(()));
+        let body = qso.to_wavelog(3).unwrap();
+        assert_eq!(body["contest_id"], "ALL-JA1");
+        assert_eq!(body["stx_string"], "59 007M");
+        assert_eq!(body["srx_string"], "57 1001H");
+
+        let mut qso = sample();
         qso.frequency = 100_000_000;
         assert_eq!(qso.to_wavelog(3).unwrap_err().field, "frequency");
     }
@@ -369,6 +413,9 @@ pub(crate) mod tests {
             ("name", Box::new(|q| q.name = Some("".into()))),
             ("name", Box::new(|q| q.name = Some("Taro\nYamada".into()))),
             ("qth", Box::new(|q| q.qth = Some("港".repeat(101)))),
+            ("contest_id", Box::new(|q| q.contest_id = Some("".into()))),
+            ("stx_string", Box::new(|q| q.stx_string = Some("1".repeat(33)))),
+            ("srx_string", Box::new(|q| q.srx_string = Some("59\t001".into()))),
             ("station_callsign", Box::new(|q| q.station_callsign = Some("x".into()))),
         ];
         for (field, mutate) in cases {
