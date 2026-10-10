@@ -4,17 +4,19 @@
     import { QsoApp } from '../lib/app/app.svelte';
     import AccountMenu from '../lib/components/AccountMenu.svelte';
     import BootstrapView from '../lib/components/BootstrapView.svelte';
+    import ContestView from '../lib/components/ContestView.svelte';
     import HelpView from '../lib/components/HelpView.svelte';
     import LogView from '../lib/components/LogView.svelte';
     import QsoView from '../lib/components/QsoView.svelte';
     import SessionView from '../lib/components/SessionView.svelte';
     import SettingsView from '../lib/components/SettingsView.svelte';
 
-    type Tab = 'qso' | 'session' | 'log' | 'settings' | 'help';
+    type Tab = 'qso' | 'session' | 'contest' | 'log' | 'settings' | 'help';
 
     const tabs = [
         { id: 'qso', label: 'QSO' },
-        { id: 'session', label: 'Session' }
+        { id: 'session', label: 'Session' },
+        { id: 'contest', label: 'Contest' }
     ] as const;
 
     const app = new QsoApp();
@@ -58,7 +60,7 @@
                 {#each tabs as { id, label } (id)}
                     <button
                         class={[
-                            'px-3 py-1.5',
+                            'px-2 py-1.5 sm:px-3',
                             tab === id
                                 ? 'border-border bg-surface-2 font-semibold'
                                 : 'border-transparent bg-transparent'
@@ -91,9 +93,15 @@
     {:else}
         {#key app.user?.id}
             {#if tab === 'qso'}
-                <QsoView {app} onOpenSession={() => (tab = 'session')} />
+                <QsoView
+                    {app}
+                    onOpenSession={() => (tab = 'session')}
+                    onOpenContest={() => (tab = 'contest')}
+                />
             {:else if tab === 'session'}
                 <SessionView {app} onDone={() => (tab = 'qso')} />
+            {:else if tab === 'contest'}
+                <ContestView {app} onDone={() => (tab = 'qso')} />
             {:else if tab === 'log'}
                 <LogView {app} />
             {:else if tab === 'settings'}
