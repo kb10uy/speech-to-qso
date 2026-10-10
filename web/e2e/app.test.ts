@@ -92,7 +92,7 @@ test('logs contest QSOs with numbered exchanges', async ({ page }) => {
     await page.getByRole('textbox', { name: /^Sent number/ }).fill('{serial}m');
     await page.getByLabel('Next serial number').fill('7');
     await page.getByLabel(/Put the RST in front/).check();
-    await expect(page.getByLabel('Next sent number')).toHaveText('59 007M');
+    await expect(page.getByLabel('Next sent number')).toHaveText('59007M');
     await page.getByRole('button', { name: 'Save' }).click();
 
     const draft = page.getByLabel('Draft QSO');
@@ -115,12 +115,12 @@ test('logs contest QSOs with numbered exchanges', async ({ page }) => {
     await expect(received).toContainText('59 ---');
 
     await openMenu(page, 'Log');
-    await expect(page.locator('li', { hasText: 'JL1HIS' })).toContainText('NR 59 007M/57 1001H');
+    await expect(page.locator('li', { hasText: 'JL1HIS' })).toContainText('NR 59007M/571001H');
     const download = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Export ADIF' }).click();
     const file = await (await download).path();
     const adif = await (await import('node:fs/promises')).readFile(file, 'utf8');
-    expect(adif).toContain('<CONTEST_ID:7>ALL-JA1 <STX_STRING:7>59 007M <SRX_STRING:8>57 1001H ');
+    expect(adif).toContain('<CONTEST_ID:7>ALL-JA1 <STX_STRING:6>59007M <SRX_STRING:7>571001H ');
 });
 
 test('streams 16 kHz PCM from the microphone while PTT is held', async ({ page }) => {

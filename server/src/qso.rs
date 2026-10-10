@@ -380,13 +380,13 @@ pub(crate) mod tests {
 
         let mut qso = sample();
         qso.contest_id = Some("ALL-JA1".into());
-        qso.stx_string = Some("59 007M".into());
-        qso.srx_string = Some("57 1001H".into());
+        qso.stx_string = Some("59007M".into());
+        qso.srx_string = Some("571001H".into());
         assert_eq!(qso.validate(), Ok(()));
         let body = qso.to_wavelog(3).unwrap();
         assert_eq!(body["contest_id"], "ALL-JA1");
-        assert_eq!(body["stx_string"], "59 007M");
-        assert_eq!(body["srx_string"], "57 1001H");
+        assert_eq!(body["stx_string"], "59007M");
+        assert_eq!(body["srx_string"], "571001H");
 
         let mut qso = sample();
         qso.frequency = 100_000_000;

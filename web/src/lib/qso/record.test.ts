@@ -125,8 +125,8 @@ describe('finalizeDraft', () => {
                 includeRst: true
             });
             expect(result.ok && result.record).toMatchObject({
-                exchangeSent: '59 007M',
-                exchangeReceived: '57 1001H'
+                exchangeSent: '59007M',
+                exchangeReceived: '571001H'
             });
         });
 

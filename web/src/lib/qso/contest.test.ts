@@ -49,7 +49,7 @@ describe('exchangeString', () => {
 
     it('joins the RST and the number when asked to', () => {
         expect(exchangeString(contest, '59', '001')).toBe('001');
-        expect(exchangeString({ ...contest, includeRst: true }, '59', '001')).toBe('59 001');
+        expect(exchangeString({ ...contest, includeRst: true }, '59', '001')).toBe('59001');
         expect(exchangeString({ ...contest, includeRst: true }, '599', undefined)).toBe('599');
         expect(exchangeString(contest, '59', undefined)).toBeUndefined();
     });

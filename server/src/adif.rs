@@ -171,11 +171,11 @@ mod tests {
     fn renders_the_contest_fields_after_the_rst() {
         let mut qso = sample();
         qso.contest_id = Some("ALL-JA1".into());
-        qso.stx_string = Some("59 007M".into());
-        qso.srx_string = Some("57 1001H".into());
+        qso.stx_string = Some("59007M".into());
+        qso.srx_string = Some("571001H".into());
         // Identical to the expectation in web/src/lib/qso/adif.test.ts.
         assert!(record(&qso, None).contains(
-            "<RST_RCVD:2>57 <CONTEST_ID:7>ALL-JA1 <STX_STRING:7>59 007M <SRX_STRING:8>57 1001H <QSL_SENT:1>R "
+            "<RST_RCVD:2>57 <CONTEST_ID:7>ALL-JA1 <STX_STRING:6>59007M <SRX_STRING:7>571001H <QSL_SENT:1>R "
         ));
     }
 

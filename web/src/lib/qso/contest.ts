@@ -8,7 +8,10 @@ export interface ContestSettings {
     exchangeTemplate: string;
     /** The serial number the next QSO sends. */
     nextSerial: number;
-    /** Whether `STX_STRING` and `SRX_STRING` start with the RST (`59 001`). */
+    /**
+     * Whether `STX_STRING` and `SRX_STRING` start with the RST (`59001`). Only the screen puts a
+     * space between them.
+     */
     includeRst: boolean;
 }
 
@@ -60,8 +63,8 @@ export function exchangeString(
     rst: string,
     exchange: string | undefined
 ): string | undefined {
-    const parts = [contest.includeRst ? rst : '', exchange ?? ''].filter((p) => p !== '');
-    return parts.length === 0 ? undefined : parts.join(' ');
+    const string = (contest.includeRst ? rst : '') + (exchange ?? '');
+    return string === '' ? undefined : string;
 }
 
 export function contestProblems(contest: ContestSettings): string[] {

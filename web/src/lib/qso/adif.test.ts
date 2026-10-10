@@ -44,11 +44,11 @@ describe('adifRecord', () => {
             adifRecord({
                 ...record,
                 contestId: 'ALL-JA1',
-                exchangeSent: '59 007M',
-                exchangeReceived: '57 1001H'
+                exchangeSent: '59007M',
+                exchangeReceived: '571001H'
             })
         ).toContain(
-            '<RST_RCVD:2>57 <CONTEST_ID:7>ALL-JA1 <STX_STRING:7>59 007M <SRX_STRING:8>57 1001H <QSL_SENT:1>R '
+            '<RST_RCVD:2>57 <CONTEST_ID:7>ALL-JA1 <STX_STRING:6>59007M <SRX_STRING:7>571001H <QSL_SENT:1>R '
         );
     });
 

@@ -70,7 +70,7 @@ number padded to three digits (`001`), `{serial:4}` pads it to four, and everyth
 
 In a contest the S and R cells show the RST with the numbers (`59 007M`, `57 1001H`), and LOG QSO refuses a QSO
 without a received number (`number ...`). Both numbers are recorded as `STX_STRING` and `SRX_STRING`, optionally with
-the RST in front (`59 007M`). A number spoken outside a contest is still recorded as `SRX_STRING`.
+the RST in front (`59007M`; the space is only on screen). A number spoken outside a contest is still recorded as `SRX_STRING`.
 
 ### Frequency resolver
 
