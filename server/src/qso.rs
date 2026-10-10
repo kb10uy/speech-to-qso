@@ -43,6 +43,9 @@ pub struct QsoPayload {
     /// Frequency in Hz.
     pub frequency: u64,
     pub mode: String,
+    /// Where ADIF has the spoken mode as a submode, e.g. `FT4` with the mode `MFSK`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub submode: Option<String>,
     pub rst_sent: String,
     pub rst_rcvd: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -99,6 +102,10 @@ fn is_rst(s: &str) -> bool {
     (b.len() == 2 || b.len() == 3) && (b'1'..=b'5').contains(&b[0]) && b[1..].iter().all(|d| (b'1'..=b'9').contains(d))
 }
 
+fn is_mode(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric())
+}
+
 const FREE_TEXT_MAX_LENGTH: usize = 100;
 
 fn is_free_text(s: &str) -> bool {
@@ -121,8 +128,13 @@ impl QsoPayload {
         if self.frequency == 0 {
             return Err(invalid("frequency", "must be positive"));
         }
-        if self.mode.is_empty() || !self.mode.chars().all(|c| c.is_ascii_alphanumeric()) {
+        if !is_mode(&self.mode) {
             return Err(invalid("mode", "must be alphanumeric"));
+        }
+        if let Some(submode) = &self.submode
+            && !is_mode(submode)
+        {
+            return Err(invalid("submode", "must be alphanumeric"));
         }
         if !is_rst(&self.rst_sent) {
             return Err(invalid("rst_sent", format!("{:?} is not a valid RST", self.rst_sent)));
@@ -168,6 +180,9 @@ impl QsoPayload {
         set("call", self.call.clone().into());
         set("band", band.into());
         set("mode", self.mode.clone().into());
+        if let Some(submode) = &self.submode {
+            set("submode", submode.clone().into());
+        }
         set("freq", self.frequency.into());
         set("qso_date", self.time_on.format("%Y-%m-%d").to_string().into());
         set("time_on", self.time_on.format("%H%M%S").to_string().into());
@@ -315,6 +330,13 @@ pub(crate) mod tests {
         assert_eq!(qso.to_wavelog(3).unwrap()["my_cnty"], "100102");
 
         let mut qso = sample();
+        qso.mode = "MFSK".into();
+        qso.submode = Some("FT4".into());
+        let body = qso.to_wavelog(3).unwrap();
+        assert_eq!(body["mode"], "MFSK");
+        assert_eq!(body["submode"], "FT4");
+
+        let mut qso = sample();
         qso.name = Some("太郎".into());
         qso.qth = Some("東京都港区".into());
         assert_eq!(qso.validate(), Ok(()));
@@ -339,6 +361,8 @@ pub(crate) mod tests {
             ("operator", Box::new(|q| q.operator = Some("".into()))),
             ("frequency", Box::new(|q| q.frequency = 0)),
             ("mode", Box::new(|q| q.mode = "F M".into())),
+            ("submode", Box::new(|q| q.submode = Some("".into()))),
+            ("submode", Box::new(|q| q.submode = Some("<EOR>".into()))),
             ("rst_sent", Box::new(|q| q.rst_sent = "69".into())),
             ("rst_rcvd", Box::new(|q| q.rst_rcvd = "5".into())),
             ("jcx", Box::new(|q| q.jcx = Some("10 01".into()))),
