@@ -248,6 +248,37 @@ describe('mode', () => {
     });
 });
 
+describe('contest number', () => {
+    it('keeps letters and digits as they were said', () => {
+        expect(single('number one zero zero one mike')).toEqual({
+            kind: 'exchangeReceived',
+            value: '1001M'
+        });
+        expect(single('number zero zero five')).toEqual({
+            kind: 'exchangeReceived',
+            value: '005'
+        });
+        expect(single('number double five hotel')).toEqual({
+            kind: 'exchangeReceived',
+            value: '55H'
+        });
+        expect(single('nr 1001m')).toEqual({ kind: 'exchangeReceived', value: '1001M' });
+    });
+
+    it('is separate from the RST', () => {
+        expect(updates('received five nine number one two papa')).toEqual([
+            { kind: 'rstReceived', value: '59' },
+            { kind: 'exchangeReceived', value: '12P' }
+        ]);
+    });
+
+    it('rejects empty, overlong and stroked numbers', () => {
+        expect(error('number')).toMatch(/number is empty/);
+        expect(error('number ' + 'one '.repeat(17))).toMatch(/too long/);
+        expect(error('number one stroke two')).toMatch(/unexpected "\/"/);
+    });
+});
+
 describe('utterances', () => {
     it('chains several commands in one utterance', () => {
         expect(
@@ -290,6 +321,10 @@ describe('Japanese readings', () => {
             value: 'JA1NXF'
         });
         expect(single('送信 ファイブ セブン')).toEqual({ kind: 'rstSent', value: '57' });
+        expect(single('ナンバー ワン ゼロ ゼロ ワン Ｍ')).toEqual({
+            kind: 'exchangeReceived',
+            value: '1001M'
+        });
         expect(single('周波数 ポイント ナイン フォー')).toEqual({
             kind: 'frequency',
             value: { integerDigits: '', fractionDigits: '94' }

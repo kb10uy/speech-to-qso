@@ -12,6 +12,7 @@ import {
     adifFile,
     applyStation,
     applyUpdates,
+    defaultContest,
     defaultSession,
     finalizeDraft,
     isPristine,
@@ -19,6 +20,8 @@ import {
     sessionMode,
     setFreeText,
     stationToApply,
+    usesSerial,
+    type ContestSettings,
     type DraftQso,
     type FreeTextField,
     type OperatingSession,
@@ -87,6 +90,7 @@ function errorMessage(e: unknown): string {
 /** Application state and the PTT → ASR → parser → draft → log pipeline. */
 export class QsoApp {
     session = $state<OperatingSession>(defaultSession());
+    contest = $state<ContestSettings>(defaultContest());
     settings = $state<AppSettings>(mergeSettings(undefined));
     draft = $state<DraftQso>(newDraft());
     log = $state<QsoRecord[]>([]);
@@ -239,8 +243,9 @@ export class QsoApp {
 
     async #useAccount(user: Me | null, version: number): Promise<boolean> {
         const { qsos, kv } = await this.#storage!.forUser(user?.id ?? null);
-        const [storedSession, draft, stations, log, local] = await Promise.all([
+        const [storedSession, contest, draft, stations, log, local] = await Promise.all([
             kv.get<OperatingSession & { stationProfileId?: string }>('session'),
+            kv.get<ContestSettings>('contest'),
             kv.get<DraftQso>('draft'),
             kv.get<StationList>('stations'),
             qsos.list(),
@@ -253,6 +258,7 @@ export class QsoApp {
         this.user = user;
         this.api = user === null ? new ServerApi() : new ServerApi().forUser(user.id);
         this.session = { ...defaultSession(), ...session };
+        this.contest = { ...defaultContest(), ...contest };
         this.draft = draft ?? newDraft({ mode: sessionMode(this.session) });
         this.stations = stations ?? { default_station_id: null, stations: [] };
         this.log = log;
@@ -547,7 +553,14 @@ export class QsoApp {
         if (!this.ready || this.#accountBusy) return false;
         const version = this.#accountVersion;
         const qsos = this.#qsos!;
-        const result = finalizeDraft(this.draft, this.session, crypto.randomUUID());
+        const contest = this.contest;
+        const result = finalizeDraft(
+            this.draft,
+            this.session,
+            crypto.randomUUID(),
+            new Date(),
+            contest
+        );
         if (!result.ok) {
             this.#notify({ kind: 'error', message: result.problems.join(' / ') });
             vibrate([60, 60, 60]);
@@ -555,6 +568,10 @@ export class QsoApp {
         }
         await qsos.put(result.record);
         if (version !== this.#accountVersion) return true;
+        if (contest.enabled && usesSerial(contest.exchangeTemplate)) {
+            await this.saveContest({ ...contest, nextSerial: contest.nextSerial + 1 });
+            if (version !== this.#accountVersion) return true;
+        }
         this.log = [result.record, ...this.log];
         if (this.user === null) this.localQsoCount = this.log.length;
         const { frequencyHz, mode, submode } = result.record;
@@ -624,6 +641,11 @@ export class QsoApp {
         if (modeChanged && isPristine(this.draft)) {
             this.setDraft({ ...this.draft, mode: sessionMode(session) });
         }
+    }
+
+    async saveContest(contest: ContestSettings) {
+        this.contest = contest;
+        await this.#kv!.set('contest', contest);
     }
 
     async saveSettings(settings: AppSettings) {

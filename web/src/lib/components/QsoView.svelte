@@ -3,6 +3,8 @@
     import type { QsoApp } from '../app/app.svelte';
     import {
         FREE_TEXT_MAX_LENGTH,
+        contestProblems,
+        expandExchange,
         formatMhz,
         formatUtcDate,
         sessionMode,
@@ -13,7 +15,11 @@
     import { flash } from './flash';
     import PttButton from './PttButton.svelte';
 
-    let { app, onOpenSession }: { app: QsoApp; onOpenSession: () => void } = $props();
+    let {
+        app,
+        onOpenSession,
+        onOpenContest
+    }: { app: QsoApp; onOpenSession: () => void; onOpenContest: () => void } = $props();
 
     let command = $state('');
     let commandInput = $state<HTMLInputElement | null>(null);
@@ -22,6 +28,17 @@
 
     const draft = $derived(app.draft);
     const problems = $derived(sessionProblems(app.session));
+    const contest = $derived(app.contest.enabled ? app.contest : null);
+    const contestSetup = $derived(contestProblems(app.contest));
+    // Shown next to the RST, the way it is sent.
+    const sentNumber = $derived(
+        contest === null
+            ? undefined
+            : expandExchange(contest.exchangeTemplate, contest.nextSerial) || undefined
+    );
+    const receivedNumber = $derived(
+        draft.exchangeReceived ?? (contest === null ? undefined : '---')
+    );
     const mode = $derived.by(() => {
         const mode = draft.mode ?? sessionMode(app.session);
         return mode === undefined ? undefined : modeLabel(mode);
@@ -44,7 +61,7 @@
         app.onUtterance(({ source, ok, fields }) => {
             if (!ok && source === 'typed') void flash(() => commandInput, 'flash-error');
             for (const field of fields) {
-                void flash(() => draftSection?.querySelector(`[data-field="${field}"]`), 'flash');
+                void flash(() => draftSection?.querySelector(`[data-field~="${field}"]`), 'flash');
             }
         })
     );
@@ -54,6 +71,15 @@
         if (command.trim() === '') return;
         app.handleText(command, 'typed');
         command = '';
+    }
+
+    /** Shrinks the RST and number together so that a long contest number still fits. */
+    function reportSize(rst: string, number: string | undefined): string {
+        if (number === undefined) return 'text-3xl';
+        const length = rst.length + 1 + number.length;
+        if (length <= 8) return 'text-2xl';
+        if (length <= 10) return 'text-xl';
+        return length <= 11 ? 'text-lg' : 'text-base';
     }
 
     const cell = 'flex min-h-14 justify-center rounded-card border bg-surface px-3';
@@ -88,9 +114,35 @@
     </label>
 {/snippet}
 
+{#snippet report(
+    label: string,
+    rst: string,
+    number: string | undefined,
+    fields: string,
+    keyword: string
+)}
+    <button
+        class={[button, 'min-w-0 border-border']}
+        data-field={fields}
+        onclick={() => edit(keyword)}
+    >
+        <span class="text-sm text-muted">{label}</span>
+        <span class={['truncate font-mono font-semibold', reportSize(rst, number)]}
+            >{rst}{#if number !== undefined}{' '}<span class={[number === '---' && 'text-muted']}
+                    >{number}</span
+                >{/if}</span
+        >
+    </button>
+{/snippet}
+
 {#if problems.length > 0}
     <button class="mb-3 w-full border-accent bg-accent/20 text-left" onclick={onOpenSession}>
         {problems.join(' / ')} — tap to set up the session
+    </button>
+{/if}
+{#if contestSetup.length > 0}
+    <button class="mb-3 w-full border-accent bg-accent/20 text-left" onclick={onOpenContest}>
+        {contestSetup.join(' / ')} — tap to set up the contest
     </button>
 {/if}
 
@@ -159,20 +211,14 @@
     </div>
 
     <div class="grid grid-cols-2 gap-2">
-        <button class={[button, 'border-border']} data-field="rstSent" onclick={() => edit('sent')}>
-            <span class="text-sm text-muted">S</span><span class="font-mono text-3xl font-semibold"
-                >{draft.rstSent}</span
-            >
-        </button>
-        <button
-            class={[button, 'border-border']}
-            data-field="rstReceived"
-            onclick={() => edit('received')}
-        >
-            <span class="text-sm text-muted">R</span><span class="font-mono text-3xl font-semibold"
-                >{draft.rstReceived}</span
-            >
-        </button>
+        {@render report('S', draft.rstSent, sentNumber, 'rstSent', 'sent')}
+        {@render report(
+            'R',
+            draft.rstReceived,
+            receivedNumber,
+            'rstReceived exchangeReceived',
+            contest === null ? 'received' : 'number'
+        )}
     </div>
 
     <div class="grid grid-cols-2 gap-2">

@@ -19,6 +19,8 @@ export interface DraftQso {
     qsl: QslStatus;
     name?: string;
     qth?: string;
+    /** The other station's contest number, without the RST. */
+    exchangeReceived?: string;
     /** When the first field of this QSO was entered (ISO 8601, UTC). */
     startedAt?: string;
 }
@@ -74,6 +76,8 @@ export function describeUpdate(update: SpokenUpdate, after: DraftQso): string {
             ];
         case 'mode':
             return `Mode → ${formatMode(update.value)}`;
+        case 'exchangeReceived':
+            return `Number → ${update.value}`;
     }
 }
 
@@ -109,6 +113,9 @@ export function applyUpdate(
             break;
         case 'mode':
             next.mode = update.value;
+            break;
+        case 'exchangeReceived':
+            next.exchangeReceived = update.value;
             break;
     }
     return next;

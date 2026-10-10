@@ -1,4 +1,12 @@
 import type { QslStatus } from '../dsl';
+import {
+    EXCHANGE_STRING_MAX_LENGTH,
+    contestProblems,
+    defaultContest,
+    exchangeString,
+    expandExchange,
+    type ContestSettings
+} from './contest';
 import { FREE_TEXT_MAX_LENGTH, type DraftQso } from './draft';
 import { operatorCallProblem, sessionMode, type OperatingSession } from './session';
 
@@ -18,6 +26,12 @@ export interface QsoRecord {
     qsl: QslStatus;
     name?: string;
     qth?: string;
+    /** ADIF `CONTEST_ID`. */
+    contestId?: string;
+    /** ADIF `STX_STRING`: what we sent, with the RST if the contest settings say so. */
+    exchangeSent?: string;
+    /** ADIF `SRX_STRING`: what we received, with the RST if the contest settings say so. */
+    exchangeReceived?: string;
     /** When the QSO was logged (ISO 8601, UTC). */
     timeOn: string;
 
@@ -41,12 +55,16 @@ export type FinalizeResult = { ok: true; record: QsoRecord } | { ok: false; prob
 const blankToUndefined = (s: string | undefined) =>
     s === undefined || s.trim() === '' ? undefined : s.trim();
 
-/** Validates a draft and turns it into a record ready to be stored. */
+/**
+ * Validates a draft and turns it into a record ready to be stored. In a contest, the sent number
+ * uses `contest.nextSerial`; moving on to the next one is up to the caller.
+ */
 export function finalizeDraft(
     draft: DraftQso,
     session: OperatingSession,
     id: string,
-    now: Date = new Date()
+    now: Date = new Date(),
+    contest: ContestSettings = defaultContest()
 ): FinalizeResult {
     const problems: string[] = [];
     if (draft.callsign === undefined) problems.push('Callsign is missing');
@@ -62,6 +80,25 @@ export function finalizeDraft(
     }
     const operator = operatorCallProblem(session.operatorCall);
     if (operator !== undefined) problems.push(`${operator} (Session)`);
+    // A number spoken outside a contest is still worth keeping.
+    const exchangeReceived = exchangeString(contest, draft.rstReceived, draft.exchangeReceived);
+    let exchangeSent: string | undefined;
+    if (contest.enabled) {
+        if (draft.exchangeReceived === undefined) problems.push('Received number is missing');
+        const contestSetup = contestProblems(contest);
+        problems.push(...contestSetup.map((p) => `${p} (Contest)`));
+        if (contestSetup.length === 0) {
+            exchangeSent = exchangeString(
+                contest,
+                draft.rstSent,
+                expandExchange(contest.exchangeTemplate, contest.nextSerial) || undefined
+            );
+            if (exchangeSent !== undefined && [...exchangeSent].length > EXCHANGE_STRING_MAX_LENGTH)
+                problems.push(
+                    `Sent number is longer than ${EXCHANGE_STRING_MAX_LENGTH} characters (Contest)`
+                );
+        }
+    }
     if (problems.length > 0) return { ok: false, problems };
 
     return {
@@ -78,6 +115,11 @@ export function finalizeDraft(
             qsl: draft.qsl,
             name: draft.name,
             qth: draft.qth,
+            contestId: contest.enabled
+                ? blankToUndefined(contest.contestId)?.toUpperCase()
+                : undefined,
+            exchangeSent,
+            exchangeReceived,
             timeOn: now.toISOString(),
             operatorCall: blankToUndefined(session.operatorCall)?.toUpperCase(),
             location: session.location.trim(),
@@ -105,6 +147,9 @@ export interface QsoApiPayload {
     qsl: QslStatus;
     name?: string;
     qth?: string;
+    contest_id?: string;
+    stx_string?: string;
+    srx_string?: string;
     time_on: string;
     operator?: string;
     location: string;
@@ -127,6 +172,9 @@ export function toApiPayload(record: QsoRecord): QsoApiPayload {
         qsl: record.qsl,
         name: record.name,
         qth: record.qth,
+        contest_id: record.contestId,
+        stx_string: record.exchangeSent,
+        srx_string: record.exchangeReceived,
         time_on: record.timeOn,
         operator: record.operatorCall,
         location: record.location,

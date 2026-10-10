@@ -26,5 +26,10 @@
         <dd class="m-0 text-sm text-muted">QSL one way: they send a card and expect none back</dd>
         <dt class="mt-2 font-mono">mode foxtrot mike</dt>
         <dd class="m-0 text-sm text-muted">Mode FM (also SSB, CW, FT8, …)</dd>
+        <dt class="mt-2 font-mono">number one zero zero one mike</dt>
+        <dd class="m-0 text-sm text-muted">
+            Received contest number 1001M, without the RST (also “nr”; ナンバー in Japanese).
+            Required in a contest; set the contest up in the Contest tab
+        </dd>
     </dl>
 </section>

@@ -138,7 +138,8 @@ export const FREE_TEXT_ONLY_WORDS: ReadonlySet<string> = new Set([
     'rcvd',
     'jay',
     'see',
-    'ex'
+    'ex',
+    'nr'
 ]);
 
 /** Words that are ignored anywhere in an utterance. */
@@ -152,7 +153,8 @@ export const COMMAND_KEYWORDS = {
     frequency: [['frequency'], ['frequencies'], ['freq']],
     jcx: [['jcx'], ['j', 'c', 'x'], ['jay', 'see', 'ex'], ['jcc'], ['jcg']],
     qsl: [['card'], ['qsl'], ['q', 's', 'l']],
-    mode: [['mode']]
+    mode: [['mode']],
+    exchangeReceived: [['number'], ['nr']]
 } as const satisfies Record<string, readonly (readonly string[])[]>;
 
 export type CommandKind = keyof typeof COMMAND_KEYWORDS;
@@ -164,7 +166,8 @@ export const COMMAND_LABELS: Readonly<Record<CommandKind, string>> = {
     frequency: 'FREQ',
     jcx: 'JCC/JCG',
     qsl: 'QSL',
-    mode: 'MODE'
+    mode: 'MODE',
+    exchangeReceived: 'NR'
 };
 
 /**
@@ -334,6 +337,7 @@ export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
     'one way': 'ワンウェイ',
     negative: 'ネガティブ',
     mode: 'モード',
+    number: 'ナンバー',
 
     fm: 'ＦＭ',
     am: 'ＡＭ',

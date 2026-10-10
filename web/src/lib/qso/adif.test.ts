@@ -38,6 +38,20 @@ describe('adifRecord', () => {
         );
     });
 
+    it('renders the contest fields after the RST', () => {
+        // Identical to the expectation in server/src/adif.rs.
+        expect(
+            adifRecord({
+                ...record,
+                contestId: 'ALL-JA1',
+                exchangeSent: '59007M',
+                exchangeReceived: '571001H'
+            })
+        ).toContain(
+            '<RST_RCVD:2>57 <CONTEST_ID:7>ALL-JA1 <STX_STRING:6>59007M <SRX_STRING:7>571001H <QSL_SENT:1>R '
+        );
+    });
+
     it('renders a one-way card as nothing to send and a card to receive', () => {
         // Identical to the expectation in server/src/adif.rs.
         expect(adifRecord({ ...record, qsl: 'oneWay' as const })).toContain(

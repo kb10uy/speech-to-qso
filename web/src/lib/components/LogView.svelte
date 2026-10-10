@@ -113,6 +113,8 @@
                 {time(record)}Z · {formatMhz(record.frequencyHz)}
                 {mode.label}{#if mode.detail}<span class="ml-1 text-xs">{mode.detail}</span>{/if}
                 · {record.rstSent}/{record.rstReceived}
+                {#if record.exchangeSent || record.exchangeReceived}· NR {record.exchangeSent ??
+                        '—'}/{record.exchangeReceived ?? '—'}{/if}
                 {#if record.jcx}· JCC/JCG {record.jcx}{/if}
                 {#if record.qsl === 'requested'}· QSL{:else if record.qsl === 'oneWay'}· QSL one way{/if}
             </div>

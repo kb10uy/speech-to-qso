@@ -51,6 +51,7 @@ On a desktop, the Space key works as PTT.
 | `card requested` / `card negative`                     | QSL requested on / off                              |
 | `card one way`                                         | QSL one way (they send a card, we send none)        |
 | `mode foxtrot mike` / `mode fm`                        | Mode = `FM`                                         |
+| `number one zero zero one mike` (also `nr`)            | Received contest number = `1001M` (without the RST) |
 
 - **There are no correction commands.** Speaking a field again overwrites that whole field.
 - Several commands can be chained in one PTT press (`juliett lima one hotel india sierra received five seven`).
@@ -59,6 +60,17 @@ On a desktop, the Space key works as PTT.
 - Numbers are read the way radio operators say them: `four thirty two` → `432`, `one forty five` → `145`,
   `double five` → `55`.
 - RST defaults to `59 / 59`. Frequency and mode carry over to the next QSO.
+
+### Contests
+
+The **Contest** tab (next to Session) turns contest logging on for this device. It holds the contest ID (ADIF
+`CONTEST_ID`), the number to send and the next serial number. The sent number is a template: `{serial}` is the serial
+number padded to three digits (`001`), `{serial:4}` pads it to four, and everything else is sent as it is (`1001M`,
+`{serial}H`). Every logged QSO whose sent number uses `{serial}` moves on to the next one.
+
+In a contest the S and R cells show the RST with the numbers (`59 007M`, `57 1001H`), and LOG QSO refuses a QSO
+without a received number (`number ...`). Both numbers are recorded as `STX_STRING` and `SRX_STRING`, optionally with
+the RST in front (`59007M`; the space is only on screen). A number spoken outside a contest is still recorded as `SRX_STRING`.
 
 ### Frequency resolver
 
@@ -165,6 +177,8 @@ the number of past QSOs, when the latest was made, and when the latest QSO whose
 | Callsign           | `CALL`                                                  |
 | Frequency          | `FREQ` (MHz), `BAND`                                    |
 | RST sent / rcvd    | `RST_SENT` / `RST_RCVD`                                 |
+| Contest            | `CONTEST_ID`                                            |
+| Sent / rcvd number | `STX_STRING` / `SRX_STRING` (optionally with the RST)   |
 | QSL requested      | `QSL_SENT:R` (the other station requested a card)       |
 | QSL one way        | `QSL_SENT:N`, `QSL_RCVD:R` (their card is coming)       |
 | JCC/JCG            | `CNTY`                                                  |
@@ -257,7 +271,7 @@ Vosk to sherpa-onnx, Whisper or a server-side ASR only means implementing that i
   model mishears. The Japanese model hears these as ordinary loanwords, so with it the commands are spoken as
   katakana (`ジュリエット リマ ワン`, `カード ワンウェイ`), letters can also be said as letter names (`Ｊ Ａ ワン Ｎ`),
   and the RST and frequency keywords are the plain Japanese words (`受信 ファイブ ナイン`, `送信 ファイブ セブン`,
-  `周波数 ポイント ナイン フォー`). Every English word has one reading in `JAPANESE_READINGS`
+  `周波数 ポイント ナイン フォー`); the contest number is `ナンバー ワン ゼロ ゼロ ワン Ｍ`. Every English word has one reading in `JAPANESE_READINGS`
   (`web/src/lib/dsl/lexicon.ts`), a single word of the model's vocabulary; words the model has no entry for, such as
   RTTY, are spelled with letter names. The tokenizer maps the readings back to the English DSL, so the parser does
   not change. CI checks the readings against the model's vocabulary.
