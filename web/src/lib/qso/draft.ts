@@ -41,14 +41,45 @@ export function setFreeText(
     return next;
 }
 
+const DEFAULT_RST = new Map([
+    ['CW', '599'],
+    ['RTTY', '599'],
+    ['SSTV', '595'],
+    ['FT8', '+00'],
+    ['FT4', '+00'],
+    ['JT65', '+00']
+]);
+
+/** The report a QSO starts with; voice and unknown modes get 59. */
+export function defaultRst(mode: QsoMode | undefined): string {
+    if (mode === undefined) return '59';
+    return DEFAULT_RST.get(mode.submode ?? mode.mode) ?? DEFAULT_RST.get(mode.mode) ?? '59';
+}
+
 /** Creates an empty draft. Frequency and mode are carried over between QSOs. */
 export function newDraft(carry: Pick<DraftQso, 'frequencyHz' | 'mode'> = {}): DraftQso {
+    const rst = defaultRst(carry.mode);
     return {
-        rstSent: '59',
-        rstReceived: '59',
+        rstSent: rst,
+        rstReceived: rst,
         qsl: 'none',
         frequencyHz: carry.frequencyHz,
         mode: carry.mode
+    };
+}
+
+/**
+ * Changes the mode. A report still at the old mode's default moves to the new one's, so that
+ * `mode cw` after `callsign ...` does not leave a phone report behind.
+ */
+export function withMode(draft: DraftQso, mode: QsoMode | undefined): DraftQso {
+    const before = defaultRst(draft.mode);
+    const after = defaultRst(mode);
+    return {
+        ...draft,
+        mode,
+        rstSent: draft.rstSent === before ? after : draft.rstSent,
+        rstReceived: draft.rstReceived === before ? after : draft.rstReceived
     };
 }
 
@@ -91,7 +122,7 @@ export function applyUpdate(
     frequency: FrequencyContext,
     now: Date = new Date()
 ): DraftQso {
-    const next: DraftQso = { ...draft, startedAt: draft.startedAt ?? now.toISOString() };
+    let next: DraftQso = { ...draft, startedAt: draft.startedAt ?? now.toISOString() };
     switch (update.kind) {
         case 'callsign':
             next.callsign = update.value;
@@ -112,7 +143,7 @@ export function applyUpdate(
             next.qsl = update.value;
             break;
         case 'mode':
-            next.mode = update.value;
+            next = withMode(next, update.value);
             break;
         case 'exchangeReceived':
             next.exchangeReceived = update.value;

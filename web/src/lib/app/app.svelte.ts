@@ -21,6 +21,7 @@ import {
     setFreeText,
     stationToApply,
     usesSerial,
+    withMode,
     type ContestSettings,
     type DraftQso,
     type FreeTextField,
@@ -639,7 +640,7 @@ export class QsoApp {
         await this.#kv!.set('session', session);
         if (version !== this.#accountVersion) return;
         if (modeChanged && isPristine(this.draft)) {
-            this.setDraft({ ...this.draft, mode: sessionMode(session) });
+            this.setDraft(withMode(this.draft, sessionMode(session)));
         }
     }
 
