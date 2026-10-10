@@ -14,6 +14,7 @@ import {
     type CommandKind,
     type QslStatus
 } from './lexicon';
+import { KNOWN_MODES, isKnownModeName, type QsoMode } from './mode';
 import { isNumberToken, readDigits } from './numbers';
 import { tokenize } from './tokenize';
 
@@ -25,30 +26,11 @@ export type SpokenUpdate =
     | { kind: 'frequency'; value: FrequencyPattern }
     | { kind: 'jcx'; value: string }
     | { kind: 'qsl'; value: QslStatus }
-    | { kind: 'mode'; value: string };
+    | { kind: 'mode'; value: QsoMode };
 
 export type ParseResult =
     | { ok: true; tokens: string[]; updates: SpokenUpdate[] }
     | { ok: false; tokens: string[]; error: string };
-
-/** Modes accepted by `mode ...` when spelled out with letters/digits. */
-export const KNOWN_MODES = [
-    'FM',
-    'AM',
-    'SSB',
-    'USB',
-    'LSB',
-    'CW',
-    'RTTY',
-    'FT8',
-    'FT4',
-    'PSK31',
-    'JT65',
-    'SSTV',
-    'DSTAR',
-    'C4FM',
-    'DMR'
-] as const;
 
 const POINTS = new Set<string>(POINT_WORDS);
 const MEGAHERTZ = new Set<string>(MEGAHERTZ_WORDS);
@@ -149,14 +131,13 @@ function parseQsl(tokens: readonly string[]): QslStatus {
     throw new DslError(`expected ${expected} after "card", got "${formatTokens(tokens)}"`);
 }
 
-function parseMode(tokens: readonly string[]): string {
+function parseMode(tokens: readonly string[]): QsoMode {
     if (tokens.length === 0) throw new DslError('mode is empty');
-    const word = tokens.length === 1 ? lookup(MODE_WORDS, tokens[0]) : undefined;
-    if (word !== undefined) return word;
-    const mode = readSpelled(tokens, false);
-    if (!(KNOWN_MODES as readonly string[]).includes(mode))
-        throw new DslError(`unknown mode "${mode}"`);
-    return mode;
+    const name =
+        (tokens.length === 1 ? lookup(MODE_WORDS, tokens[0]) : undefined) ??
+        readSpelled(tokens, false);
+    if (!isKnownModeName(name)) throw new DslError(`unknown mode "${name}"`);
+    return { ...KNOWN_MODES[name] };
 }
 
 function parseSegment(kind: CommandKind, tokens: readonly string[]): SpokenUpdate {

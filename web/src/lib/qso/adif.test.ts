@@ -31,6 +31,13 @@ describe('adifRecord', () => {
         );
     });
 
+    it('renders the submode after the mode', () => {
+        // Identical to the expectation in server/src/adif.rs.
+        expect(adifRecord({ ...record, mode: 'MFSK', submode: 'FT4' })).toContain(
+            '<BAND:4>70cm <MODE:4>MFSK <SUBMODE:3>FT4 <RST_SENT:2>59 '
+        );
+    });
+
     it('renders a one-way card as nothing to send and a card to receive', () => {
         // Identical to the expectation in server/src/adif.rs.
         expect(adifRecord({ ...record, qsl: 'oneWay' as const })).toContain(

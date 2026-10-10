@@ -1,7 +1,15 @@
+import { modeLabel, type QsoMode } from '../dsl';
+
 /** Formats a frequency in Hz as MHz with at least kHz precision, e.g. `432.940`. */
 export function formatMhz(hz: number): string {
     const mhz = (hz / 1_000_000).toFixed(6);
     return mhz.replace(/(\.\d{3}\d*?)0+$/, '$1');
+}
+
+/** Formats a mode as plain text, e.g. `FT4 (MFSK)`. */
+export function formatMode(mode: QsoMode): string {
+    const { label, detail } = modeLabel(mode);
+    return detail === undefined ? label : `${label} (${detail})`;
 }
 
 /** Formats an ISO 8601 time as its UTC date, e.g. `2026-10-03`. */

@@ -25,9 +25,9 @@ describe('DraftQso', () => {
     });
 
     it('carries frequency and mode over', () => {
-        const draft = newDraft({ frequencyHz: 432_940_000, mode: 'FM' });
+        const draft = newDraft({ frequencyHz: 432_940_000, mode: { mode: 'FM' } });
         expect(draft.frequencyHz).toBe(432_940_000);
-        expect(draft.mode).toBe('FM');
+        expect(draft.mode).toEqual({ mode: 'FM' });
     });
 
     it('updates only the spoken field and records the start time once', () => {
@@ -100,7 +100,7 @@ describe('DraftQso', () => {
             callsign: 'JL1HIS',
             rstSent: '55',
             qsl: 'requested',
-            mode: 'FM'
+            mode: { mode: 'FM' }
         });
         expect(descriptions).toEqual([
             'Callsign → JL1HIS',
@@ -108,5 +108,11 @@ describe('DraftQso', () => {
             'QSL requested',
             'Mode → FM'
         ]);
+    });
+
+    it('describes a submode with its mode', () => {
+        const { draft, descriptions } = applyUpdates(newDraft(), spoken('mode ft4'), ctx, now);
+        expect(draft.mode).toEqual({ mode: 'MFSK', submode: 'FT4' });
+        expect(descriptions).toEqual(['Mode → FT4 (MFSK)']);
     });
 });

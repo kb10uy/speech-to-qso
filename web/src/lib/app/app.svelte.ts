@@ -16,6 +16,7 @@ import {
     finalizeDraft,
     isPristine,
     newDraft,
+    sessionMode,
     setFreeText,
     stationToApply,
     type DraftQso,
@@ -252,7 +253,7 @@ export class QsoApp {
         this.user = user;
         this.api = user === null ? new ServerApi() : new ServerApi().forUser(user.id);
         this.session = { ...defaultSession(), ...session };
-        this.draft = draft ?? newDraft({ mode: this.session.defaultMode });
+        this.draft = draft ?? newDraft({ mode: sessionMode(this.session) });
         this.stations = stations ?? { default_station_id: null, stations: [] };
         this.log = log;
         this.localQsoCount = local.length;
@@ -556,7 +557,8 @@ export class QsoApp {
         if (version !== this.#accountVersion) return true;
         this.log = [result.record, ...this.log];
         if (this.user === null) this.localQsoCount = this.log.length;
-        this.draft = newDraft({ frequencyHz: result.record.frequencyHz, mode: result.record.mode });
+        const { frequencyHz, mode, submode } = result.record;
+        this.draft = newDraft({ frequencyHz, mode: { mode, submode } });
         await this.#saveDraft();
         if (version !== this.#accountVersion) return true;
         this.#notify({
@@ -620,7 +622,7 @@ export class QsoApp {
         await this.#kv!.set('session', session);
         if (version !== this.#accountVersion) return;
         if (modeChanged && isPristine(this.draft)) {
-            this.setDraft({ ...this.draft, mode: session.defaultMode });
+            this.setDraft({ ...this.draft, mode: sessionMode(session) });
         }
     }
 

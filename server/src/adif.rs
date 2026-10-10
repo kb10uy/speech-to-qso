@@ -64,6 +64,7 @@ pub fn record(qso: &QsoPayload, station: Option<&Station>) -> String {
     field(&mut out, "FREQ", Some(&freq));
     field(&mut out, "BAND", band_for_frequency(qso.frequency));
     field(&mut out, "MODE", Some(&qso.mode));
+    field(&mut out, "SUBMODE", qso.submode.as_deref());
     field(&mut out, "RST_SENT", Some(&qso.rst_sent));
     field(&mut out, "RST_RCVD", Some(&qso.rst_rcvd));
     // Requested: we owe a card. One way: we send none and one is on its way to us.
@@ -152,6 +153,15 @@ mod tests {
              <MODE:2>FM <RST_SENT:2>59 <RST_RCVD:2>57 <QSL_SENT:1>R <CNTY:6>100101 \
              <OPERATOR:6>JJ1ABC <STATION_CALLSIGN:6>JJ1ABC <MY_CITY:6>Minato <MY_SIG:4>POTA <MY_SIG_INFO:7>JP-0001 <MY_POTA_REF:7>JP-0001 <EOR>"
         );
+    }
+
+    #[test]
+    fn renders_the_submode_after_the_mode() {
+        let mut qso = sample();
+        qso.mode = "MFSK".into();
+        qso.submode = Some("FT4".into());
+        // Identical to the expectation in web/src/lib/qso/adif.test.ts.
+        assert!(record(&qso, None).contains("<BAND:4>70cm <MODE:4>MFSK <SUBMODE:3>FT4 <RST_SENT:2>59 "));
     }
 
     #[test]

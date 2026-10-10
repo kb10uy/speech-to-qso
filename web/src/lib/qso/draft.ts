@@ -3,9 +3,10 @@ import {
     resolveFrequency,
     type FrequencyContext,
     type QslStatus,
+    type QsoMode,
     type SpokenUpdate
 } from '../dsl';
-import { formatMhz } from './format';
+import { formatMhz, formatMode } from './format';
 
 /** The QSO currently being filled in by voice. */
 export interface DraftQso {
@@ -13,7 +14,7 @@ export interface DraftQso {
     rstSent: string;
     rstReceived: string;
     frequencyHz?: number;
-    mode?: string;
+    mode?: QsoMode;
     jcx?: string;
     qsl: QslStatus;
     name?: string;
@@ -72,7 +73,7 @@ export function describeUpdate(update: SpokenUpdate, after: DraftQso): string {
                 update.value
             ];
         case 'mode':
-            return `Mode → ${update.value}`;
+            return `Mode → ${formatMode(update.value)}`;
     }
 }
 

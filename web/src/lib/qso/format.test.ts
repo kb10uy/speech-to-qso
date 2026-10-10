@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMhz, formatUtcDate, parseMhz } from './format';
+import { formatMhz, formatMode, formatUtcDate, parseMhz } from './format';
 
 describe('formatMhz', () => {
     it('shows at least kHz precision', () => {
@@ -7,6 +7,13 @@ describe('formatMhz', () => {
         expect(formatMhz(7_000_000)).toBe('7.000');
         expect(formatMhz(7_123_450)).toBe('7.12345');
         expect(formatMhz(7_123_456)).toBe('7.123456');
+    });
+});
+
+describe('formatMode', () => {
+    it('qualifies a submode with its mode', () => {
+        expect(formatMode({ mode: 'FM' })).toBe('FM');
+        expect(formatMode({ mode: 'SSB', submode: 'USB' })).toBe('USB (SSB)');
     });
 });
 

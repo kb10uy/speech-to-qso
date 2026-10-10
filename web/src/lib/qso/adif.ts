@@ -35,6 +35,7 @@ export function adifRecord(record: QsoRecord, station?: Station): string {
             field('FREQ', adifFrequency(record.frequencyHz)),
             field('BAND', bandForFrequency(record.frequencyHz)),
             field('MODE', record.mode),
+            field('SUBMODE', record.submode),
             field('RST_SENT', record.rstSent),
             field('RST_RCVD', record.rstReceived),
             // Requested: we owe a card. One way: we send none and one is on its way to us.

@@ -86,6 +86,34 @@ describe('openDatabase', () => {
             qsl: 'requested'
         });
     });
+
+    it('splits the spoken mode names of version 2 into ADIF modes and submodes', async () => {
+        const name = `test-${++counter}`;
+        const v2 = await openDB(name, 2, {
+            upgrade(db) {
+                const qsos = db.createObjectStore('qsos', { keyPath: 'id' });
+                qsos.createIndex('createdAt', 'createdAt');
+                qsos.createIndex('syncState', 'syncState');
+                db.createObjectStore('kv');
+            }
+        });
+        await v2.put('qsos', { ...record('a', '2026-10-03T01:00:00Z', 'pending'), mode: 'USB' });
+        await v2.put('qsos', record('b', '2026-10-03T02:00:00Z', 'synced'));
+        await v2.put('kv', { rstSent: '59', rstReceived: '59', qsl: 'none', mode: 'FT4' }, 'draft');
+        v2.close();
+
+        const db = await openDatabase(name);
+        const qsos = new QsoStore(db);
+        expect(await qsos.get('a')).toMatchObject({ mode: 'SSB', submode: 'USB' });
+        expect((await qsos.get('b'))?.mode).toBe('FM');
+        expect((await qsos.get('b'))?.submode).toBeUndefined();
+        expect(await new KeyValueStore(db).get('draft')).toEqual({
+            rstSent: '59',
+            rstReceived: '59',
+            qsl: 'none',
+            mode: { mode: 'MFSK', submode: 'FT4' }
+        });
+    });
 });
 
 describe('KeyValueStore', () => {

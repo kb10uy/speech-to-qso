@@ -1,6 +1,6 @@
 import type { QslStatus } from '../dsl';
 import { FREE_TEXT_MAX_LENGTH, type DraftQso } from './draft';
-import { operatorCallProblem, type OperatingSession } from './session';
+import { operatorCallProblem, sessionMode, type OperatingSession } from './session';
 
 export type SyncState = 'pending' | 'synced' | 'failed';
 
@@ -11,6 +11,7 @@ export interface QsoRecord {
     callsign: string;
     frequencyHz: number;
     mode: string;
+    submode?: string;
     rstSent: string;
     rstReceived: string;
     jcx?: string;
@@ -50,7 +51,7 @@ export function finalizeDraft(
     const problems: string[] = [];
     if (draft.callsign === undefined) problems.push('Callsign is missing');
     if (draft.frequencyHz === undefined) problems.push('Frequency is missing');
-    const mode = draft.mode ?? blankToUndefined(session.defaultMode);
+    const mode = draft.mode ?? sessionMode(session);
     if (mode === undefined) problems.push('Mode is missing');
     for (const [label, text] of [
         ['Name', draft.name],
@@ -69,7 +70,8 @@ export function finalizeDraft(
             id,
             callsign: draft.callsign!,
             frequencyHz: draft.frequencyHz!,
-            mode: mode!,
+            mode: mode!.mode,
+            submode: mode!.submode,
             rstSent: draft.rstSent,
             rstReceived: draft.rstReceived,
             jcx: draft.jcx,
@@ -96,6 +98,7 @@ export interface QsoApiPayload {
     call: string;
     frequency: number;
     mode: string;
+    submode?: string;
     rst_sent: string;
     rst_rcvd: string;
     jcx?: string;
@@ -117,6 +120,7 @@ export function toApiPayload(record: QsoRecord): QsoApiPayload {
         call: record.callsign,
         frequency: record.frequencyHz,
         mode: record.mode,
+        submode: record.submode,
         rst_sent: record.rstSent,
         rst_rcvd: record.rstReceived,
         jcx: record.jcx,

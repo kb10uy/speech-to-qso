@@ -85,13 +85,19 @@ describe('finalizeDraft', () => {
 
     it('uses the time of logging as the QSO time, not the draft start time', () => {
         const draft = {
-            ...newDraft({ frequencyHz: 145_000_000, mode: 'SSB' }),
+            ...newDraft({ frequencyHz: 145_000_000, mode: { mode: 'SSB' } }),
             callsign: 'JL1HIS',
             startedAt: '2026-10-03T03:59:00.000Z'
         };
         const result = finalizeDraft(draft, session, 'id', now);
         expect(result.ok && result.record.timeOn).toBe(now.toISOString());
         expect(result.ok && result.record.mode).toBe('SSB');
+    });
+
+    it('splits a default mode that ADIF has as a submode', () => {
+        const draft = { ...newDraft({ frequencyHz: 7_074_000 }), callsign: 'JL1HIS' };
+        const result = finalizeDraft(draft, { ...session, defaultMode: ' ft4 ' }, 'id', now);
+        expect(result.ok && result.record).toMatchObject({ mode: 'MFSK', submode: 'FT4' });
     });
 });
 
@@ -125,5 +131,15 @@ describe('toApiPayload', () => {
             pota_ref: 'JP-0001',
             station_callsign: 'JJ1ABC/1'
         });
+    });
+
+    it('sends the submode', () => {
+        const draft = {
+            ...newDraft({ frequencyHz: 7_074_000, mode: { mode: 'MFSK', submode: 'FT4' } }),
+            callsign: 'JL1HIS'
+        };
+        const result = finalizeDraft(draft, session, 'id', now);
+        if (!result.ok) throw new Error('unexpected');
+        expect(toApiPayload(result.record)).toMatchObject({ mode: 'MFSK', submode: 'FT4' });
     });
 });

@@ -6,6 +6,8 @@
  * single source of truth.
  */
 
+import type { KnownModeName } from './mode';
+
 /**
  * Looks a token up in a word table. Only own properties count, so inherited names such as
  * `constructor` or `valueOf` are never mistaken for words.
@@ -187,7 +189,7 @@ export const QSL_VALUES: readonly {
 ];
 
 /** Mode names that the ASR may emit as a single word. */
-export const MODE_WORDS: Readonly<Record<string, string>> = {
+export const MODE_WORDS: Readonly<Record<string, KnownModeName>> = {
     fm: 'FM',
     am: 'AM',
     ssb: 'SSB',
