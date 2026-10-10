@@ -210,10 +210,31 @@ describe('QSL', () => {
 
 describe('mode', () => {
     it('parses mode words and spelled modes', () => {
-        expect(single('mode fm')).toEqual({ kind: 'mode', value: 'FM' });
-        expect(single('mode foxtrot mike')).toEqual({ kind: 'mode', value: 'FM' });
-        expect(single('mode sierra sierra bravo')).toEqual({ kind: 'mode', value: 'SSB' });
-        expect(single('mode foxtrot tango eight')).toEqual({ kind: 'mode', value: 'FT8' });
+        expect(single('mode fm')).toEqual({ kind: 'mode', value: { mode: 'FM' } });
+        expect(single('mode foxtrot mike')).toEqual({ kind: 'mode', value: { mode: 'FM' } });
+        expect(single('mode sierra sierra bravo')).toEqual({
+            kind: 'mode',
+            value: { mode: 'SSB' }
+        });
+        expect(single('mode foxtrot tango eight')).toEqual({
+            kind: 'mode',
+            value: { mode: 'FT8' }
+        });
+    });
+
+    it('splits names that ADIF has as submodes', () => {
+        expect(single('mode usb')).toEqual({
+            kind: 'mode',
+            value: { mode: 'SSB', submode: 'USB' }
+        });
+        expect(single('mode ft4')).toEqual({
+            kind: 'mode',
+            value: { mode: 'MFSK', submode: 'FT4' }
+        });
+        expect(single('mode delta sierra tango alpha romeo')).toEqual({
+            kind: 'mode',
+            value: { mode: 'DIGITALVOICE', submode: 'DSTAR' }
+        });
     });
 
     it('rejects unknown modes', () => {

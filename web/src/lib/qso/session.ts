@@ -1,4 +1,4 @@
-import { isCallsign } from '../dsl';
+import { isCallsign, modeOf, type QsoMode } from '../dsl';
 
 /** Information about the whole operating session (shared by every QSO in it). */
 export interface OperatingSession {
@@ -28,6 +28,11 @@ export function defaultSession(): OperatingSession {
         frequencyAnchorHz: 433_000_000,
         defaultMode: 'FM'
     };
+}
+
+/** The mode new QSOs start with, if the session has one. */
+export function sessionMode(session: OperatingSession): QsoMode | undefined {
+    return session.defaultMode.trim() === '' ? undefined : modeOf(session.defaultMode);
 }
 
 /** Why the operator callsign cannot be used, or `undefined` if it is fine (or empty). */

@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import { modeOf } from '../dsl';
 import type { DraftQso, QsoRecord } from '../qso';
 
 interface QsoDb extends DBSchema {
@@ -26,8 +27,21 @@ function migrateQsl<T extends LegacyQsl>(value: T): T {
     return { ...rest, qsl: qslRequested === true ? 'requested' : 'none' } as unknown as T;
 }
 
+/** Version 2 stored the mode name as spoken, which ADIF may have as a submode (FT4 is MFSK). */
+function migrateRecordMode(record: QsoRecord): QsoRecord {
+    if (record.submode !== undefined) return record;
+    return { ...record, ...modeOf(record.mode) };
+}
+
+type LegacyDraft = Omit<DraftQso, 'mode'> & LegacyQsl & { mode?: DraftQso['mode'] | string };
+
+function migrateDraftMode({ mode, ...rest }: LegacyDraft): DraftQso {
+    if (typeof mode !== 'string') return { ...rest, mode } as DraftQso;
+    return { ...rest, mode: mode.trim() === '' ? undefined : modeOf(mode) } as DraftQso;
+}
+
 export function openDatabase(name: string = DB_NAME): Promise<Database> {
-    return openDB<QsoDb>(name, 2, {
+    return openDB<QsoDb>(name, 3, {
         async upgrade(db, oldVersion, _newVersion, tx) {
             if (oldVersion < 1) {
                 const qsos = db.createObjectStore('qsos', { keyPath: 'id' });
@@ -35,16 +49,16 @@ export function openDatabase(name: string = DB_NAME): Promise<Database> {
                 qsos.createIndex('syncState', 'syncState');
                 db.createObjectStore('kv');
             }
-            if (oldVersion === 1) {
+            if (oldVersion >= 1 && oldVersion < 3) {
                 // Only IndexedDB requests are awaited here, so the upgrade transaction stays open.
                 let cursor = await tx.objectStore('qsos').openCursor();
                 while (cursor) {
-                    await cursor.update(migrateQsl(cursor.value));
+                    await cursor.update(migrateRecordMode(migrateQsl(cursor.value)));
                     cursor = await cursor.continue();
                 }
                 const kv = tx.objectStore('kv');
-                const draft = (await kv.get('draft')) as DraftQso | undefined;
-                if (draft !== undefined) await kv.put(migrateQsl(draft), 'draft');
+                const draft = (await kv.get('draft')) as LegacyDraft | undefined;
+                if (draft !== undefined) await kv.put(migrateDraftMode(migrateQsl(draft)), 'draft');
             }
         }
     });

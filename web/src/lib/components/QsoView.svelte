@@ -5,9 +5,11 @@
         FREE_TEXT_MAX_LENGTH,
         formatMhz,
         formatUtcDate,
+        sessionMode,
         sessionProblems,
         type FreeTextField
     } from '../qso';
+    import { modeLabel } from '../dsl';
     import { flash } from './flash';
     import PttButton from './PttButton.svelte';
 
@@ -20,6 +22,10 @@
 
     const draft = $derived(app.draft);
     const problems = $derived(sessionProblems(app.session));
+    const mode = $derived.by(() => {
+        const mode = draft.mode ?? sessionMode(app.session);
+        return mode === undefined ? undefined : modeLabel(mode);
+    });
     const history = $derived(app.history?.callsign === draft.callsign ? app.history : null);
     const found = $derived(history?.status === 'ready' ? history.history : null);
     const blank = $derived(history?.status === 'loading' ? '…' : '—');
@@ -115,7 +121,8 @@
             data-field="mode"
             onclick={() => edit('mode')}
         >
-            {draft.mode ?? app.session.defaultMode}
+            {mode?.label}
+            {#if mode?.detail}<span class="text-sm text-muted">{mode.detail}</span>{/if}
         </button>
     </div>
 

@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { QsoApp } from '../app/app.svelte';
+    import { modeLabel } from '../dsl';
     import { formatMhz, type QsoRecord } from '../qso';
 
     let { app }: { app: QsoApp } = $props();
@@ -96,6 +97,7 @@
 
 <ul class="m-0 grid list-none gap-2 p-0">
     {#each app.log as record (record.id)}
+        {@const mode = modeLabel(record)}
         <li class="relative rounded-card border border-border bg-surface py-2.5 pr-10 pl-3">
             <div class="flex items-center gap-2.5 text-xl">
                 <strong class="font-mono">{record.callsign}</strong>
@@ -109,7 +111,8 @@
             </div>
             <div class="font-mono text-sm text-muted">
                 {time(record)}Z · {formatMhz(record.frequencyHz)}
-                {record.mode} · {record.rstSent}/{record.rstReceived}
+                {mode.label}{#if mode.detail}<span class="ml-1 text-xs">{mode.detail}</span>{/if}
+                · {record.rstSent}/{record.rstReceived}
                 {#if record.jcx}· JCC/JCG {record.jcx}{/if}
                 {#if record.qsl === 'requested'}· QSL{:else if record.qsl === 'oneWay'}· QSL one way{/if}
             </div>
