@@ -38,6 +38,9 @@ export function adifRecord(record: QsoRecord, station?: Station): string {
             field('SUBMODE', record.submode),
             field('RST_SENT', record.rstSent),
             field('RST_RCVD', record.rstReceived),
+            field('CONTEST_ID', record.contestId),
+            field('STX_STRING', record.exchangeSent),
+            field('SRX_STRING', record.exchangeReceived),
             // Requested: we owe a card. One way: we send none and one is on its way to us.
             field('QSL_SENT', { none: undefined, requested: 'R', oneWay: 'N' }[record.qsl]),
             field('QSL_RCVD', record.qsl === 'oneWay' ? 'R' : undefined),
