@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { parseSpeech, type SpokenUpdate } from '../dsl';
-import { applyUpdate, applyUpdates, isPristine, newDraft, setFreeText } from './draft';
+import { modeOf, parseSpeech, type SpokenUpdate } from '../dsl';
+import {
+    applyUpdate,
+    applyUpdates,
+    defaultRst,
+    isPristine,
+    newDraft,
+    setFreeText,
+    withMode
+} from './draft';
 
 const ctx = { anchorHz: 433_000_000 };
 const now = new Date('2026-10-03T04:00:00Z');
@@ -28,6 +36,36 @@ describe('DraftQso', () => {
         const draft = newDraft({ frequencyHz: 432_940_000, mode: { mode: 'FM' } });
         expect(draft.frequencyHz).toBe(432_940_000);
         expect(draft.mode).toEqual({ mode: 'FM' });
+    });
+
+    it('defaults the reports by mode', () => {
+        expect(defaultRst(undefined)).toBe('59');
+        for (const [name, rst] of [
+            ['cw', '599'],
+            ['rtty', '599'],
+            ['sstv', '595'],
+            ['fm', '59'],
+            ['usb', '59'],
+            ['c4fm', '59'],
+            ['ft8', '+00'],
+            ['ft4', '+00'],
+            ['jt65', '+00']
+        ]) {
+            expect(defaultRst(modeOf(name)), name).toBe(rst);
+        }
+        const draft = newDraft({ mode: modeOf('CW') });
+        expect([draft.rstSent, draft.rstReceived]).toEqual(['599', '599']);
+    });
+
+    it('moves only reports still at the default when the mode changes', () => {
+        let { draft } = applyUpdates(newDraft(), spoken('received five seven'), ctx, now);
+        ({ draft } = applyUpdates(draft, spoken('mode cw'), ctx, now));
+        expect([draft.rstSent, draft.rstReceived]).toEqual(['599', '57']);
+
+        draft = withMode(draft, modeOf('FT8'));
+        expect([draft.rstSent, draft.rstReceived]).toEqual(['+00', '57']);
+        draft = withMode(draft, undefined);
+        expect([draft.rstSent, draft.mode]).toEqual(['59', undefined]);
     });
 
     it('updates only the spoken field and records the start time once', () => {

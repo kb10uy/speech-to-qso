@@ -11,7 +11,10 @@
             Callsign JL1HIS (“stroke one” or “portable one” → /1, “portable” → /P)
         </dd>
         <dt class="mt-2 font-mono">sent five nine · received five seven</dt>
-        <dd class="m-0 text-sm text-muted">RST sent / received (defaults 59)</dd>
+        <dd class="m-0 text-sm text-muted">
+            RST sent / received (defaults 59; 599 in CW and RTTY, 595 in SSTV, +00 in FT8, FT4 and
+            JT65)
+        </dd>
         <dt class="mt-2 font-mono">frequency point nine four</dt>
         <dd class="m-0 text-sm text-muted">*.940 MHz, nearest to the anchor</dd>
         <dt class="mt-2 font-mono">frequency two point seven four</dt>

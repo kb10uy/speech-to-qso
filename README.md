@@ -59,7 +59,8 @@ On a desktop, the Space key works as PTT.
 - An utterance that does not start with a keyword is treated as a callsign (`call` / `callsign` may be prefixed).
 - Numbers are read the way radio operators say them: `four thirty two` → `432`, `one forty five` → `145`,
   `double five` → `55`.
-- RST defaults to `59 / 59`. Frequency and mode carry over to the next QSO.
+- RST defaults to `59 / 59` (`599` in CW and RTTY, `595` in SSTV, `+00` in FT8, FT4 and JT65) and follows the mode until
+  it is spoken. Frequency and mode carry over to the next QSO.
 
 ### Contests
 
