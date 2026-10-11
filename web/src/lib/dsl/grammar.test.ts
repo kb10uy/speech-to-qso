@@ -61,6 +61,7 @@ describe('grammarPhrases', () => {
             'number one zero zero one mike',
             'received five nine number zero zero five',
             'number one two papa card requested',
+            'q s o',
             'juliet lima one hotel india sierra received five nine sent five nine card requested mode fm frequency four three two point nine four'
         ];
         for (const sample of samples) expectCovered(english, sample);
@@ -83,6 +84,16 @@ describe('grammarPhrases', () => {
         expect(ends).not.toContain('received');
         expect(ends).not.toContain('double');
         expect(ends).not.toContain('number');
+    });
+
+    it('keeps QSO a whole utterance', () => {
+        expect(phrases).toContain('qso');
+        expect(phrases).toContain('q s o');
+        for (const bigram of bigrams) {
+            expect(bigram.split(' ')).not.toContain('qso');
+            if (bigram.endsWith(' o')) expect(bigram).toBe('s o');
+            if (bigram.startsWith('o ')) expect.fail(bigram);
+        }
     });
 
     it('lets noise appear anywhere', () => {
@@ -137,7 +148,8 @@ describe('grammarPhrases for a Japanese model', () => {
             'モード フォックス トロット タンゴ エイト',
             'ナンバー ワン ゼロ ゼロ ワン Ｍ',
             '受信 ファイブ ナイン ナンバー ゼロ ゼロ ファイブ',
-            'ジュリエット リマ ワン ホテル インディア シエラ 受信 ファイブ ナイン カード ネガティブ モード ＦＭ 周波数 ポイント ナイン フォー'
+            'ジュリエット リマ ワン ホテル インディア シエラ 受信 ファイブ ナイン カード ネガティブ モード ＦＭ 周波数 ポイント ナイン フォー',
+            'ＱＳＯ'
         ];
         for (const sample of samples) expectCovered(japanese, sample);
     });

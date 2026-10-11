@@ -441,7 +441,7 @@ export class QsoApp {
                 FINAL_RESULT_TIMEOUT_MS,
                 'speech recognition timed out'
             );
-            this.handleText(result.text, 'voice');
+            await this.handleText(result.text, 'voice');
         } catch (e) {
             this.#notify({ kind: 'error', message: errorMessage(e) });
             vibrate([60, 60, 60]);
@@ -473,13 +473,18 @@ export class QsoApp {
 
     // ---------------------------------------------------------------- DSL → draft
 
-    /** Parses one utterance (spoken or typed) and applies it to the draft. */
-    handleText(text: string, source: Utterance['source']) {
+    /** Parses one utterance (spoken or typed) and applies it to the draft, or logs the QSO. */
+    async handleText(text: string, source: Utterance['source']) {
         const raw = text.trim();
         const parsed = parseSpeech(raw);
         const heard = formatTokens(parsed.tokens) || '(nothing)';
+        let ok = parsed.ok;
         let message: string;
-        if (parsed.ok) {
+        if (parsed.ok && parsed.log) {
+            // logQso reports its own problems (and vibrates) through the feedback message.
+            ok = await this.logQso();
+            message = ok ? 'QSO logged' : 'QSO not logged';
+        } else if (parsed.ok) {
             const { draft, descriptions } = applyUpdates(this.draft, parsed.updates, {
                 anchorHz: this.session.frequencyAnchorHz,
                 currentHz: this.draft.frequencyHz
@@ -492,10 +497,9 @@ export class QsoApp {
             vibrate([60, 60, 60]);
         }
         const fields = parsed.ok ? parsed.updates.map((u) => u.kind) : [];
-        for (const listener of this.#utteranceListeners)
-            listener({ source, ok: parsed.ok, fields });
+        for (const listener of this.#utteranceListeners) listener({ source, ok, fields });
         this.utterances = [
-            { at: new Date().toISOString(), source, text: raw, heard, ok: parsed.ok, message },
+            { at: new Date().toISOString(), source, text: raw, heard, ok, message },
             ...this.utterances
         ].slice(0, MAX_UTTERANCES);
     }

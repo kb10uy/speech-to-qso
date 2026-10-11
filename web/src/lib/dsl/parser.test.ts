@@ -4,6 +4,7 @@ import { isCallsign, parseSpeech, type SpokenUpdate } from './parser';
 function updates(text: string): SpokenUpdate[] {
     const result = parseSpeech(text);
     if (!result.ok) throw new Error(`expected "${text}" to parse, got: ${result.error}`);
+    expect(result.log).toBe(false);
     return result.updates;
 }
 
@@ -304,6 +305,29 @@ describe('utterances', () => {
     });
 });
 
+describe('log', () => {
+    it('logs the QSO on its own', () => {
+        expect(parseSpeech('qso')).toEqual({ ok: true, tokens: ['qso'], updates: [], log: true });
+        expect(parseSpeech('q s o')).toMatchObject({ ok: true, log: true });
+        expect(parseSpeech('uh QSO [unk]')).toMatchObject({ ok: true, log: true });
+    });
+
+    it('is never chained with fields', () => {
+        expect(error('juliett lima one hotel india sierra qso')).toMatch(/"QSO" on its own/);
+        expect(error('juliett lima one hotel india sierra q s o')).toMatch(/"QSO" on its own/);
+        expect(error('q s o received five nine')).toMatch(/"QSO" on its own/);
+        expect(error('qso qso')).toMatch(/"QSO" on its own/);
+    });
+
+    it('leaves Q S O spelled with the phonetic alphabet to callsigns', () => {
+        expect(single('juliett alpha one quebec sierra oscar')).toEqual({
+            kind: 'callsign',
+            value: 'JA1QSO'
+        });
+        expect(single('ja1qso')).toEqual({ kind: 'callsign', value: 'JA1QSO' });
+    });
+});
+
 describe('Japanese readings', () => {
     it('parses the DSL spoken with Japanese loanword pronunciation', () => {
         expect(
@@ -329,6 +353,12 @@ describe('Japanese readings', () => {
             kind: 'frequency',
             value: { integerDigits: '', fractionDigits: '94' }
         });
+    });
+
+    it('logs with ＱＳＯ', () => {
+        expect(parseSpeech('ＱＳＯ')).toMatchObject({ ok: true, tokens: ['qso'], log: true });
+        expect(parseSpeech('Ｑ Ｓ Ｏ')).toMatchObject({ ok: true, log: true });
+        expect(error('受信 ファイブ ナイン ＱＳＯ')).toMatch(/"QSO" on its own/);
     });
 
     it('rejects Japanese outside the DSL', () => {

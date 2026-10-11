@@ -69,7 +69,7 @@
     function submitCommand(e: SubmitEvent) {
         e.preventDefault();
         if (command.trim() === '') return;
-        app.handleText(command, 'typed');
+        void app.handleText(command, 'typed');
         command = '';
     }
 

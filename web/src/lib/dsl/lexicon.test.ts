@@ -4,6 +4,7 @@ import {
     DIGIT_WORDS,
     FREE_TEXT_ONLY_WORDS,
     JAPANESE_READINGS,
+    LOG_KEYWORDS,
     MODE_WORDS,
     PHONETIC_LETTERS,
     QSL_VALUES,
@@ -20,7 +21,8 @@ function allWords(): Set<string> {
         ...Object.keys(TEEN_WORDS),
         ...Object.keys(TENS_WORDS),
         ...QSL_VALUES.flatMap(({ words }) => words),
-        ...Object.keys(MODE_WORDS)
+        ...Object.keys(MODE_WORDS),
+        ...LOG_KEYWORDS.flat()
     ]);
     for (const seqs of Object.values(COMMAND_KEYWORDS))
         for (const seq of seqs) seq.forEach((w) => words.add(w));

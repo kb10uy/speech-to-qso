@@ -19,6 +19,7 @@ import {
     FREE_TEXT_ONLY_WORDS,
     HUNDRED_WORDS,
     JAPANESE_READINGS,
+    LOG_KEYWORDS,
     MEGAHERTZ_WORDS,
     MODE_WORDS,
     PHONETIC_LETTERS,
@@ -53,6 +54,7 @@ type Slot =
     | 'exchangeKeyword'
     | 'qslValue'
     | 'mode'
+    | 'log'
     | 'unknown';
 
 export type Sequence = readonly string[];
@@ -89,6 +91,7 @@ const ENGLISH: Readonly<Record<Slot, readonly Sequence[]>> = {
     exchangeKeyword: keyword('exchangeReceived'),
     qslValue: QSL_VALUES.map(({ words }) => words),
     mode: single(Object.keys(MODE_WORDS)),
+    log: LOG_KEYWORDS,
     unknown: [['[unk]']]
 };
 
@@ -140,6 +143,12 @@ const KEYWORDS: readonly Slot[] = [
     'modeKeyword',
     'exchangeKeyword'
 ];
+/**
+ * The log command is a whole utterance, so it stays out of every other slot's successors, noise
+ * included: a phrase with anything else around it would only be rejected by the parser.
+ */
+const NOT_LOG: readonly Slot[] = SLOTS.filter((slot) => slot !== 'log');
+
 /** What may follow a complete field value: another command, or noise. */
 const NEXT_COMMAND: readonly Slot[] = [...KEYWORDS, 'unknown'];
 
@@ -175,11 +184,12 @@ const TRANSITIONS: Readonly<Record<Slot, readonly Next[]>> = {
     modeKeyword: ['mode', 'letter', 'number', 'unknown'],
     exchangeKeyword: ['letter', 'number', 'unknown'],
     mode: [...NEXT_COMMAND, 'end'],
-    unknown: [...SLOTS, 'end']
+    log: ['end'],
+    unknown: [...NOT_LOG, 'end']
 };
 
-/** What an utterance may start with: a bare callsign, a command, or noise. */
-const START: readonly Slot[] = ['letter', 'number', ...KEYWORDS, 'unknown'];
+/** What an utterance may start with: a bare callsign, a command, logging, or noise. */
+const START: readonly Slot[] = ['letter', 'number', ...KEYWORDS, 'log', 'unknown'];
 
 /** Shortest slot path from the start to each slot (excluding the slot itself). */
 function prefixes(): Map<Slot, Slot[]> {

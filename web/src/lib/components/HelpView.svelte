@@ -34,5 +34,10 @@
             Received contest number 1001M, without the RST (also “nr”; ナンバー in Japanese).
             Required in a contest; set the contest up in the Contest tab
         </dd>
+        <dt class="mt-2 font-mono">q s o</dt>
+        <dd class="m-0 text-sm text-muted">
+            Logs the QSO, like LOG QSO (ＱＳＯ in Japanese). Say it on its own, after checking the
+            fields
+        </dd>
     </dl>
 </section>
