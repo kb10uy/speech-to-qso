@@ -308,7 +308,8 @@ mod tests {
                           axum::extract::Query(query): axum::extract::Query<HashMap<String, String>>| async move {
                         assert!(authorized(&headers));
                         assert_eq!(query["format"], "adif");
-                        if query["callsign"] != "JL1HIS" {
+                        assert_eq!(query["callsign_match"], "plain");
+                        if !query["callsign"].split('/').any(|part| part == "JL1HIS") {
                             let listing = json!({"data": {"exported": 0, "lastfetchedid": 0, "adif": null},
                                 "meta": {"page": 1, "per_page": 5000, "count": 0, "total": 0, "total_pages": 0,
                                          "has_more": false}});
@@ -631,6 +632,11 @@ mod tests {
             json,
             json!({"callsign": "JL1HIS", "qsos": 2, "last_qso": "2026-10-03T04:05:06Z",
                    "last_qsl_sent": "2025-04-01T12:34:56Z"})
+        );
+        let (_, json) = h.get("/api/wavelog/history?callsign=JL1HIS%2FP").await;
+        assert_eq!(
+            (json["callsign"].clone(), json["qsos"].clone()),
+            (json!("JL1HIS/P"), json!(2))
         );
         let (_, json) = h.get("/api/wavelog/history?callsign=JA1ABC%2F1").await;
         assert_eq!(
