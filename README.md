@@ -52,10 +52,14 @@ On a desktop, the Space key works as PTT.
 | `card one way`                                         | QSL one way (they send a card, we send none)        |
 | `mode foxtrot mike` / `mode fm`                        | Mode = `FM`                                         |
 | `number one zero zero one mike` (also `nr`)            | Received contest number = `1001M` (without the RST) |
+| `q s o` (ＱＳＯ with the Japanese model)               | Same as **LOG QSO**                                 |
 
 - **There are no correction commands.** Speaking a field again overwrites that whole field.
 - Several commands can be chained in one PTT press (`juliett lima one hotel india sierra received five seven`).
   If any part fails to parse, the **whole utterance is discarded** (nothing is applied halfway).
+- `q s o` is the exception: it must be the only command in its PTT press, so the fields it logs have been checked
+  on screen first. The letters Q S O in a row are reserved for it, so spell such a callsign with
+  `quebec sierra oscar`.
 - An utterance that does not start with a keyword is treated as a callsign (`call` / `callsign` may be prefixed).
 - Numbers are read the way radio operators say them: `four thirty two` → `432`, `one forty five` → `145`,
   `double five` → `55`.

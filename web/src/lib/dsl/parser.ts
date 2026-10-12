@@ -4,6 +4,7 @@ import type { FrequencyPattern } from './frequency';
 import { MAX_FRACTION_DIGITS, MAX_INTEGER_DIGITS } from './frequency';
 import { matchKeyword } from './keywords';
 import {
+    LOG_KEYWORDS,
     MEGAHERTZ_WORDS,
     MODE_WORDS,
     POINT_WORDS,
@@ -29,13 +30,18 @@ export type SpokenUpdate =
     | { kind: 'mode'; value: QsoMode }
     | { kind: 'exchangeReceived'; value: string };
 
+/** `log`: the utterance was the log command alone (`updates` is then empty). */
 export type ParseResult =
-    | { ok: true; tokens: string[]; updates: SpokenUpdate[] }
+    | { ok: true; tokens: string[]; updates: SpokenUpdate[]; log: boolean }
     | { ok: false; tokens: string[]; error: string };
 
 const POINTS = new Set<string>(POINT_WORDS);
 const MEGAHERTZ = new Set<string>(MEGAHERTZ_WORDS);
 const STROKES = new Set<string>(STROKE_WORDS);
+
+function logAt(tokens: readonly string[], i: number): readonly string[] | undefined {
+    return LOG_KEYWORDS.find((seq) => seq.every((word, k) => tokens[i + k] === word));
+}
 
 /** Reads phonetic letters, digits and strokes into an uppercase string. */
 function readSpelled(tokens: readonly string[], allowStroke: boolean): string {
@@ -204,12 +210,18 @@ export function parseTokens(tokens: readonly string[]): SpokenUpdate[] {
  *
  * An utterance is normally a single command (`received five seven`), but several commands may
  * be chained (`juliett lima one hotel india sierra received five seven`). The utterance is
- * all-or-nothing: if any part fails to parse, no update is produced.
+ * all-or-nothing: if any part fails to parse, no update is produced. The log command (`qso`)
+ * is the only thing in its utterance.
  */
 export function parseSpeech(text: string): ParseResult {
     const tokens = tokenize(text);
     try {
-        return { ok: true, tokens, updates: parseTokens(tokens) };
+        if (tokens.some((_, i) => logAt(tokens, i) !== undefined)) {
+            if (logAt(tokens, 0)?.length !== tokens.length)
+                throw new DslError('say "QSO" on its own');
+            return { ok: true, tokens, updates: [], log: true };
+        }
+        return { ok: true, tokens, updates: parseTokens(tokens), log: false };
     } catch (e) {
         if (e instanceof DslError) return { ok: false, tokens, error: e.message };
         throw e;

@@ -83,6 +83,29 @@ test('fills a QSO from typed DSL commands and logs it locally', async ({ page })
     expect(adif).toContain('<CNTY:6>100101 <NAME:2>太郎 <QTH:5>東京都港区 ');
 });
 
+test('logs the QSO with a QSO utterance of its own', async ({ page }) => {
+    await setUpSession(page);
+    const draft = page.getByLabel('Draft QSO');
+
+    await type(page, 'qso');
+    await expect(page.getByRole('status')).toContainText('Callsign is missing');
+
+    await type(page, 'jl1his qso');
+    await page.getByText(/^Recent utterances/).click();
+    await expect(page.getByRole('listitem').first()).toContainText(
+        'J L 1 H I S QSO say "QSO" on its own'
+    );
+    await expect(draft).toContainText('CALLSIGN');
+
+    await type(page, 'jl1his frequency point nine four');
+    await type(page, 'q s o');
+    await expect(page.getByRole('status')).toContainText('JL1HIS logged locally');
+    await expect(draft).toContainText('CALLSIGN');
+
+    await openMenu(page, 'Log');
+    await expect(page.locator('li', { hasText: 'JL1HIS' })).toContainText('432.940');
+});
+
 test('logs contest QSOs with numbered exchanges', async ({ page }) => {
     await setUpSession(page);
 

@@ -1,6 +1,7 @@
 import { matchKeyword } from './keywords';
 import {
     COMMAND_LABELS,
+    LOG_KEYWORDS,
     MEGAHERTZ_WORDS,
     MODE_WORDS,
     PHONETIC_LETTERS,
@@ -25,6 +26,8 @@ export function letterOf(token: string): string | undefined {
 function labelAt(tokens: readonly string[], i: number): { label: string; end: number } {
     const keyword = matchKeyword(tokens, i);
     if (keyword !== null) return { label: COMMAND_LABELS[keyword.kind], end: i + keyword.length };
+    const log = LOG_KEYWORDS.find((seq) => seq.every((w, k) => tokens[i + k] === w));
+    if (log !== undefined) return { label: 'QSO', end: i + log.length };
     const qsl = QSL_VALUES.find(({ words }) => words.every((w, k) => tokens[i + k] === w));
     if (qsl !== undefined) return { label: qsl.label, end: i + qsl.words.length };
     const token = tokens[i];

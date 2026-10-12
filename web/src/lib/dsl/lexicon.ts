@@ -171,6 +171,14 @@ export const COMMAND_LABELS: Readonly<Record<CommandKind, string>> = {
 };
 
 /**
+ * Logs the draft QSO, as LOG QSO does. Only accepted as an utterance of its own: chained after
+ * fields, a misheard field would be logged before it could be checked on screen. The English
+ * model has no `qso`, only the letters, so `q s o` is reserved like `q s l` and cannot spell
+ * part of a callsign.
+ */
+export const LOG_KEYWORDS: readonly (readonly string[])[] = [['qso'], ['q', 's', 'o']];
+
+/**
  * QSL card arrangement for a QSO. `requested`: the other station asked for our card.
  * `oneWay`: the other station sends a card and expects none back.
  */
@@ -338,6 +346,7 @@ export const JAPANESE_READINGS: Readonly<Record<string, string>> = {
     negative: 'ネガティブ',
     mode: 'モード',
     number: 'ナンバー',
+    qso: 'ＱＳＯ',
 
     fm: 'ＦＭ',
     am: 'ＡＭ',
