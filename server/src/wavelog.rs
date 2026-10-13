@@ -231,8 +231,10 @@ impl WavelogClient {
         Ok(created.id)
     }
 
-    /// Counts the QSOs with a callsign (an exact match) and finds the latest ones.
+    /// Counts the QSOs with a callsign and finds the latest ones.
     ///
+    /// `callsign_match=plain` makes Wavelogs that support it (kb10uy/wavelog) match like their logbook lookup, so
+    /// JA1ABC also finds JA1ABC/P and KH6/JA1ABC. Others ignore the parameter and match exactly.
     /// The JSON listing has no QSL fields, so the QSOs are read as ADIF.
     pub async fn callsign_history(
         &self,
@@ -247,6 +249,7 @@ impl WavelogClient {
                 "qso",
                 &[
                     ("callsign", callsign),
+                    ("callsign_match", "plain"),
                     ("format", "adif"),
                     ("per_page", &per_page),
                     ("page", &page),

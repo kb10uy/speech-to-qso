@@ -131,7 +131,8 @@ cargo run --release -- serve
 - `GET /api/qso.adi` downloads the user's whole log as ADIF ("Download the server log" in the Log tab).
 - `GET /api/wavelog/history?callsign=…` returns the number of QSOs with that callsign in the user's Wavelog, when the
   latest one was made, and when the latest one with `QSL_SENT` = `Y` was made (not when its card was sent). It answers
-  409 when Wavelog is not set up.
+  409 when Wavelog is not set up. It asks Wavelog with `callsign_match=plain`, which
+  [kb10uy/wavelog](https://github.com/kb10uy/wavelog/tree/kb10uy) supports and other Wavelogs ignore.
 
 ### Users and passkeys
 
@@ -172,8 +173,10 @@ there overrides them. QSOs are forwarded with the station's Wavelog id as `stati
 overrides, so Wavelog takes the rest from its station location. ADIF exports fill them in from the station. The operator callsign may be left empty: Wavelog then fills in the token
 owner's callsign, and the app's own ADIF records leave `OPERATOR` out.
 
-Once a callsign is entered, the QSO tab looks it up in Wavelog (an exact match, across all station locations) and shows
-the number of past QSOs, when the latest was made, and when the latest QSO whose card was sent was made.
+Once a callsign is entered, the QSO tab looks it up in Wavelog (across all station locations) and shows the number of
+past QSOs, when the latest was made, and when the latest QSO whose card was sent was made. Upstream Wavelog matches the
+callsign exactly. [kb10uy/wavelog](https://github.com/kb10uy/wavelog/tree/kb10uy) matches it like its logbook lookup:
+the base callsign, wherever it appears, so JA1ABC also finds JA1ABC/P, KH6/JA1ABC and KH6/JA1ABC/P.
 
 ### ADIF mapping
 
